@@ -7,10 +7,6 @@ from django.db.models.aggregates import Aggregate
 logger = logging.getLogger(__name__)
 
 
-def create_cas_user(tree):
-    logger.debug("create_cas_user received tree %s", tree)
-
-
 def sanitize_doi(s):
     if s:
         s = re.sub(r"\{|\}|\\", "", s)
