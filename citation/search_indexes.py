@@ -1,5 +1,5 @@
 from haystack import indexes
-from .models import Publication, Platform, Sponsor, Tag, Container, ModelDocumentation
+from citation.models import Publication, Platform, Sponsor, Tag, Container, ModelDocumentation
 
 ##########################################
 #  Publication query seach/filter index  #

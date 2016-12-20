@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 
-from ... import bibtex as bibtex_api
+from citation import bibtex as bibtex_api
 
 import logging
 import os

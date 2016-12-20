@@ -17,7 +17,7 @@ import re
 from model_utils import Choices
 from typing import Dict, Optional
 
-from . import fields
+from citation import fields
 
 
 def datetime_json_serialize(datetime_obj: Optional[datetime]):

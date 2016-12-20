@@ -5,9 +5,9 @@ from django.core.management.base import BaseCommand
 from lxml import html
 from pyzotero import zotero
 
-from catalog.citation.models import (Author, Publication, Tag, Note, Platform, Sponsor, Container,
-                                     ModelDocumentation)
-from catalog.citation import models
+from citation.models import (Author, Publication, Tag, Note, Platform, Sponsor, Container,
+                             ModelDocumentation)
+from citation import models
 
 import json
 import logging

@@ -5,7 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from ... import models
+from citation import models
 from haystack.management.commands import update_index
 
 

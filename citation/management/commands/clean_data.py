@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 import os
 
-from ... import dedupe, models
+from citation import dedupe, models
 
 
 class Command(BaseCommand):
