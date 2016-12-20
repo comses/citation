@@ -74,7 +74,7 @@ class CuratorPublicationDetail(LoginRequiredMixin, generics.GenericAPIView):
                          'model_documentation_list_json': dumps(model_documentation_serializer.data)},
                         template_name='workflow/curator_publication_detail.html')
 
-    def put(self, request, pk):
+    def put(self, request, pk, slug=None):
         publication = self.get_object(pk)
         # FIXME: need to revisit this if we ever have other Publication Types - Books or Book Chapters may also refer to
         # computational models.
