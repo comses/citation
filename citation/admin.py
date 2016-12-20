@@ -4,7 +4,7 @@ from django.contrib.admin.helpers import ActionForm
 from django import forms
 from django.utils.translation import ugettext_lazy as _
 from .models import AuditCommand, Publication, Note, Tag, Author, Sponsor, Platform, Container, ModelDocumentation
-from .search_indexes import PublicationIndex
+
 
 class PublicationStatusListFilter(admin.SimpleListFilter):
     # Human-readable title which will be displayed in the
@@ -29,6 +29,7 @@ class PublicationStatusListFilter(admin.SimpleListFilter):
         else:
             return queryset.all()
 
+
 def assign_curator(modeladmin, request, queryset):
     assigned_curator_id = request.POST['assigned_curator_id']
 
@@ -40,15 +41,19 @@ def assign_curator(modeladmin, request, queryset):
     for publication in queryset:
         publication.log_update(audit_command=audit_command, assigned_curator_id=assigned_curator_id)
 
+
 assign_curator.short_description = 'Assign Curator to Publications'
+
 
 class PublicationCuratorForm(ActionForm):
     assigned_curator_id = forms.ModelChoiceField(queryset=User.objects.filter(is_active=True), label='User Name')
+
 
 class PublicationAdmin(admin.ModelAdmin):
     list_filter = ('assigned_curator', 'is_primary', PublicationStatusListFilter)
     action_form = PublicationCuratorForm
     actions = [assign_curator]
+
 
 admin.site.register(Publication, PublicationAdmin)
 admin.site.register(Note)
