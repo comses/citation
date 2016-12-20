@@ -1,9 +1,9 @@
 from django.contrib.auth.models import User
 from django.core import management
-from catalog.citation.models import AuditCommand, AuditLog, Container, Publication, PublicationPlatforms, Platform, \
+from citation.models import AuditCommand, AuditLog, Container, Publication, PublicationPlatforms, Platform, \
     Author, \
     PublicationAuthors
-from catalog.citation.serializers import PublicationSerializer
+from citation.serializers import PublicationSerializer
 
 from .common import BaseTest
 

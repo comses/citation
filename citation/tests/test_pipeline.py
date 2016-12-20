@@ -3,8 +3,8 @@
 from django.contrib.auth.models import User
 from django.db.models import Count
 from django.test import TestCase
-from ..management.commands.load_bibtex import Command
-from .. import models
+from citation.management.commands.load_bibtex import Command
+from citation import models
 
 
 class TestPipeline(TestCase):

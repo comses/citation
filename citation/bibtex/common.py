@@ -1,9 +1,6 @@
 from . import entry as entry_api
 
 import bibtexparser
-import json
-from typing import Optional
-
 import textwrap
 
 
@@ -25,7 +22,7 @@ class PublicationLoadErrors:
         unaugmented_authors_str = textwrap.indent("\n".join(" - " + str(ua) for ua in self.unaugmented_authors) \
                                                       if self.unaugmented_authors else "None", "\t")
         unaugmented_emails_str = textwrap.indent("\n".join(" - " + str(uc) for uc in self.unassigned_emails)
-                                                    if self.unassigned_emails else "None", "\t")
+                                                 if self.unassigned_emails else "None", "\t")
         template = textwrap.dedent(
             """
             Publication Load Errors
@@ -43,7 +40,8 @@ class PublicationLoadErrors:
             {}
 
             """)
-        return template.format(self.title if self.title else "None", str(self.raw), str(self.audit_command), unaugmented_authors_str,
+        return template.format(self.title if self.title else "None", str(self.raw), str(self.audit_command),
+                               unaugmented_authors_str,
                                unaugmented_emails_str)
 
 

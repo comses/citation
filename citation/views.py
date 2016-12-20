@@ -1,17 +1,12 @@
 from citation.models import (Publication, InvitationEmail, Platform, Sponsor, Tag, Container, ModelDocumentation,
                              Note, )
-from citation.forms import CatalogSearchForm
-from citation.serializers import CatalogPagination, ModelDocumentationSerializer, NoteSerializer, PublicationSerializer, \
-    UserProfileSerializer
+from citation.serializers import CatalogPagination, ModelDocumentationSerializer, NoteSerializer, PublicationSerializer
 
 from datetime import datetime
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, resolve_url
-
-from haystack.generic_views import SearchView
-from haystack.query import SearchQuerySet
 
 from json import dumps
 
@@ -137,68 +132,3 @@ class NoteList(LoginRequiredMixin, generics.GenericAPIView):
             serializer.save(added_by=request.user)
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-# Other Views
-class AutocompleteView(LoginRequiredMixin, generics.GenericAPIView):
-    renderer_classes = (renderers.JSONRenderer,)
-
-    def get(self, request, format=None):
-        query = request.GET.get('q', '').strip()
-        sqs = SearchQuerySet().models(self.model_class)
-        if query:
-            sqs = sqs.autocomplete(name=query)
-        data = [{'id': int(result.pk), 'name': result.name} for result in sqs]
-        return Response(dumps(data))
-
-
-class PlatformSearchView(AutocompleteView):
-    @property
-    def model_class(self):
-        return Platform
-
-
-class SponsorSearchView(AutocompleteView):
-    @property
-    def model_class(self):
-        return Sponsor
-
-
-class TagSearchView(AutocompleteView):
-    @property
-    def model_class(self):
-        return Tag
-
-
-class ModelDocumentationSearchView(AutocompleteView):
-    @property
-    def model_class(self):
-        return ModelDocumentation
-
-
-class JournalSearchView(AutocompleteView):
-    @property
-    def model_class(self):
-        return Container
-
-
-class CatalogSearchView(LoginRequiredMixin, SearchView):
-    """ generic django haystack SearchView using a custom form """
-    form_class = CatalogSearchForm
-
-
-class CuratorWorkflowView(LoginRequiredMixin, SearchView):
-    """ django haystack searchview """
-    template_name = 'workflow/curator.html'
-    form_class = CatalogSearchForm
-
-    def get_context_data(self, **kwargs):
-        context = super(CuratorWorkflowView, self).get_context_data(**kwargs)
-        sqs = SearchQuerySet().filter(assigned_curator=self.request.user, is_primary=True).facet('status')
-        context.update(facets=sqs.facet_counts(),
-                       total_number_of_records=Publication.objects.filter(assigned_curator=self.request.user).count())
-        return context
-
-    def get_queryset(self):
-        sqs = super(CuratorWorkflowView, self).get_queryset()
-        return sqs.filter(assigned_curator=self.request.user, is_primary=True).order_by('-last_modified', '-status')
