@@ -45,7 +45,6 @@ DJANGO_APPS = (
 )
 
 THIRD_PARTY_APPS = (
-    'raven.contrib.django.raven_compat',
     'kronos',
     'bootstrap3',
     'rest_framework',
