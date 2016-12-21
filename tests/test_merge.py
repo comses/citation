@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
-from .. import models, merger
+from citation import models, merger
 import copy
 
 

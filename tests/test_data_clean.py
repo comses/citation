@@ -1,5 +1,5 @@
 from django.test import TestCase
-from .. import dedupe, models
+from citation import dedupe, models
 from django.contrib.auth.models import User
 
 import logging
