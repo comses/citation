@@ -18,6 +18,7 @@ setup(name='comses-citation',
       url='https://github.com/comses/citation',
       author='CoMSES',
       author_email='comses@asu.edu',
+      install_requires=[req for req in open('requirements.txt').readlines() if req],
       license='GPL3',
       packages=['citation'],
       zip_safe=False
