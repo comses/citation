@@ -65,7 +65,7 @@ class TestPublication(TestCase):
     @classmethod
     def setUpClass(cls):
         super(TestPublication, cls).setUpClass()
-        with open("catalog/citation/tests/data/problematic_entries", "r") as f:
+        with open("tests/data/problematic_entries", "r") as f:
             contents = f.readlines()
 
         cls.walderr2013 = ast.literal_eval(contents[0])

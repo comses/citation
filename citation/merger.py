@@ -1,7 +1,5 @@
-from . import models, util, search_indexes
-from django.contrib.auth.models import User
-from django.db import connection
-from django.db.models import QuerySet, Q, Count
+from . import models
+from django.db.models import Q, Count
 from typing import List, Set
 from collections import defaultdict
 

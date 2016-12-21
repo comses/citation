@@ -1,0 +1,15 @@
+version: '2'
+services:
+  ${DB_CONTAINER_NAME}:
+    image: postgres:9.6
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+
+  citation:
+    build: .
+    links:
+      - ${DB_CONTAINER_NAME}
+    volumes:
+      - .:/code

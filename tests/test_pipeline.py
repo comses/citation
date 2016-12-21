@@ -11,7 +11,7 @@ class TestPipeline(TestCase):
     @staticmethod
     def load_data():
         cmd = Command()
-        cmd.handle(filename="catalog/citation/tests/data/all_problematic_entries.bib",
+        cmd.handle(filename="tests/data/all_problematic_entries.bib",
                    username='foo')
 
     @classmethod
