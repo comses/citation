@@ -2,7 +2,7 @@
 
 from distutils.core import setup
 
-setup(name='comses-citation',
+setup(name='citation',
       version='0.0.1',
       classifiers=[
           'Development Status :: 3 - Alpha',
