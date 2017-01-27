@@ -1,8 +1,6 @@
-bibtexparser==0.6.2
 Django>=1.10,<1.11
+bibtexparser==0.6.2
 Pyzotero==1.1.19
-coverage
-django-bootstrap3>=7.1,<7.2
 django-extensions
 django-kronos>=1.0,<1.1
 django-model-utils>=2.6,<2.7
@@ -10,8 +8,10 @@ djangorestframework>=3.5,<3.6
 fuzzywuzzy>=0.14,<0.15
 lxml>=3.7,<3.8
 psycopg2>=2.6,<2.7
-python-coveralls
 requests>=2.11,<2.12
 Unidecode>=0.4.19,<0.5
 python-Levenshtein>=0.12,<0.13
+# dev requirements
+coverage
+python-coveralls
 ipython
