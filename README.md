@@ -5,6 +5,6 @@ Test Instructions
 -----------------
 
 ```
-./build.sh # interpolate config templates
-docker-compose up
+% ./build.sh # interpolate config templates
+% docker-compose run --rm test # run all tests
 ```

@@ -6,9 +6,9 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
-
-  citation:
-    build: .
+  test:
+    build: ./
+    image: citation_test
     links:
       - ${DB_CONTAINER_NAME}
     volumes:
