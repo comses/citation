@@ -3,6 +3,8 @@ import configparser
 
 from django.core.exceptions import ImproperlyConfigured
 
+DEBUG = True
+
 ROOT_URLCONF = 'tests.urls'
 
 DIRNAME = os.path.dirname(os.path.dirname(__file__))
@@ -46,7 +48,6 @@ DJANGO_APPS = (
 
 THIRD_PARTY_APPS = (
     'kronos',
-    'bootstrap3',
     'rest_framework',
     'django_extensions',
 )
@@ -76,6 +77,29 @@ MEDIA_URL = 'https://catalog.comses.net/uploads/'
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 15
+}
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'root': {
+        'level': 'DEBUG',
+        'handlers': ['console'],
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': 'DEBUG',
+            'formatter': 'verbose',
+        }
+    },
+    'formatters': {
+        'verbose': {
+            'format': '%(asctime)s %(levelname)-7s %(name)s:%(funcName)s:%(lineno)d %(message)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S'
+        },
+    }
 }
 
 SECRET_KEY = get_secret('SECRET_KEY')
