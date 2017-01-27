@@ -1,7 +1,7 @@
 Django>=1.10,<1.11
-bibtexparser==0.6.2
 Pyzotero==1.1.19
-django-extensions
+bibtexparser==0.6.2
+django-extensions==1.7.6
 django-kronos>=1.0,<1.1
 django-model-utils>=2.6,<2.7
 djangorestframework>=3.5,<3.6
