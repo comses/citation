@@ -3,7 +3,8 @@ from django.contrib.auth.models import User
 from django.core import signing
 from django.core.mail import send_mass_mail, send_mail
 from django.core.validators import URLValidator
-from django.db.models import F, Q
+from django.db.models import F, Q, IntegerField, Count, Max
+from django.db.models.functions import Cast
 from django.utils.translation import ugettext as _
 
 from rest_framework import serializers, pagination
@@ -203,6 +204,12 @@ class PublicationAuditCommandSerializer(serializers.Serializer):
     date_added = serializers.DateTimeField(read_only=True, format='%Y/%m/%d %H:%M')
 
 
+class AuditCommandContibutionSerializer(serializers.Serializer):
+    creator = serializers.StringRelatedField(read_only=True)
+    contribution = serializers.IntegerField(read_only=True)
+    date_added = serializers.DateTimeField(read_only=True, format='%m/%d/%Y %H:%M')
+
+
 class PublicationSerializer(serializers.ModelSerializer):
     """
     Serializes publication querysets.
@@ -221,6 +228,7 @@ class PublicationSerializer(serializers.ModelSerializer):
     status_options = serializers.SerializerMethodField()
     apa_citation_string = serializers.ReadOnlyField()
     flagged = serializers.BooleanField()
+    contributor_data = AuditCommandContibutionSerializer(many=True, read_only=True)
 
     """
     XXX: copy-pasted from default ModelSerializer code but omitting the raise_errors_on_nested_writes. Revisit at some
@@ -413,7 +421,7 @@ class PublicationSerializer(serializers.ModelSerializer):
             'id', 'apa_citation_string', 'activity_logs', 'assigned_curator', 'code_archive_url', 'contact_author_name',
             'contact_email', 'container', 'creators', 'date_modified', 'detail_url', 'flagged', 'model_documentation',
             'notes', 'pages', 'platforms', 'sponsors', 'status', 'status_options', 'tags', 'title', 'volume',
-            'year_published',
+            'year_published', 'contributor_data'
         )
 
 
