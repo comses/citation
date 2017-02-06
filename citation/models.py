@@ -4,12 +4,14 @@ from django.contrib.sites.requests import RequestSite
 from django.core.urlresolvers import reverse
 from django.core.exceptions import ValidationError
 from django.db import connection, models, transaction
+from django.db.models import F
+from django.db.models.functions import Cast
 from django.template import Context
 from django.template.loader import get_template
 from django.utils.translation import ugettext_lazy as _
 from datetime import datetime, date
 from collections import defaultdict
-from django.db.models import Q
+from django.db.models import Q, IntegerField, Count, Max
 from dateutil.parser import parse as datetime_parse
 from django.template.defaultfilters import slugify
 import re
@@ -587,6 +589,8 @@ class Publication(AbstractLogModel):
     def is_archived(self):
         return bool(self.code_archive_url)
 
+    def contributor_data(self):
+        return AuditLog.objects.contributor_data(self)
 
     @property
     def slug(self):
@@ -608,7 +612,7 @@ class Publication(AbstractLogModel):
             return trimmed_slug
         # First word is > max_length chars, so we have to break it
         return slug[:max_length]
-    
+
     def _pk_url(self, name):
         return reverse(name, args=(self.pk, self.slug))
 
@@ -673,6 +677,21 @@ class AuditCommand(models.Model):
         ordering = ['-date_added']
 
 
+class AuditLogQuerySet(models.QuerySet):
+
+    def contributor_data(self, publication):
+        audit_logs = self.filter(Q(table=publication._meta.model_name, row_id=publication.id) |
+                    Q(payload__data__publication_id=publication.id) & Q(audit_command__action='MANUAL')) \
+            .annotate(creator=F('audit_command__creator__username')).values('creator').order_by('creator')
+        total_count = audit_logs.count()
+        unique_logs = audit_logs.annotate(
+            contribution=(Cast((Count('creator') * 100.0 / total_count), IntegerField())),
+            date_added=(Max('audit_command__date_added'))) \
+            .values("creator", 'contribution', 'date_added').order_by('-date_added')
+
+        return unique_logs
+
+
 class AuditLog(models.Model):
     # TODO: may want to add a generic foreign key to table, row_id combination
     Action = Choices(('UPDATE', _('Update')),
@@ -685,6 +704,8 @@ class AuditLog(models.Model):
                         help_text=_('A JSON dictionary containing modified fields, if any, for the given publication'))
     audit_command = models.ForeignKey(AuditCommand, related_name='auditlogs')
     message = models.CharField(max_length=2000, blank=True)
+    objects = AuditLogQuerySet.as_manager()
+
 
     def __str__(self):
         return u"{} performed {} on {}".format(
