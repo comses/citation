@@ -7,16 +7,20 @@ notifications:
 services:
   - docker
 env: 
-  DOCKER_COMPOSE_VERSION: 1.9.0
+  DOCKER_COMPOSE_VERSION: 1.10.0
 before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y docker-engine
   - curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
   - chmod +x docker-compose
   - sudo mv docker-compose /usr/local/bin
-  - ./build.sh
   - docker-compose version
-install: true # skip standard python install
-script:
+install:
+  - ./build.sh
   - docker-compose build 2> /dev/null
-  - docker-compose run -e RUN_COVERALLS=true citation
+  - pip3 install python-coveralls
+script:
+  - docker-compose run --rm test
+after_success:
+  - coveralls
+  - docker-compose down -v
