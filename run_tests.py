@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-import os, sys
 import django
+import os
+import sys
 
-os.environ['DJANGO_SETTINGS_MODULE'] = 'tests.settings'
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tests.settings')
 
 test_dir = os.path.dirname(__file__)
 sys.path.insert(0, test_dir)

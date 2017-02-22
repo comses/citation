@@ -1,0 +1,6 @@
+-r requirements.txt
+# dev requirements
+coverage
+python-coveralls
+ipython
+

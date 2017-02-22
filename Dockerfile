@@ -6,8 +6,9 @@ RUN apt-get update && apt-get install -qq -y libxml2-dev python3-dev python3-pip
     && apt-get update && apt-get install -q -y postgresql-client-9.6 libpq-dev
 
 ENV PYTHONUNBUFFERED 1
-COPY requirements.txt /tmp/
-RUN pip3 install -r /tmp/requirements.txt
+COPY requirements-dev.txt requirements.txt /tmp/
+RUN pip3 install -r /tmp/requirements-dev.txt
 
 WORKDIR /code
+COPY . /code
 CMD /code/docker/wait-for-it.sh db:5432 -- python3 run_tests.py

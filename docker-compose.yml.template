@@ -1,4 +1,4 @@
-version: '2'
+version: '3'
 services:
   ${DB_CONTAINER_NAME}:
     image: postgres:9.6
