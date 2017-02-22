@@ -1,6 +1,6 @@
 -r requirements.txt
 # dev requirements
+django-autofixture
 coverage
 python-coveralls
 ipython
-
