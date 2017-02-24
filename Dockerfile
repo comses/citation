@@ -11,4 +11,4 @@ RUN pip3 install -r /tmp/requirements-dev.txt
 
 WORKDIR /code
 COPY . /code
-CMD /code/docker/wait-for-it.sh db:5432 -- python3 run_tests.py
+CMD /code/docker/wait-for-it.sh db:5432 -- invoke coverage

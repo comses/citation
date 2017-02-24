@@ -1,6 +1,6 @@
 -r requirements.txt
 # dev requirements
 django-autofixture
-coverage
+coverage==4.3.4
 python-coveralls
 ipython
