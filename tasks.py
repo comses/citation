@@ -1,9 +1,7 @@
 from invoke import task
 from invoke.tasks import call
 
-import logging
-
-logger = logging.getLogger(__name__)
+COVERAGE_IGNORED_PACKAGES = ('test', 'settings', 'migrations', 'wsgi', 'tasks', 'apps.py')
 
 
 @task
@@ -15,7 +13,8 @@ def clean_update(ctx):
 def test(ctx, coverage=False):
     coverage_cmd = 'python3'
     if coverage:
-        coverage_cmd = "coverage run --source='citation'"
+        ignored = ['*{0}*'.format(ignored_pkg) for ignored_pkg in COVERAGE_IGNORED_PACKAGES]
+        coverage_cmd = "coverage run --source='citation' --omit=" + ','.join(ignored)
     ctx.run('{} run_tests.py'.format(coverage_cmd))
 
 

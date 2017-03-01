@@ -18,8 +18,9 @@ before_install:
 install:
   - ./build.sh
   - docker-compose build 2> /dev/null
-  - pip3 install python-coveralls
+  - pip3 install python-coveralls coverage
 script:
   - docker-compose run --rm test
 after_success:
-  - coveralls
+  # hacky way to avoid docker container path issues
+  - mv .coverage{,.123} && coverage combine && coveralls --nogit
