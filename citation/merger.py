@@ -250,7 +250,7 @@ class ContainerMergeGroup:
         1. every container with an ISSN has the same ISSN
         """
 
-        issns = set(other.issn for other in self.others if other.issn != '')
+        issns = set(other.issn for other in self.others if other.issn != None)
         if self.final.issn:
             issns.add(self.final.issn)
 
