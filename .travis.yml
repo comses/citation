@@ -23,4 +23,4 @@ script:
   - docker-compose run --rm test
 after_success:
   # hacky way to avoid docker container path issues
-  - mv .coverage{,.123} && coverage combine && coveralls --nogit
+  - mv .coverage{,.123} && coverage combine --append && coveralls
