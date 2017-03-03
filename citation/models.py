@@ -19,7 +19,7 @@ import re
 from model_utils import Choices
 from typing import Dict, Optional
 
-from citation import fields
+from . import fields
 
 
 def datetime_json_serialize(datetime_obj: Optional[datetime]):
@@ -598,12 +598,12 @@ class Publication(AbstractLogModel):
         if self.year_published is not None:
             year_str = str(self.year_published)
         apa_authors = '-'.join(['{0} {1}'.format(c.given_name, c.family_name) for c in self.creators.all()])
-        slug_text = self.slugify_max("-".join([x for x in [apa_authors, year_str, self.title] if x]),100)
+        slug_text = self.slugify_max("-".join([x for x in [apa_authors, year_str, self.title] if x]), 100)
         return slug_text
 
     def slugify_max(self, text, max_length=50):
         slug = slugify(text)
-        if len(slug)<=0:
+        if len(slug) <= 0:
             return "-"
         if len(slug) <= max_length:
             return slug
@@ -678,10 +678,9 @@ class AuditCommand(models.Model):
 
 
 class AuditLogQuerySet(models.QuerySet):
-
     def contributor_data(self, publication):
         audit_logs = self.filter(Q(table=publication._meta.model_name, row_id=publication.id) |
-                    Q(payload__data__publication_id=publication.id) & Q(audit_command__action='MANUAL')) \
+                                 Q(payload__data__publication_id=publication.id) & Q(audit_command__action='MANUAL')) \
             .annotate(creator=F('audit_command__creator__username')).values('creator').order_by('creator')
         total_count = audit_logs.count()
         unique_logs = audit_logs.annotate(
@@ -705,7 +704,6 @@ class AuditLog(models.Model):
     audit_command = models.ForeignKey(AuditCommand, related_name='auditlogs')
     message = models.CharField(max_length=2000, blank=True)
     objects = AuditLogQuerySet.as_manager()
-
 
     def __str__(self):
         return u"{} performed {} on {}".format(
