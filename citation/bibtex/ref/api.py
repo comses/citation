@@ -123,7 +123,11 @@ def create_citation(publication: models.Publication,
             detached_raw.save()
 
     else:
-        container, created = models.Container.objects.get_or_create(name=detached_container.name)
+        # Don't want to link with nameless containers so create a new container instead
+        container = models.Container.objects.filter(name=detached_container.name).exclude(name='') \
+            .order_by('date_added', 'id').first()
+        if not container:
+            container = models.Container.objects.create(name=detached_container.name)
         detached_citation.container = container
         detached_citation.save()
         detached_author.save()

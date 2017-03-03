@@ -40,7 +40,7 @@ def guess_researcherid_str_split(researcherid_str):
     researcherid_lines = [l for l in researcherid_str.split("\n") if l.strip()]
     researcherids = []
     for researcherid_line in researcherid_lines:
-        author_part, researcherid_part = researcherid_line.split("/")
+        author_part, researcherid_part = researcherid_line.rsplit("/", 1)
         family_name, given_name = models.Author.normalize_author_name(author_part)
         researcherids.append((researcherid_part.strip(), family_name, given_name))
 
