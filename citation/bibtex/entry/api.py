@@ -93,7 +93,7 @@ def create_detached_publication(entry, creator):
         abstract=entry.get("abstract", ""),
         added_by=creator,
         date_published_text=date_published_text,
-        doi=entry.get("doi", ""),
+        doi=util.sanitize_doi(entry.get("doi", "")),
         isi=entry.get("isi", ""),
         volume=entry.get('volume', ''),
         pages=entry.get('pages', ''),

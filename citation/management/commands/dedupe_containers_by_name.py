@@ -15,7 +15,7 @@ class Command(BaseCommand):
     def _get_duplicates(self):
         with connection.cursor() as cursor:
             cursor.execute(
-                """select array_agg(id order by date_added)
+                """select array_agg(id order by date_added, id)
                 from citation_container
                 where name <> ''
                 group by name
