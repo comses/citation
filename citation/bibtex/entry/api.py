@@ -255,16 +255,19 @@ def process(entry: Dict, creator: User):
         publication = detached_publication
         publication.container = container
         publication.save()
-        attach_keywords(publication, get_keywords(entry))
         create_authors(audit_command, publication, detached_authors)
 
-        create_citations(publication, entry, creator)
-        unaugmented_authors = []
-
+        # Need to associate container with raw value before creating citations
+        # because mergers could occur which could result in the container no longer
+        # existing
         detached_raw.container = publication.container
         detached_raw.publication = publication
         detached_raw.save()
 
+        create_citations(publication, entry, creator)
+        unaugmented_authors = []
+
+    attach_keywords(publication, get_keywords(entry))
     return common.PublicationLoadErrors(raw=detached_raw, audit_command=audit_command,
                                         unaugmented_authors=unaugmented_authors,
                                         unassigned_emails=unassigned_emails)
