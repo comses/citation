@@ -1,8 +1,5 @@
 from citation.models import Publication, Platform, Sponsor
 
-ALL_PLATFORMS = Platform.objects.all().values_list("name").order_by("name")
-ALL_SPONSORS = Sponsor.objects.all().values_list("name").order_by("name")
-
 
 # retrieves elements from tuple and append it to a list - for adding in csv row
 def get_attribute_values(attributes):
@@ -13,7 +10,7 @@ def get_attribute_values(attributes):
 
 
 # creates a list of True/False depending whether values are within the items or not - for creating Matrix
-def generate_list(items, values):
+def generate_boolean_list(items, values):
     output = []
     for item in items:
         if item[0] in values:
@@ -33,20 +30,24 @@ def generate_csv_header():
               "Resource type", "Is primary", "Journal Id", "doi", "Series text", "Series title", "Series", "Issue",
               "Volume", "ISSN", "pages", "Year of Publication", "Journal", "Notes", "Platform List"]
 
-    header.extend(get_attribute_values(ALL_PLATFORMS))
+    all_platforms = Platform.objects.all().values_list("name").order_by("name")
+    all_sponsors = Sponsor.objects.all().values_list("name").order_by("name")
+    header.extend(get_attribute_values(all_platforms))
     header.append("Sponsors List")
-    header.extend(get_attribute_values(ALL_SPONSORS))
+    header.extend(get_attribute_values(all_sponsors))
     return header
 
 
-# Creating row for Csv file
+# Creating row for csv file
 def generate_csv_row(pub):
     platforms = get_attribute_values(list(pub.platforms.all().values_list("name")))
     sponsors = get_attribute_values(list(pub.sponsors.all().values_list("name")))
     notes = get_attribute_values(list(pub.note_set.all().values_list("text")))
+    all_platforms = Platform.objects.all().values_list("name").order_by("name")
+    all_sponsors = Sponsor.objects.all().values_list("name").order_by("name")
 
-    platforms_output = generate_list(ALL_PLATFORMS, platforms)
-    sponsors_output = generate_list(ALL_SPONSORS, sponsors)
+    platforms_output = generate_boolean_list(all_platforms, platforms)
+    sponsors_output = generate_boolean_list(all_sponsors, sponsors)
 
     row = [pub.pk, pub.title, str(pub.abstract), pub.short_title, pub.zotero_key, pub.url,
            pub.date_published_text, pub.date_accessed, pub.archive, pub.archive_location,
@@ -65,9 +66,9 @@ def generate_csv_row(pub):
 
 
 def create_csv(writer):
-    publications = Publication.objects.filter(is_primary=True).prefetch_related('sponsors', 'platforms', 'note_set')
-
     writer.writerow(generate_csv_header())
+    publications = Publication.api.primary(prefetch=True)
+
     for pub in publications:
         writer.writerow(generate_csv_row(pub))
 
