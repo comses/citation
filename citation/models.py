@@ -1,23 +1,22 @@
+import re
+from collections import defaultdict
+from datetime import datetime, date
+from typing import Dict, Optional
+
+from dateutil.parser import parse as datetime_parse
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
 from django.contrib.sites.requests import RequestSite
 from django.core.urlresolvers import reverse
-from django.core.exceptions import ValidationError
-from django.db import connection, models, transaction
+from django.db import models, transaction
 from django.db.models import F
+from django.db.models import Q, IntegerField, Count, Max
 from django.db.models.functions import Cast
 from django.template import Context
+from django.template.defaultfilters import slugify
 from django.template.loader import get_template
 from django.utils.translation import ugettext_lazy as _
-from datetime import datetime, date
-from collections import defaultdict
-from django.db.models import Q, IntegerField, Count, Max
-from dateutil.parser import parse as datetime_parse
-from django.template.defaultfilters import slugify
-import re
-
 from model_utils import Choices
-from typing import Dict, Optional
 
 from . import fields
 
@@ -128,7 +127,7 @@ class LogManager(models.Manager):
         return instance, created
 
 
-class LogQuerySet(models.query.QuerySet):
+class LogQuerySet(models.QuerySet):
     def log_delete(self, audit_command: 'AuditCommand'):
         # TODO test synchronization with solr
         """
@@ -407,7 +406,7 @@ class Note(AbstractLogModel):
     added_by = models.ForeignKey(User, related_name='citation_added_note_set')
     deleted_on = models.DateTimeField(null=True, blank=True)
     deleted_by = models.ForeignKey(User, related_name='citation_deleted_note_set', null=True, blank=True)
-    publication = models.ForeignKey('Publication', null=True, blank=True)
+    publication = models.ForeignKey('Publication', null=True, blank=True, on_delete=models.SET_NULL)
 
     @property
     def is_deleted(self):
@@ -576,6 +575,7 @@ class Publication(AbstractLogModel):
         "self", symmetrical=False, related_name="referenced_by",
         through='PublicationCitations', through_fields=('publication', 'citation'))
 
+    objects = LogManager.from_queryset(LogQuerySet)()
     api = PublicationQuerySet.as_manager()
 
     def duplicates(self, query=None, **kwargs):
