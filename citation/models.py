@@ -490,6 +490,17 @@ class ContainerAlias(AbstractLogModel):
         unique_together = ('container', 'name')
 
 
+class PublicationQuerySet(models.QuerySet):
+    def primary(self,prefetch=False, **kwargs):
+        if 'is_primary' in kwargs:
+            kwargs.pop('is_primary')
+        primary_pub = Publication.objects.filter(is_primary=True, **kwargs)
+        if prefetch:
+            return primary_pub.prefetch_related('sponsors', 'platforms', 'note_set')
+
+        return primary_pub
+
+
 class Publication(AbstractLogModel):
     Status = Choices(
         ('UNREVIEWED', _('Not reviewed: Has not been reviewed by CoMSES')),
@@ -564,6 +575,8 @@ class Publication(AbstractLogModel):
     citations = models.ManyToManyField(
         "self", symmetrical=False, related_name="referenced_by",
         through='PublicationCitations', through_fields=('publication', 'citation'))
+
+    api = PublicationQuerySet.as_manager()
 
     def duplicates(self, query=None, **kwargs):
         if query is None:
