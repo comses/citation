@@ -250,7 +250,7 @@ class ContainerMergeGroup:
         1. every container with an ISSN has the same ISSN
         """
 
-        issns = set(other.issn for other in self.others if other.issn != None)
+        issns = set(other.issn for other in self.others if other.issn not in ['', None])
         if self.final.issn:
             issns.add(self.final.issn)
 
@@ -634,17 +634,24 @@ class PublicationMergeGroup:
 
         self._move_citations()
 
+MERGE_GROUPS = {
+    models.Publication: PublicationMergeGroup,
+    models.Author: AuthorMergeGroup,
+    models.Container: ContainerMergeGroup
+}
+
 
 def merge(final, other, audit_command):
+    merge_class = MERGE_GROUPS[type(final)]
     matched = set(other.duplicates())
     matched.discard(final)
     if matched:
-        cmg = ContainerMergeGroup(final, matched)
-        if cmg.is_valid():
-            cmg.merge(audit_command, force=True)
+        mg = merge_class(final, matched)
+        if mg.is_valid():
+            mg.merge(audit_command, force=True)
         else:
-            logger.error(cmg.errors)
-            raise MergeError(str(cmg.errors))
+            logger.error(mg.errors)
+            raise MergeError(str(mg.errors))
 
 
 def augment_container(final_container, other_container, audit_command):
