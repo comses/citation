@@ -228,6 +228,8 @@ class ContainerMergerValidationMessage:
 
 class ContainerMergeGroup:
     def __init__(self, final: models.Container, others: Set[models.Container]):
+        logger.debug('merge group container: %s (%s)', final.name, final.issn)
+        logger.debug('merger group container: %s', [o.issn for o in others])
         self.final = final
         others.discard(final)
         self.others = others
@@ -250,7 +252,7 @@ class ContainerMergeGroup:
         1. every container with an ISSN has the same ISSN
         """
 
-        issns = set(other.issn for other in self.others if other.issn not in ['', None])
+        issns = set(other.issn for other in self.others if other.issn)
         if self.final.issn:
             issns.add(self.final.issn)
 
@@ -520,6 +522,7 @@ class PublicationMergeGroup:
             final_container = self.final.container
             other_containers = set(other.container for other in self.others)
 
+        logger.debug('final issn: %s, other issns: %s', final_container.issn, [o.issn for o in other_containers])
         return ContainerMergeGroup(final=final_container, others=other_containers)
 
     def all_containers(self):
