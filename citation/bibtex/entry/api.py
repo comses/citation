@@ -238,9 +238,12 @@ def process(entry: Dict, creator: User):
 
     audit_command = models.AuditCommand(creator=creator, action=models.AuditCommand.Action.MERGE)
     if publication_already_in_db:
+        logger.debug('aleady in db')
         publication = duplicate_publications[0]
         unaugmented_authors = augment_authors(audit_command, publication, detached_authors)
+        logger.debug('augmenting publication')
         merger.augment_publication(publication, detached_publication, audit_command)
+        logger.debug('augmenting container')
         merger.augment_container(publication.container, detached_container, audit_command)
 
         detached_raw.container = publication.container
@@ -249,14 +252,19 @@ def process(entry: Dict, creator: User):
             # Save a raw value if we've done any updates
             detached_raw.save()
 
+        logger.debug('augmenting citations')
         augment_citations(audit_command, publication, entry, creator)
     else:
+        logger.debug('not in db')
         container = create_container(audit_command, detached_container)
         publication = detached_publication
         publication.container = container
+        logger.debug('saving publication')
         publication.save()
+        logger.debug('creating authors')
         create_authors(audit_command, publication, detached_authors)
 
+        logger.debug('associating raw value with container')
         # Need to associate container with raw value before creating citations
         # because mergers could occur which could result in the container no longer
         # existing
@@ -264,6 +272,7 @@ def process(entry: Dict, creator: User):
         detached_raw.publication = publication
         detached_raw.save()
 
+        logger.debug('creating citations')
         create_citations(publication, entry, creator)
         unaugmented_authors = []
 

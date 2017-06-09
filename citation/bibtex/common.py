@@ -2,7 +2,10 @@ from . import entry as entry_api
 
 import bibtexparser
 import textwrap
+import logging
+from django.db import transaction
 
+logger = logging.getLogger(__name__)
 
 class AlreadyExistsError(Exception): pass
 
@@ -57,11 +60,11 @@ def process_entries(file_name, user):
 
     errors = []
     for ind, entry in enumerate(entries):
-        publication_load_error = entry_api.process(entry, user)
-        if publication_load_error:
-            errors.append(publication_load_error)
-        if ind % 20 == 0:
-            print("\nProcessed %s Primary Publications\n" % ind)
+        with transaction.atomic():
+            publication_load_error = entry_api.process(entry, user)
+            if publication_load_error:
+                errors.append(publication_load_error)
+            logger.info("Processed {} Primary Publications: {}".format(ind, entry['title']))
     return errors
 
 

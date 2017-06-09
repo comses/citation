@@ -45,6 +45,10 @@ def guess_elements(ref):
         author_str = ref[0] if 0 < n else None
         container_str = ref[1] if 1 < n else None
 
+    author_str = (author_str or "")
+    if len(author_str) > 200:
+        logger.warning('truncating author name: %s', author_str)
+        author_str = author_str[:200]
     return author_str or "", year_str or "", container_str or ""
 
 
@@ -100,7 +104,10 @@ def create_citation(publication: models.Publication,
     detached_citation, detached_author, detached_container, detached_raw, duplicate_citation = \
         create_detached_citation_and_related(publication, ref, creator)
 
+    logger.debug('processing citation for ref: "{}"'.format(ref))
     if duplicate_citation:
+        logger.debug('augmenting citation')
+        logger.debug('container: %s (%s)', detached_container.name, detached_citation.issn)
         audit_command = models.AuditCommand(action=models.AuditCommand.Action.MERGE,
                                             creator=creator)
         duplicate_author = _augment_citation(
@@ -118,11 +125,13 @@ def create_citation(publication: models.Publication,
         citation = duplicate_citation
         detached_raw.publication = citation
         detached_raw.container = citation.container
+        logger.debug('container: %s (%s)', detached_raw.container.name, detached_raw.container.issn)
         if not audit_command.has_been_saved:
             # Save a raw value if the state has been updated
             detached_raw.save()
 
     else:
+        logger.debug('creating citation')
         # Don't want to link with nameless containers so create a new container instead
         container = models.Container.objects.filter(name=detached_container.name).exclude(name='') \
             .order_by('date_added', 'id').first()
@@ -145,7 +154,9 @@ def create_citation(publication: models.Publication,
 
 def _augment_citation(audit_command, detached_citation, detached_author, detached_container, detached_raw,
                       duplicate_citation):
+    logger.debug('issn: %s', detached_container.issn)
     merger.augment_publication(duplicate_citation, detached_citation, audit_command)
+    logger.debug('augmented citation issn: %s', detached_container.issn)
     merger.augment_container(duplicate_citation.container, detached_container, audit_command)
     duplicate_author = detached_author.duplicates().first()
     if duplicate_author:
