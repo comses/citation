@@ -12,7 +12,6 @@ from django.db import models, transaction
 from django.db.models import F
 from django.db.models import Q, IntegerField, Count, Max
 from django.db.models.functions import Cast
-from django.template import Context
 from django.template.defaultfilters import slugify
 from django.template.loader import get_template
 from django.utils.translation import ugettext_lazy as _
@@ -102,7 +101,7 @@ class LogManager(models.Manager):
             return instance
 
     def log_get_or_create(self, audit_command: 'AuditCommand', **kwargs):
-        relation_fields = {relation.attname for relation in self.model._meta.many_to_many}
+        # relation_fields = {relation.attname for relation in self.model._meta.many_to_many}
         defaults = kwargs.pop('defaults', {})
         with transaction.atomic():
             instance, created = self.get_or_create(defaults=defaults, **kwargs)
@@ -187,13 +186,12 @@ class AbstractLogModel(models.Model):
         with transaction.atomic():
             payload = make_payload(self)
             audit_command.save_once()
-            auditlogs = \
-                AuditLog.objects.create(
-                    action='DELETE',
-                    row_id=self.id,
-                    table=self._meta.model_name,
-                    payload=payload,
-                    audit_command=audit_command)
+            AuditLog.objects.create(
+                action='DELETE',
+                row_id=self.id,
+                table=self._meta.model_name,
+                payload=payload,
+                audit_command=audit_command)
             info = self.delete()
             return info
 
@@ -229,15 +227,12 @@ class InvitationEmail(object):
     def site(self):
         return RequestSite(self.request)
 
-    def get_context(self, message, token):
-        return Context({
+    def get_plaintext_content(self, message, token):
+        return self.plaintext_template.render({
             'invitation_text': message,
             'domain': self.site.domain,
             'token': token,
         })
-
-    def get_plaintext_content(self, message, token):
-        return self.plaintext_template.render(self.get_context(message, token))
 
 
 class InvitationEmailTemplate(models.Model):
@@ -490,7 +485,8 @@ class ContainerAlias(AbstractLogModel):
 
 
 class PublicationQuerySet(models.QuerySet):
-    def primary(self,prefetch=False, **kwargs):
+
+    def primary(self, prefetch=False, **kwargs):
         if 'is_primary' in kwargs:
             kwargs.pop('is_primary')
         primary_pub = Publication.objects.filter(is_primary=True, **kwargs)
