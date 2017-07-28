@@ -5,12 +5,13 @@ from distutils.core import setup
 setup(name='citation',
       version='0.0.1',
       classifiers=[
-          'Development Status :: 3 - Alpha',
-
+          'Environment :: Web Environment',
+          'Framework :: Django :: 1.11',  # replace "X.Y" as appropriate
           'Intended Audience :: Developers',
-
+          'Development Status :: 3 - Alpha',
+          'Intended Audience :: Developers',
           'License :: OSI Approved :: GPL V3 License'
-
+          'Operating System :: OS Independent',
           'Programming Language :: Python 3.5'
       ],
       description='Citation management and deduplication for Django',
