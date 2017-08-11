@@ -210,6 +210,18 @@ class AuditCommandContibutionSerializer(serializers.Serializer):
     date_added = serializers.DateTimeField(read_only=True, format='%m/%d/%Y %H:%M')
 
 
+class PublicationListSerializer(serializers.ModelSerializer):
+    detail_url = serializers.CharField(source='get_absolute_url', read_only=True)
+    date_modified = serializers.DateTimeField(read_only=True, format='%m/%d/%Y %H:%M')
+    apa_citation_string = serializers.ReadOnlyField()
+    contributor_data = AuditCommandContibutionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Publication
+        fields = (
+            'apa_citation_string', 'date_modified', 'detail_url', 'contributor_data',
+        )
+
 class PublicationSerializer(serializers.ModelSerializer):
     """
     Serializes publication querysets.
@@ -228,7 +240,6 @@ class PublicationSerializer(serializers.ModelSerializer):
     status_options = serializers.SerializerMethodField()
     apa_citation_string = serializers.ReadOnlyField()
     flagged = serializers.BooleanField()
-    contributor_data = AuditCommandContibutionSerializer(many=True, read_only=True)
 
     """
     XXX: copy-pasted from default ModelSerializer code but omitting the raise_errors_on_nested_writes. Revisit at some
@@ -256,6 +267,7 @@ class PublicationSerializer(serializers.ModelSerializer):
         for name in names:
             model_documentation = ModelDocumentation.objects.get(name=name)
             PublicationModelDocumentations.objects.log_get_or_create(audit_command=audit_command,
+                                                                     publication=publication,
                                                                      publication_id=publication.id,
                                                                      model_documentation_id=model_documentation.id)
         PublicationModelDocumentations.objects \
@@ -267,8 +279,9 @@ class PublicationSerializer(serializers.ModelSerializer):
     def save_platform(audit_command, publication, raw_platforms):
         names = [raw_platform['name'] for raw_platform in raw_platforms]
         for name in names:
-            platform, created = Platform.objects.log_get_or_create(audit_command=audit_command, name=name)
+            platform, created = Platform.objects.log_get_or_create(audit_command=audit_command, publication=publication, name=name)
             PublicationPlatforms.objects.log_get_or_create(audit_command=audit_command,
+                                                           publication=publication,
                                                            publication_id=publication.id,
                                                            platform_id=platform.id)
         PublicationPlatforms.objects \
@@ -280,8 +293,9 @@ class PublicationSerializer(serializers.ModelSerializer):
     def save_sponsor(audit_command, publication, raw_sponsors):
         names = [raw_sponsor['name'] for raw_sponsor in raw_sponsors]
         for name in names:
-            platform, created = Sponsor.objects.log_get_or_create(audit_command=audit_command, name=name)
+            platform, created = Sponsor.objects.log_get_or_create(audit_command=audit_command, publication=publication, name=name)
             PublicationSponsors.objects.log_get_or_create(audit_command=audit_command,
+                                                          publication=publication,
                                                           publication_id=publication.id,
                                                           sponsor_id=platform.id)
         PublicationSponsors.objects \
@@ -421,7 +435,7 @@ class PublicationSerializer(serializers.ModelSerializer):
             'id', 'apa_citation_string', 'activity_logs', 'assigned_curator', 'code_archive_url', 'contact_author_name',
             'contact_email', 'container', 'creators', 'date_modified', 'detail_url', 'flagged', 'model_documentation',
             'notes', 'pages', 'platforms', 'sponsors', 'status', 'status_options', 'tags', 'title', 'volume',
-            'year_published', 'contributor_data'
+            'year_published',
         )
 
 

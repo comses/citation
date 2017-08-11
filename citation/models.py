@@ -15,6 +15,7 @@ from django.db.models.functions import Cast
 from django.template.defaultfilters import slugify
 from django.template.loader import get_template
 from django.utils.translation import ugettext_lazy as _
+from django.core.cache import cache
 from model_utils import Choices
 
 from . import fields
@@ -100,7 +101,7 @@ class LogManager(models.Manager):
                 audit_command=audit_command)
             return instance
 
-    def log_get_or_create(self, audit_command: 'AuditCommand', **kwargs):
+    def log_get_or_create(self, audit_command: 'AuditCommand', publication:'Publication', **kwargs):
         # relation_fields = {relation.attname for relation in self.model._meta.many_to_many}
         defaults = kwargs.pop('defaults', {})
         with transaction.atomic():
@@ -109,11 +110,13 @@ class LogManager(models.Manager):
                 action = 'INSERT'
                 payload = make_payload(instance)
                 row_id = instance.id
+                pub_id = publication
             else:
                 defaults.update(kwargs)
                 action = 'UPDATE'
                 payload = make_versioned_payload(instance, kwargs)
                 row_id = instance.id
+                pub_id = publication
             if created or payload:
                 audit_command.save_once()
                 AuditLog.objects.create(
@@ -121,6 +124,7 @@ class LogManager(models.Manager):
                     row_id=row_id,
                     table=instance._meta.model_name,
                     payload=payload,
+                    pub_id=pub_id,
                     audit_command=audit_command)
 
         return instance, created
@@ -599,7 +603,19 @@ class Publication(AbstractLogModel):
         return bool(self.code_archive_url)
 
     def contributor_data(self):
-        return AuditLog.objects.contributor_data(self)
+        if cache.get(self.id):
+            return cache.get(self.id)
+        elif self.is_primary:
+            audit_logs = AuditLog.objects.filter(
+                Q(audit_command__action='MANUAL') & (Q(table='publication', row_id=self.id) |
+                                                     Q(pub_id=self.id))) \
+                .annotate(creator=F('audit_command__creator__username')).values('creator').order_by('creator')
+
+            unique_logs = audit_logs.annotate(
+                contribution=(Cast((Count('creator')) * 100 / len(audit_logs), IntegerField())),
+                date_added=(Max('audit_command__date_added'))) \
+                .values('creator', 'contribution', 'date_added').order_by('-date_added')
+            return unique_logs
 
     @property
     def slug(self):
@@ -686,6 +702,7 @@ class AuditCommand(models.Model):
         ordering = ['-date_added']
 
 
+# No need of this Queryset manager now...need to remove it
 class AuditLogQuerySet(models.QuerySet):
     def contributor_data(self, publication):
         audit_logs = self.filter(Q(table=publication._meta.model_name, row_id=publication.id) |
@@ -710,6 +727,7 @@ class AuditLog(models.Model):
     table = models.CharField(max_length=128)
     payload = JSONField(blank=True, null=True,
                         help_text=_('A JSON dictionary containing modified fields, if any, for the given publication'))
+    pub_id = models.ForeignKey(Publication, related_name='auditlog', null=True, blank=True, db_constraint=False)
     audit_command = models.ForeignKey(AuditCommand, related_name='auditlogs')
     message = models.CharField(max_length=2000, blank=True)
     objects = AuditLogQuerySet.as_manager()
