@@ -95,4 +95,4 @@ class TestModelManagers(TestCase):
 
         # verify the last date_added record is at top
         date_value = date_values.filter(audit_command__creator__username='bar')
-        self.assertDictEqual(cd[0], {'creator': 'bar', 'contribution': 67, 'date_added': date_value[0][0]})
+        self.assertDictEqual(cd[0], {'creator': 'bar', 'contribution': 66, 'date_added': date_value[0][0]})

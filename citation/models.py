@@ -101,8 +101,11 @@ class LogManager(models.Manager):
                 audit_command=audit_command)
             return instance
 
-    def log_get_or_create(self, audit_command: 'AuditCommand', publication:'Publication', **kwargs):
+    def log_get_or_create(self, audit_command: 'AuditCommand', **kwargs):
         # relation_fields = {relation.attname for relation in self.model._meta.many_to_many}
+        publication = None
+        if 'publication' in kwargs:
+            publication = kwargs.pop('publication')
         defaults = kwargs.pop('defaults', {})
         with transaction.atomic():
             instance, created = self.get_or_create(defaults=defaults, **kwargs)
