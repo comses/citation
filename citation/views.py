@@ -1,6 +1,7 @@
 from citation.models import (Publication, InvitationEmail, Platform, Sponsor, Tag, Container, ModelDocumentation,
                              Note, )
-from citation.serializers import CatalogPagination, ModelDocumentationSerializer, NoteSerializer, PublicationSerializer
+from citation.serializers import (CatalogPagination, ModelDocumentationSerializer, NoteSerializer,
+                                  PublicationSerializer, PublicationListSerializer, )
 
 from datetime import datetime
 
@@ -31,7 +32,7 @@ class PublicationList(LoginRequiredMixin, generics.GenericAPIView):
         publication_list = Publication.objects.all()
         paginator = CatalogPagination()
         result_page = paginator.paginate_queryset(publication_list, request)
-        serializer = PublicationSerializer(result_page, many=True)
+        serializer = PublicationListSerializer(result_page, many=True)
         response = paginator.get_paginated_response(serializer.data)
         return Response({'json': dumps(response)}, template_name="publication/list.html")
 

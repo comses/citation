@@ -7,14 +7,13 @@ notifications:
 services:
   - docker
 env: 
-  DOCKER_COMPOSE_VERSION: 1.13.0
+  DOCKER_COMPOSE_VERSION: 1.15.0
 before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y docker-ce
   - curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
   - chmod +x docker-compose
   - sudo mv docker-compose /usr/local/bin
-  - docker-compose version
 install:
   - ./build.sh
   - docker-compose build 2> /dev/null
@@ -22,5 +21,6 @@ install:
 script:
   - docker-compose run --rm test
 after_success:
-  # hacky way to avoid docker container path issues
+  # hacky way to work around docker container path issues, see https://github.com/pytest-dev/pytest-cov/issues/146 for
+  # more details.
   - mv .coverage{,.123} && coverage combine --append && coveralls
