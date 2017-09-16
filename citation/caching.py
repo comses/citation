@@ -1,13 +1,13 @@
 import itertools
 import logging
 
-from django.core import cache
+from django.core.cache import cache
 from django.db import connection
 
 logger = logging.getLogger(__name__)
 
 
-def initialize_contributor_cache(self):
+def initialize_contributor_cache():
     with connection.cursor() as cursor:
         # NOTE : need to change to Django ORM
         cursor.execute(
@@ -42,11 +42,11 @@ def initialize_contributor_cache(self):
             tmp = {}
             tmp.update(dct)
             ls.append(tmp)
-        cache.set(dct['id'], ls, 60 * 5)
+        cache.set(dct['id'], ls, 86410)
     logger.debug("Caching completed.")
 
 
-def _dictfetchall(self, cursor):
+def _dictfetchall(cursor):
     "Return all rows from a cursor as a dict"
     columns = [col[0] for col in cursor.description]
     return [
