@@ -520,3 +520,18 @@ class UpdateModelUrlSerializer(serializers.ModelSerializer):
         validator = URLValidator(message=_("Please enter a valid URL for this computational model."))
         validator(url)
         return data
+        
+
+class RelationSerializer(serializers.Serializer):
+    name = serializers.StringRelatedField(read_only=True)
+    total_count = serializers.StringRelatedField(read_only=True)
+    availability_count = serializers.StringRelatedField(read_only=True)
+
+
+class AuthorRelationSerializer(serializers.Serializer):
+    first = serializers.StringRelatedField(read_only=True)
+    last = serializers.StringRelatedField(read_only=True)
+    name = serializers.StringRelatedField(read_only=True)
+    total_count = serializers.StringRelatedField(read_only=True)
+    availability_count = serializers.StringRelatedField(read_only=True)
+
