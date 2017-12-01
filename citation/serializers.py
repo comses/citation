@@ -533,5 +533,6 @@ class AuthorRelationSerializer(serializers.Serializer):
     given_name = serializers.ReadOnlyField()
     family_name = serializers.ReadOnlyField()
     published = serializers.ReadOnlyField()
-    code_available = serializers.ReadOnlyFi
+    code_available = serializers.ReadOnlyField()
+
 
