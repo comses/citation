@@ -520,3 +520,25 @@ class UpdateModelUrlSerializer(serializers.ModelSerializer):
         validator = URLValidator(message=_("Please enter a valid URL for this computational model."))
         validator(url)
         return data
+
+
+class PublicationAggregationSerializer(serializers.Serializer):
+    """
+    Serializes the aggregated data for Journal, Platform, and Sponsors relation.
+    name: String - representing name of the aggregated data i.e sponsors name, platforms name
+    published_count - Integer - represent the total count of published paper for the given name
+    code_availability_count - Integer -  represent the count of code availability for the published paper
+    """
+    name = serializers.ReadOnlyField()
+    published_count = serializers.ReadOnlyField()
+    code_availability_count = serializers.ReadOnlyField()
+
+
+# Serializes the aggregated data for Author relation.
+class AuthorAggregrationSerializer(serializers.Serializer):
+    
+    name = serializers.ReadOnlyField()
+    given_name = serializers.ReadOnlyField()
+    family_name = serializers.ReadOnlyField()
+    published_count = serializers.ReadOnlyField()
+    code_availability_count = serializers.ReadOnlyField()

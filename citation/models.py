@@ -502,6 +502,22 @@ class PublicationQuerySet(models.QuerySet):
 
         return primary_pub
 
+    def aggregated_list(self, identifier=None, **kwargs):
+        """
+        :param: identifier: String - relation identifier - should be either sponsors, platforms, or container(i.e: journal)
+        :param: kwargs: Dict - additional query filter
+        :return: list of the aggregated data for the specified identifier
+        """
+        if identifier in ["sponsors", "platforms", "container"]:
+            return self.primary(status='REVIEWED', prefetch=True, **kwargs).annotate(
+                name=F(identifier + '__name')).values('name').order_by(
+                'name').annotate(published_count=Count('name'),
+                                 code_availability_count=models.Sum(
+                                     models.Case(models.When(~Q(code_archive_url=''), then=1),
+                                                 default=0, output_field=models.IntegerField()))) \
+                .values('name', 'published_count', 'code_availability_count').order_by('-published_count')
+        return None
+
 
 class Publication(AbstractLogModel):
     Status = Choices(
