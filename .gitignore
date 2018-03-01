@@ -6,6 +6,8 @@ solr-*
 zotero_data.json
 .vagrant
 
+*.egg-info
+
 # IDE Files
 .idea
 
