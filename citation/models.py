@@ -86,6 +86,17 @@ def make_versioned_payload(instance, changes: Dict):
     return payload
 
 
+class PlatformTypes():
+
+    COMSES = "COMSES"
+    OPEN_SOURCE = "OPEN SOURCE"
+    PLATFORM = "PLATFORM"
+    JOURNAL = "JOURNAL"
+    PERSONAL = "PERSONAL"
+    INVALID = "INVALID"
+    OTHERS = "OTHERS"
+
+
 class LogManager(models.Manager):
     use_for_related_fields = True
 
@@ -695,6 +706,31 @@ class Publication(AbstractLogModel):
     def __str__(self):
         return 'id: {id} {title} {year}. {container}'.format(id=self.id, title=self.title, year=self.year_published,
                                                              container=self.container)
+
+
+class URLStatusLogs(models.Model):
+    PLATFORM_TYPES = Choices((PlatformTypes.COMSES, _('CoMSES')),
+                     (PlatformTypes.OPEN_SOURCE, _('Open Source')),
+                     (PlatformTypes.PLATFORM, _('Platform')),
+                     (PlatformTypes.JOURNAL, _('Journal')),
+                     (PlatformTypes.PERSONAL, _('Personal')),
+                     (PlatformTypes.INVALID, _('Invalid')),
+                     (PlatformTypes.OTHERS, _('Others'))
+                     )
+    pub_id = models.ForeignKey(Publication, related_name='url_status', null=True, blank=True, db_constraint=False)
+    url = models.URLField(blank=True, max_length=500)
+    date_added = models.DateTimeField(auto_now_add=True,
+                                      help_text=_('Date this url was last verified'))
+    date_modified = models.DateTimeField(auto_now=True,
+                                         help_text=_('Date this url status was last modified on this system'))
+    text = models.TextField(blank=True, help_text=_('contains information about the url header'))
+    type = models.TextField(choices=PLATFORM_TYPES)
+    status_code = models.PositiveIntegerField(default=0)
+    status_reason = models.TextField(blank= True, help_text=_('contains reason for the url success/failure'))
+    system_generated = models.BooleanField(default=True)
+
+    def get_message(self):
+        return "{} ({})".format(self.url, self.id)
 
 
 class AuditCommand(models.Model):

@@ -1,8 +1,14 @@
 import itertools
 import logging
 
+from citation.models import Publication
 from django.core.cache import cache
 from django.db import connection
+
+from catalog.core.views import generate_network_graph_group_by_tags, generate_network_graph_group_by_sponsors, \
+                               generate_publication_code_platform_data
+
+from catalog.core.util import RelationClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +37,7 @@ def initialize_contributor_cache():
             temp = {}
             for count in contributor_count:
                 if count['id'] == log['id']:
-                    temp.update({'id': log['id'], 'contribution': log['contribution'] * 100 / count['count'],
+                    temp.update({'id': log['id'], 'contribution': "{0:.2f}".format(log['contribution'] * 100 / count['count']),
                                 'creator': log['username'], 'date_added': log['date_added']})
                     combine.append(temp)
 
@@ -43,8 +49,7 @@ def initialize_contributor_cache():
             tmp.update(dct)
             ls.append(tmp)
         cache.set(dct['id'], ls, 86410)
-    logger.debug("Caching completed.")
-
+    logger.debug("Contribution data cache completed.")
 
 def _dictfetchall(cursor):
     "Return all rows from a cursor as a dict"
@@ -53,3 +58,35 @@ def _dictfetchall(cursor):
         dict(zip(columns, row))
         for row in cursor.fetchall()
     ]
+
+""" 
+    Method to cache the default distribution of publication across the year 
+    along with on which platform the code is made available information
+"""
+def initialize_publication_code_platform_cache():
+    data, platform = generate_publication_code_platform_data({}, RelationClassifier.GENERAL, "Publications")
+    cache.set("distribution_data", data, 86410)
+    cache.set("platform_dct", platform, 86410)
+    logger.debug("Publication code platform distribution data cache completed.")
+
+"""
+    Method to cache information about how the publication are connected
+"""
+def initialize_network_cache():
+    logger.debug("Caching Network")
+    publication = Publication.api.primary(status="REVIEWED").prefetch_related('tags', 'creators')
+
+    #FIXME use more informational static filters over here
+    sponsors_filter = ["United States National Science Foundation (NSF)"]
+    filter = {'sponsors__name__in' : sponsors_filter}
+    network, filter = generate_network_graph_group_by_sponsors(filter, publication)
+    cache.set("network-graph-sponsors", network, 86410)
+    cache.set("network-graph-sponsors-filter", filter, 86410)
+    logger.debug("Network cache for group_by sponsors completed using static filter: " + str(sponsors_filter))
+
+    tags_filter = ["Dynamics", "Simulation"]
+    filter = {'tags__name__in': tags_filter}
+    network, filter = generate_network_graph_group_by_tags(filter, publication)
+    cache.set("network-graph-tags", network, 86410)
+    cache.set("network-graph-tags-filter", filter, 86410)
+    logger.debug("Network cache for group_by tags completed using static filter: " + str(tags_filter))
