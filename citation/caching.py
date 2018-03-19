@@ -4,6 +4,7 @@ import logging
 from citation.models import Publication
 from django.core.cache import cache
 from django.db import connection
+from django.db.models import Count
 
 from catalog.core.views import generate_network_graph_group_by_tags, generate_network_graph_group_by_sponsors, \
                                generate_publication_code_platform_data
@@ -64,6 +65,7 @@ def _dictfetchall(cursor):
     along with on which platform the code is made available information
 """
 def initialize_publication_code_platform_cache():
+    logger.debug("Caching publication distribution data")
     data, platform = generate_publication_code_platform_data({}, RelationClassifier.GENERAL, "Publications")
     cache.set("distribution_data", data, 86410)
     cache.set("platform_dct", platform, 86410)
@@ -74,19 +76,27 @@ def initialize_publication_code_platform_cache():
 """
 def initialize_network_cache():
     logger.debug("Caching Network")
-    publication = Publication.api.primary(status="REVIEWED").prefetch_related('tags', 'creators')
 
     #FIXME use more informational static filters over here
-    sponsors_filter = ["United States National Science Foundation (NSF)"]
-    filter = {'sponsors__name__in' : sponsors_filter}
-    network, filter = generate_network_graph_group_by_sponsors(filter, publication)
+    sponsors_filter = list()
+    sponsors = Publication.api.primary(status="REVIEWED").values('sponsors__name').order_by('sponsors__name'). \
+               annotate(count=Count('sponsors__name')).values('count', 'sponsors__name').order_by('-count')[:10]
+    for sponsor in sponsors:
+        sponsors_filter.append(sponsor['sponsors__name'])
+    filter_criteria = {'sponsors__name__in' : sponsors_filter}
+    network, filter_list = generate_network_graph_group_by_sponsors(filter_criteria)
     cache.set("network-graph-sponsors", network, 86410)
-    cache.set("network-graph-sponsors-filter", filter, 86410)
+    cache.set("network-graph-sponsors-filter", filter_list, 86410)
     logger.debug("Network cache for group_by sponsors completed using static filter: " + str(sponsors_filter))
 
-    tags_filter = ["Dynamics", "Simulation"]
-    filter = {'tags__name__in': tags_filter}
-    network, filter = generate_network_graph_group_by_tags(filter, publication)
+    tags_filter = list()
+    tags = Publication.api.primary(status= "REVIEWED").values('tags__name').order_by('tags__name').\
+        annotate(count=Count('tags__name')).values('count','tags__name').order_by('-count')[:10]
+    for tag in tags:
+        tags_filter.append(tag['tags__name'])
+    filter_criteria = {'tags__name__in': tags_filter}
+    network, filter_list = generate_network_graph_group_by_tags(filter_criteria)
     cache.set("network-graph-tags", network, 86410)
-    cache.set("network-graph-tags-filter", filter, 86410)
+    cache.set("network-graph-tags-filter", filter_list, 86410)
     logger.debug("Network cache for group_by tags completed using static filter: " + str(tags_filter))
+
