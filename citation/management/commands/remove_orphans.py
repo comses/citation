@@ -10,19 +10,23 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         qs = models.Platform.objects.exclude(pk__in=models.Publication.platforms.through.objects.values('platform'))
-        print("              -----------------------------------------------------------------           ")
-        print("                    Following platform orphans has been deleted: "                         )
-        print("              -----------------------------------------------------------------           ")
+        logger.info("              -----------------------------------------------------------------           ")
+        logger.info("                    Following platform orphans has been deleted: "                         )
+        logger.info("              -----------------------------------------------------------------           ")
+        name = []
         for q in qs:
-            print(q.name)
-        print("Total platforms deleted: " + str(qs.count()))
+            name.append(q.name)
+        logger.info('\n'.join(name))
+        logger.info("Total platforms deleted: " + str(qs.count()))
         qs.delete()
         qs = models.Sponsor.objects.exclude(pk__in=models.Publication.sponsors.through.objects.values('sponsor'))
-        print("              -----------------------------------------------------------------            ")
-        print("                     Following sponsor orphans has been deleted:                           ")
-        print("              -----------------------------------------------------------------            ")
+        logger.info("              -----------------------------------------------------------------            ")
+        logger.info("                     Following sponsor orphans has been deleted:                           ")
+        logger.info("              -----------------------------------------------------------------            ")
+        name = []
         for q in qs:
-            print(q.name)
-        print("Total sponsors deleted: " + str(qs.count()))
+            name.append(q.name)
+        logger.info('\n'.join(name))
+        logger.info("Total sponsors deleted: " + str(qs.count()))
         qs.delete()
         logger.debug("Orphans deleted successfully")

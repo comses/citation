@@ -14,18 +14,18 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='URLStatusLogs',
+            name='URLStatusLog',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('url', models.URLField(blank=True, max_length=500)),
-                ('date_added', models.DateTimeField(auto_now_add=True, help_text='Date this url was last verified')),
-                ('date_modified', models.DateTimeField(auto_now=True, help_text='Date this url status was last modified on this system')),
-                ('text', models.TextField(blank=True, help_text='contains information about the url header')),
+                ('date_created', models.DateTimeField(auto_now_add=True, help_text='Date this url was last verified')),
+                ('last_modified', models.DateTimeField(auto_now=True, help_text='Date this url status was last modified on this system')),
+                ('headers', models.TextField(blank=True, help_text='contains information about the url header')),
                 ('type', models.TextField(choices=[('COMSES', 'CoMSES'), ('OPEN SOURCE', 'Open Source'), ('PLATFORM', 'Platform'), ('JOURNAL', 'Journal'), ('PERSONAL', 'Personal'), ('INVALID', 'Invalid'), ('OTHERS', 'Others')])),
                 ('status_code', models.PositiveIntegerField(default=0)),
                 ('status_reason', models.TextField(blank=True, help_text='contains reason for the url success/failure')),
                 ('system_generated', models.BooleanField(default=True)),
-                ('pub_id', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='url_status', to='citation.Publication')),
+                ('publication', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='url_status', to='citation.Publication')),
             ],
         ),
     ]

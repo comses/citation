@@ -18,6 +18,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.core.cache import cache
 from model_utils import Choices
 
+from .globals import CodePlatformIdentifier, CacheNames
 from . import fields
 
 
@@ -84,17 +85,6 @@ def make_versioned_payload(instance, changes: Dict):
     else:
         payload = None
     return payload
-
-
-class PlatformTypes():
-
-    COMSES = "COMSES"
-    OPEN_SOURCE = "OPEN SOURCE"
-    PLATFORM = "PLATFORM"
-    JOURNAL = "JOURNAL"
-    PERSONAL = "PERSONAL"
-    INVALID = "INVALID"
-    OTHERS = "OTHERS"
 
 
 class LogManager(models.Manager):
@@ -515,7 +505,8 @@ class PublicationQuerySet(models.QuerySet):
 
     def aggregated_list(self, identifier=None, **kwargs):
         """
-        :param: identifier: String - relation identifier - should be either sponsors, platforms, or container(i.e: journal)
+        :param: identifier: String - relation identifier - should be Django Model that has name attribute (field)
+                            example: sponsors, platforms, or container(i.e: journal)
         :param: kwargs: Dict - additional query filter
         :return: list of the aggregated data for the specified identifier
         """
@@ -633,8 +624,9 @@ class Publication(AbstractLogModel):
         return bool(self.code_archive_url)
 
     def contributor_data(self):
-        if cache.get(self.id):
-            return cache.get(self.id)
+        value = cache.get(CacheNames.CONTRIBUTION_DATA.value + str(self.id))
+        if value:
+            return value
         elif self.is_primary:
             audit_logs = AuditLog.objects.filter(
                 Q(audit_command__action='MANUAL') & (Q(table='publication', row_id=self.id) |
@@ -708,29 +700,31 @@ class Publication(AbstractLogModel):
                                                              container=self.container)
 
 
-class URLStatusLogs(models.Model):
-    PLATFORM_TYPES = Choices((PlatformTypes.COMSES, _('CoMSES')),
-                     (PlatformTypes.OPEN_SOURCE, _('Open Source')),
-                     (PlatformTypes.PLATFORM, _('Platform')),
-                     (PlatformTypes.JOURNAL, _('Journal')),
-                     (PlatformTypes.PERSONAL, _('Personal')),
-                     (PlatformTypes.INVALID, _('Invalid')),
-                     (PlatformTypes.OTHERS, _('Others'))
+class URLStatusLog(models.Model):
+    PLATFORM_TYPES = Choices((CodePlatformIdentifier.COMSES.value, _('CoMSES')),
+                     (CodePlatformIdentifier.OPEN_SOURCE.value, _('Open Source')),
+                     (CodePlatformIdentifier.PLATFORM.value, _('Platform')),
+                     (CodePlatformIdentifier.JOURNAL.value, _('Journal')),
+                     (CodePlatformIdentifier.PERSONAL.value, _('Personal')),
+                     (CodePlatformIdentifier.INVALID.value, _('Invalid')),
+                     (CodePlatformIdentifier.OTHERS.value, _('Others'))
                      )
-    pub_id = models.ForeignKey(Publication, related_name='url_status', null=True, blank=True, db_constraint=False)
+    publication = models.ForeignKey(Publication, related_name='url_status', null=True, blank=True, db_constraint=False)
     url = models.URLField(blank=True, max_length=500)
-    date_added = models.DateTimeField(auto_now_add=True,
+    date_created = models.DateTimeField(auto_now_add=True,
                                       help_text=_('Date this url was last verified'))
-    date_modified = models.DateTimeField(auto_now=True,
+    last_modified = models.DateTimeField(auto_now=True,
                                          help_text=_('Date this url status was last modified on this system'))
-    text = models.TextField(blank=True, help_text=_('contains information about the url header'))
+    headers = models.TextField(blank=True, help_text=_('contains information about the url header'))
     type = models.TextField(choices=PLATFORM_TYPES)
     status_code = models.PositiveIntegerField(default=0)
     status_reason = models.TextField(blank= True, help_text=_('contains reason for the url success/failure'))
     system_generated = models.BooleanField(default=True)
 
     def get_message(self):
-        return "{} ({})".format(self.url, self.id)
+        return "Pub: {pub} {type} {url} {code} {reason}".format(pub=self.publication , type =self.type,
+                                                                  url = self.url, code=self.status_code,
+                                                                  reason= self.status_reason)
 
 
 class AuditCommand(models.Model):

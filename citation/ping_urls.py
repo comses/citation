@@ -3,7 +3,8 @@ import requests
 
 from django.db.models import Q
 
-from citation.models import Publication, URLStatusLogs, PlatformTypes
+from citation.models import Publication, URLStatusLog
+from .globals import CodePlatformIdentifier
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ def verify_url_status():
     publication = Publication.objects.filter(~Q(code_archive_url = ''), is_primary = "True", status= "REVIEWED")
 
     for pub in publication:
-        logger.debug("Pinging: " + pub.code_archive_url)
+        logger.info("Pinging: " + pub.code_archive_url)
         ping_url(pub.pk, pub.code_archive_url)
 
 def ping_url(pk, url):
@@ -34,11 +35,11 @@ def ping_url(pk, url):
 
     except requests.exceptions.HTTPError as err:
         # URL Not found or forbidden (Private access)
-        add_url_status_log(pk, PlatformTypes.INVALID, err.response)
+        add_url_status_log(pk, CodePlatformIdentifier.INVALID.value, err.response)
 
     except requests.exceptions.RequestException as e:
         # Server not reachable
-        add_url_status_log_bad_request(pk, PlatformTypes.INVALID, url)
+        add_url_status_log_bad_request(pk, CodePlatformIdentifier.INVALID.value, url)
 
 """
     Categorize the url depending on the server name into following categories 
@@ -49,7 +50,7 @@ def categorize_url(url):
 
     if "www.openabm.org/" in url \
             or "www.comses.net" in url :
-        model_platform_type = PlatformTypes.COMSES
+        model_platform_type = CodePlatformIdentifier.COMSES.value
 
     elif "sourceforge.net/" in url or "github.com/" in url \
             or "ccpforge.cse.rl.ac.uk/" in url \
@@ -58,24 +59,24 @@ def categorize_url(url):
             or "code.google.com/" in url \
             or "sciencedirect.com" in url \
             or "figshare.com" in url:
-        model_platform_type = PlatformTypes.OPEN_SOURCE
+        model_platform_type = CodePlatformIdentifier.OPEN_SOURCE.value
 
     elif "modelingcommons.org/" in url \
             or "ccl.northwestern.edu/netlogo/models/community" in url \
             or "cormas.cirad.fr/" in url:
-        model_platform_type = PlatformTypes.PLATFORM
+        model_platform_type = CodePlatformIdentifier.PLATFORM.value
 
     elif "journals.plos.org" in url:
-        model_platform_type = PlatformTypes.JOURNAL
+        model_platform_type = CodePlatformIdentifier.JOURNAL.value
 
     elif "dropbox.com" in url \
             or "researchgate.net" in url \
             or ".zip" in url or ".pdf" in url \
             or ".txt" in url or '.docx' in url:
-        model_platform_type = PlatformTypes.PERSONAL
+        model_platform_type = CodePlatformIdentifier.PERSONAL.value
 
     else:
-        model_platform_type = PlatformTypes.OTHERS
+        model_platform_type = CodePlatformIdentifier.OTHERS.value
 
     return model_platform_type
 
@@ -83,12 +84,12 @@ def categorize_url(url):
     ADDS the logs to the status log table
 """
 def add_url_status_log(pk, type, request):
-    url_log_object = URLStatusLogs.objects.create(type=type, status_code=request.status_code,
-                                                  status_reason= request.reason, url=request.url, text= request.headers)
-    url_log_object.pub_id = Publication.objects.get(pk=pk)
+    url_log_object = URLStatusLog.objects.create(type=type, status_code=request.status_code,
+                                                  status_reason= request.reason, url=request.url, headers= request.headers)
+    url_log_object.publication = Publication.objects.get(pk=pk)
     url_log_object.save()
 
 def add_url_status_log_bad_request(pk, type, url):
-    url_log_object = URLStatusLogs.objects.create(type=type, url=url, status_code = 500)
-    url_log_object.pub_id = Publication.objects.get(pk=pk)
+    url_log_object = URLStatusLog.objects.create(type=type, url=url, status_code = 500)
+    url_log_object.publication = Publication.objects.get(pk=pk)
     url_log_object.save()

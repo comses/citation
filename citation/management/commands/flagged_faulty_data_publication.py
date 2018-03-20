@@ -17,19 +17,17 @@ class Command(BaseCommand):
                 for name in category['modelDocumentationList']:
                     narrative_list.append(name['name'])
 
-        total = models.Publication.api.primary(status='REVIEWED')
-        difference = set(total).difference(
-            set(models.Publication.api.primary(status="REVIEWED", model_documentation__name__in=narrative_list)))
+        faulty_publications = models.Publication.api.primary(status='REVIEWED').exclude(model_documentation__name__in=narrative_list)
         logger.debug("-------------------------Following publication contains faulty data -----------------------------")
-        for pub in difference:
+        for pub in faulty_publications:
             try:
                 creator = User.objects.get(username='alee14')
                 audit_command = models.AuditCommand.objects.create(action=models.AuditCommand.Action.MANUAL,
                                                                    creator=creator)
                 publication = models.Publication.objects.get(pk=pub.id)
                 publication.log_update(audit_command, **{'flagged': True})
-
+                logger.info("Flagged publication successfully: " + str(pub))
             except models.Publication.DoesNotExist:
-                logger.debug(pub + "This publication doesnt exist anymore in the database")
+                logger.info("Publication Doesn't Exist: " + str(pub))
 
         logger.debug("Publication with faulty data flagged successfully")

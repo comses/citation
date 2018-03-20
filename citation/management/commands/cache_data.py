@@ -26,7 +26,7 @@ class Command(BaseCommand):
         network = options.get('network')
 
         if not any([contributor, publication, network]):
-            logger.debug("No input specified on what to cache so caching everything")
+            logger.info("No input specified on what to cache so caching everything")
             initialize_contributor_cache()
             initialize_publication_code_platform_cache()
             initialize_network_cache()
@@ -37,3 +37,5 @@ class Command(BaseCommand):
             initialize_publication_code_platform_cache()
         elif network:
             initialize_network_cache()
+
+    logger.debug("Cache Completed Successfully")
