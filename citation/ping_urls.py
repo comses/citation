@@ -3,8 +3,8 @@ import requests
 
 from django.db.models import Q
 
-from citation.models import Publication, URLStatusLog
-from .globals import CodePlatformIdentifier
+from .models import Publication, URLStatusLog
+from .graphviz.globals import CodePlatformIdentifier
 
 logger = logging.getLogger(__name__)
 

@@ -18,7 +18,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.core.cache import cache
 from model_utils import Choices
 
-from .globals import CodePlatformIdentifier, CacheNames
+from .graphviz.globals import CodePlatformIdentifier, CacheNames
 from . import fields
 
 
