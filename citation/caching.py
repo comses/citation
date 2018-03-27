@@ -6,7 +6,7 @@ from django.db import connection
 from django.db.models import Count
 
 from .models import Publication
-from .graphviz.viz_views_helper import generate_network_graph_group_by_tags, generate_network_graph_group_by_sponsors, \
+from .graphviz.data import generate_network_graph_group_by_tags, generate_network_graph_group_by_sponsors, \
                                generate_publication_code_platform_data
 from .graphviz.globals import RelationClassifier, CacheNames
 
