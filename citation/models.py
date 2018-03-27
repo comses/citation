@@ -18,6 +18,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.core.cache import cache
 from model_utils import Choices
 
+from .graphviz.globals import CodePlatformIdentifier, CacheNames
 from . import fields
 
 
@@ -504,7 +505,8 @@ class PublicationQuerySet(models.QuerySet):
 
     def aggregated_list(self, identifier=None, **kwargs):
         """
-        :param: identifier: String - relation identifier - should be either sponsors, platforms, or container(i.e: journal)
+        :param: identifier: String - relation identifier - should be Django Model that has name attribute (field)
+                            example: sponsors, platforms, or container(i.e: journal)
         :param: kwargs: Dict - additional query filter
         :return: list of the aggregated data for the specified identifier
         """
@@ -622,8 +624,9 @@ class Publication(AbstractLogModel):
         return bool(self.code_archive_url)
 
     def contributor_data(self):
-        if cache.get(self.id):
-            return cache.get(self.id)
+        value = cache.get(CacheNames.CONTRIBUTION_DATA.value + str(self.id))
+        if value:
+            return value
         elif self.is_primary:
             audit_logs = AuditLog.objects.filter(
                 Q(audit_command__action='MANUAL') & (Q(table='publication', row_id=self.id) |
@@ -695,6 +698,33 @@ class Publication(AbstractLogModel):
     def __str__(self):
         return 'id: {id} {title} {year}. {container}'.format(id=self.id, title=self.title, year=self.year_published,
                                                              container=self.container)
+
+
+class URLStatusLog(models.Model):
+    PLATFORM_TYPES = Choices((CodePlatformIdentifier.COMSES.value, _('CoMSES')),
+                     (CodePlatformIdentifier.OPEN_SOURCE.value, _('Open Source')),
+                     (CodePlatformIdentifier.PLATFORM.value, _('Platform')),
+                     (CodePlatformIdentifier.JOURNAL.value, _('Journal')),
+                     (CodePlatformIdentifier.PERSONAL.value, _('Personal')),
+                     (CodePlatformIdentifier.INVALID.value, _('Invalid')),
+                     (CodePlatformIdentifier.OTHERS.value, _('Others'))
+                     )
+    publication = models.ForeignKey(Publication, related_name='url_status', null=True, blank=True, db_constraint=False)
+    url = models.URLField(blank=True, max_length=500)
+    date_created = models.DateTimeField(auto_now_add=True,
+                                      help_text=_('Date this url was last verified'))
+    last_modified = models.DateTimeField(auto_now=True,
+                                         help_text=_('Date this url status was last modified on this system'))
+    headers = models.TextField(blank=True, help_text=_('contains information about the url header'))
+    type = models.TextField(choices=PLATFORM_TYPES)
+    status_code = models.PositiveIntegerField(default=0)
+    status_reason = models.TextField(blank= True, help_text=_('contains reason for the url success/failure'))
+    system_generated = models.BooleanField(default=True)
+
+    def get_message(self):
+        return "Pub: {pub} {type} {url} {code} {reason}".format(pub=self.publication , type =self.type,
+                                                                  url = self.url, code=self.status_code,
+                                                                  reason= self.status_reason)
 
 
 class AuditCommand(models.Model):

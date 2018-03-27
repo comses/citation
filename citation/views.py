@@ -1,16 +1,14 @@
-from citation.models import (Publication, InvitationEmail, Platform, Sponsor, Tag, Container, ModelDocumentation,
-                             Note, )
-from citation.serializers import (CatalogPagination, ModelDocumentationSerializer, NoteSerializer,
+from .models import Publication, ModelDocumentation, Note
+from .serializers import (CatalogPagination, ModelDocumentationSerializer, NoteSerializer,
                                   PublicationSerializer, PublicationListSerializer, )
 
 from datetime import datetime
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
-from django.shortcuts import get_object_or_404, resolve_url
+from django.shortcuts import get_object_or_404
 
 from json import dumps
-
 import logging
 
 from rest_framework.response import Response

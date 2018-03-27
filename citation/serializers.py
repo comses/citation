@@ -206,7 +206,7 @@ class PublicationAuditCommandSerializer(serializers.Serializer):
 
 class AuditCommandContibutionSerializer(serializers.Serializer):
     creator = serializers.StringRelatedField(read_only=True)
-    contribution = serializers.IntegerField(read_only=True)
+    contribution = serializers.FloatField(read_only=True)
     date_added = serializers.DateTimeField(read_only=True, format='%m/%d/%Y %H:%M')
 
 
