@@ -4,3 +4,4 @@ django-autofixture
 python-coveralls
 coverage==4.4.1
 ipython
+sphinx
