@@ -5,6 +5,10 @@
 
 Django app to track bibliometric metadata for publications that reference computational models.
 
+## Documentation
+
+Documentation is available at [Read the Docs](https://citation.readthedocs.io/en/latest/)
+
 ## Build and test instructions
 
 ```
