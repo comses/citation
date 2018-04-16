@@ -511,7 +511,7 @@ class PublicationQuerySet(models.QuerySet):
         :return: list of the aggregated data for the specified identifier
         """
         if identifier in ["sponsors", "platforms", "container"]:
-            return self.primary(status='REVIEWED', prefetch=True, **kwargs).annotate(
+            return self.primary(prefetch=True, **kwargs).annotate(
                 name=F(identifier + '__name')).values('name').order_by(
                 'name').annotate(published_count=Count('name'),
                                  code_availability_count=models.Sum(

@@ -6,9 +6,9 @@ from django.db import connection
 from django.db.models import Count
 
 from .models import Publication
-from .graphviz.data import generate_network_graph_group_by_tags, generate_network_graph_group_by_sponsors, \
-                               generate_publication_code_platform_data
-from .graphviz.globals import RelationClassifier, CacheNames
+from .graphviz.data import generate_network_graph, \
+    generate_aggregated_code_archived_platform_data,generate_aggregated_distribution_data
+from .graphviz.globals import RelationClassifier, CacheNames, NetworkGroupBYType
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +65,10 @@ def _dictfetchall(cursor):
 """
 def initialize_publication_code_platform_cache():
     logger.debug("Caching publication distribution data")
-    aggregated_data = generate_publication_code_platform_data({}, RelationClassifier.GENERAL.value, "Publications")
-    cache.set(CacheNames.DISTRIBUTION_DATA.value, aggregated_data.data, 86410)
-    cache.set(CacheNames.CODE_ARCHIVED_PLATFORM.value, aggregated_data.code_archived_platform, 86410)
+    distribution_data = generate_aggregated_distribution_data({'is_primary':True,'status':'REVIEWED'}, RelationClassifier.GENERAL.value, "Publications")
+    code_archived_data = generate_aggregated_code_archived_platform_data({'is_primary':True,'status':'REVIEWED'})
+    cache.set(CacheNames.DISTRIBUTION_DATA.value, distribution_data, 86410)
+    cache.set(CacheNames.CODE_ARCHIVED_PLATFORM.value, code_archived_data, 86410)
     logger.debug("Publication code platform distribution data cache completed.")
 
 """
@@ -82,8 +83,8 @@ def initialize_network_cache():
                annotate(count=Count('sponsors__name')).values('count', 'sponsors__name').order_by('-count')[:10]
     for sponsor in sponsors:
         sponsors_name.append(sponsor['sponsors__name'])
-    sponsors_filter = {'sponsors__name__in' : sponsors_name}
-    network_data = generate_network_graph_group_by_sponsors(sponsors_filter)
+    sponsors_filter = {'sponsors__name__in' : sponsors_name, 'is_primary':True, 'status':'REVIEWED'}
+    network_data = generate_network_graph(sponsors_filter, NetworkGroupBYType.SPONSOR.value)
     cache.set(CacheNames.NETWORK_GRAPH_GROUP_BY_SPONSORS.value, network_data.graph, 86410)
     cache.set(CacheNames.NETWORK_GRAPH_SPONSOS_FILTER.value, network_data.filter_value, 86410)
     logger.info("Network cache for group_by sponsors completed using static filter: " + str(sponsors_name))
@@ -93,8 +94,8 @@ def initialize_network_cache():
         annotate(count=Count('tags__name')).values('count','tags__name').order_by('-count')[:10]
     for tag in tags:
         tags_name.append(tag['tags__name'])
-    tags_filter = {'tags__name__in': tags_name}
-    network_data = generate_network_graph_group_by_tags(tags_filter)
+    tags_filter = {'tags__name__in': tags_name, 'is_primary':True, 'status': 'REVIEWED'}
+    network_data = generate_network_graph(tags_filter, NetworkGroupBYType.TAGS.value)
     cache.set(CacheNames.NETWORK_GRAPH_GROUP_BY_TAGS.value, network_data.graph, 86410)
     cache.set(CacheNames.NETWORK_GRAPH_TAGS_FILTER.value, network_data.filter_value, 86410)
     logger.info("Network cache for group_by tags completed using static filter: " + str(tags_name))
