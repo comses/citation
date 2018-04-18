@@ -1,3 +1,5 @@
+from collections import Counter
+
 from haystack.query import SearchQuerySet
 from dateutil.parser import parse as datetime_parse
 from datetime import datetime
@@ -139,23 +141,23 @@ def generate_aggregated_distribution_data(filter_criteria, classifier, name):
                 date_published = int(datetime_parse(str(pub.date_published)).year)
             except:
                 date_published = None
-            if date_published is not None and is_archived:
-                availability.append(date_published)
+            if date_published is not None:
                 years_list.append(date_published)
-            elif pub.date_published is not None:
-                non_availability.append(date_published)
-                years_list.append(date_published)
+                bucket = availability if is_archived else non_availability
+                bucket.append(date_published)
 
         distribution_data = []
-
+        availability_counter = Counter(availability)
+        non_availability_counter = Counter(non_availability)
+        count = len(years_list)
         for year in set(years_list):
-            present = availability.count(year) * 100 / len(years_list)
-            absent = non_availability.count(year) * 100 / len(years_list)
+            present = availability_counter[year] * 100 / count
+            absent = non_availability_counter[year] * 100 / count
             total = present + absent
             distribution_data.append(
                 {'relation': classifier, 'name': name, 'date': year,
-                 'Code Available': availability.count(year),
-                 'Code Not Available': non_availability.count(year),
+                 'Code Available': availability_counter[year],
+                 'Code Not Available': non_availability_counter[year],
                  'Code Available Per': present * 100 / total,
                  'Code Not Available Per': absent * 100 / total})
 
@@ -189,3 +191,4 @@ def generate_aggregated_code_archived_platform_data(filter_criteria = {}):
 def queryset_gen(search_qs):
     for item in search_qs:
         yield item.pk
+
