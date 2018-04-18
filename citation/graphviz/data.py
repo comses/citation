@@ -62,12 +62,17 @@ def generate_link_candidates(filter_criteria):
 
 def get_network_default_filter(group_by):
     if group_by == NetworkGroupBYType.SPONSOR.value:
-        sponsors = Publication.api.primary(status="REVIEWED").values('sponsors__name').order_by('sponsors__name'). \
-                       annotate(count=Count('sponsors__name')).values('count', 'sponsors__name').order_by('-count')[:10]
+        # FIXME: this should be abstracted into a method like Publication.api.sponsors_with_count(number=10)
+        sponsors = Publication.api.primary(status="REVIEWED").values('sponsors__name').order_by(
+            'sponsors__name').annotate(count=Count('sponsors__name')).values(
+                'count', 'sponsors__name').order_by('-count')[:10]
         return [sponsor['sponsors__name'] for sponsor in sponsors]
     else:
-        tags = Publication.api.primary(status="REVIEWED").values('tags__name').order_by('tags__name'). \
-                   annotate(count=Count('tags__name')).values('count', 'tags__name').order_by('-count')[:10]
+        # FIXME: this should be abstracted into a method in Publication.api, e.g.,
+        # Publication.api.tags_with_count(number=10)
+        tags = Publication.api.primary(status="REVIEWED").values('tags__name').order_by(
+            'tags__name').annotate(count=Count('tags__name')).values(
+                'count', 'tags__name').order_by('-count')[:10]
     return [tag['tags__name'] for tag in tags]
 
 
@@ -103,6 +108,7 @@ def get_links(links_candidates, nodes_index):
 
 
 def get_nodes(nodes_candidates, filter_value, group_by):
+    # FIXME: the logic in this method is too complex / convoluted. simplify & refactor
     publication = Publication.api.primary(status="REVIEWED")
     nodes = []
     nodes_index = []
@@ -117,22 +123,22 @@ def get_nodes(nodes_candidates, filter_value, group_by):
             group = value
 
         nodes_index.append(pub)
+# FIXME: this particular expression needs to be cleaned up & refactored
         nodes.append({"name": pub, "group": group, 'tags': ','.join(
             ['{0}'.format(s.name) for s in
              publication.get(pk=pub).tags.all()]), 'sponsors': ','.join(
             ['{0}'.format(s.name) for s in
              publication.get(pk=pub).sponsors.all()]), "Authors": ', '.join(
             ['{0}, {1}.'.format(c.family_name, c.given_name_initial) for c in
-             publication.get(pk=pub).creators.all()]),
-                      "title": publication.filter(pk=pub).values_list('title')[0][0]})
+             publication.get(pk=pub).creators.all()]), "title": publication.filter(pk=pub).values_list('title')[0][0]})
     return nodes, nodes_index
 
 
 def generate_aggregated_distribution_data(filter_criteria, classifier, name):
     sqs = SearchQuerySet()
     pubs = sqs.filter(**filter_criteria).models(Publication)
-    availability = []
-    non_availability = []
+    availability = Counter()
+    non_availability = Counter()
     years_list = []
     if pubs:
         for pub in pubs:
@@ -144,27 +150,28 @@ def generate_aggregated_distribution_data(filter_criteria, classifier, name):
             if date_published is not None:
                 years_list.append(date_published)
                 bucket = availability if is_archived else non_availability
-                bucket.append(date_published)
+                bucket[date_published] += 1
 
         distribution_data = []
-        availability_counter = Counter(availability)
-        non_availability_counter = Counter(non_availability)
         count = len(years_list)
         for year in set(years_list):
-            present = availability_counter[year] * 100 / count
-            absent = non_availability_counter[year] * 100 / count
+            present = availability[year] * 100 / count
+            absent = non_availability[year] * 100 / count
             total = present + absent
-            distribution_data.append(
-                {'relation': classifier, 'name': name, 'date': year,
-                 'Code Available': availability_counter[year],
-                 'Code Not Available': non_availability_counter[year],
-                 'Code Available Per': present * 100 / total,
-                 'Code Not Available Per': absent * 100 / total})
+            distribution_data.append({
+                'relation': classifier, 'name': name, 'date': year,
+                'Code Available': availability[year],
+                'Code Not Available': non_availability[year],
+                'Code Available Per': present * 100 / total,
+                'Code Not Available Per': absent * 100 / total
+            })
 
         return distribution_data
 
 
-def generate_aggregated_code_archived_platform_data(filter_criteria = {}):
+def generate_aggregated_code_archived_platform_data(filter_criteria=None):
+    if filter_criteria is None:
+        filter_criteria = {}
     url_logs = URLStatusLog.objects.all().values('publication').order_by('publication', '-last_modified'). \
         annotate(last_modified=Max('last_modified')).values('publication', 'type').order_by('publication')
 
@@ -191,4 +198,3 @@ def generate_aggregated_code_archived_platform_data(filter_criteria = {}):
 def queryset_gen(search_qs):
     for item in search_qs:
         yield item.pk
-
