@@ -30,7 +30,7 @@ def generate_node_candidates(links_candidates):
     for source, target in links_candidates:
         nodes.add(source)
         nodes.add(target)
-    return nodes
+    return list(nodes)
 
 
 # Generates links that will be used to form the network based on the provided filter criteria
@@ -62,18 +62,9 @@ def generate_link_candidates(filter_criteria):
 
 def get_network_default_filter(group_by):
     if group_by == NetworkGroupBYType.SPONSOR.value:
-        # FIXME: this should be abstracted into a method like Publication.api.sponsors_with_count(number=10)
-        sponsors = Publication.api.primary(status="REVIEWED").values('sponsors__name').order_by(
-            'sponsors__name').annotate(count=Count('sponsors__name')).values(
-                'count', 'sponsors__name').order_by('-count')[:10]
-        return [sponsor['sponsors__name'] for sponsor in sponsors]
+        return Publication.api.get_top_records(attribute='sponsors__name')
     else:
-        # FIXME: this should be abstracted into a method in Publication.api, e.g.,
-        # Publication.api.tags_with_count(number=10)
-        tags = Publication.api.primary(status="REVIEWED").values('tags__name').order_by(
-            'tags__name').annotate(count=Count('tags__name')).values(
-                'count', 'tags__name').order_by('-count')[:10]
-    return [tag['tags__name'] for tag in tags]
+        return Publication.api.get_top_records(attribute='tags__name')
 
 
 def generate_network_graph(filter_criteria, group_by=NetworkGroupBYType.TAGS.value):
@@ -91,8 +82,8 @@ def generate_network_graph(filter_criteria, group_by=NetworkGroupBYType.TAGS.val
     nodes_candidates = generate_node_candidates(links_candidates)
 
     # Forming network group
-    nodes, nodes_index = get_nodes(nodes_candidates, filter_value, group_by)
-    links = get_links(links_candidates, nodes_index)
+    nodes = get_nodes(nodes_candidates, filter_value, group_by)
+    links = get_links(links_candidates, nodes_candidates)
 
     filter_value.append("Others")
     return NetworkData(nodes, links, filter_value)
@@ -101,37 +92,52 @@ def generate_network_graph(filter_criteria, group_by=NetworkGroupBYType.TAGS.val
 def get_links(links_candidates, nodes_index):
     links = []
     for source, target in links_candidates:
-        links.append(
-            {"source": nodes_index.index(source), "target": nodes_index.index(target),
-             "value": 1})
+        links.append({
+            "source": nodes_index.index(source), "target": nodes_index.index(target), "value": 1
+        })
     return links
 
 
 def get_nodes(nodes_candidates, filter_value, group_by):
-    # FIXME: the logic in this method is too complex / convoluted. simplify & refactor
-    publication = Publication.api.primary(status="REVIEWED")
+    publications = Publication.api.primary(status="REVIEWED")
     nodes = []
-    nodes_index = []
     for pub in nodes_candidates:
+        publication = publications.get(pk=pub)
+        group_values = []
         if group_by == NetworkGroupBYType.SPONSOR.value:
-            group_values = list(t[0] for t in publication.get(pk=pub).sponsors.all().values_list('name'))
+            for name, in publication.sponsors.all().values_list('name'):
+                group_values.append(name)
         else:
-            group_values = list(t[0] for t in publication.get(pk=pub).tags.all().values_list('name'))
-        value = next((values for values in group_values if values in filter_value), None)
-        group = "Others"
+            for name, in publication.tags.all().values_list('name'):
+                group_values.append(name)
+
+        value = get_common_value(group_values, filter_value)
         if value:
             group = value
+        else:
+            group = "Others"
 
-        nodes_index.append(pub)
-# FIXME: this particular expression needs to be cleaned up & refactored
-        nodes.append({"name": pub, "group": group, 'tags': ','.join(
-            ['{0}'.format(s.name) for s in
-             publication.get(pk=pub).tags.all()]), 'sponsors': ','.join(
-            ['{0}'.format(s.name) for s in
-             publication.get(pk=pub).sponsors.all()]), "Authors": ', '.join(
-            ['{0}, {1}.'.format(c.family_name, c.given_name_initial) for c in
-             publication.get(pk=pub).creators.all()]), "title": publication.filter(pk=pub).values_list('title')[0][0]})
-    return nodes, nodes_index
+        nodes.append({
+            'name': pub,
+            'group': group,
+            'tags': ', '.join(['{0}'.format(s.name) for s in publication.tags.all()]),
+            'sponsors': ', '.join(['{0}'.format(s.name) for s in publication.sponsors.all()]),
+            'Authors': ', '.join(['{0}, {1}.'.format(c.family_name, c.given_name_initial) for c in publication.creators.all()]),
+            'title': publication.title
+        })
+    return nodes
+
+
+def get_common_value(first, second):
+    """
+    :param first: list
+    :param second: list
+    :return: first common value found
+    """
+    for value in first:
+        if value in second:
+            return value
+    return None
 
 
 def generate_aggregated_distribution_data(filter_criteria, classifier, name):
@@ -144,7 +150,7 @@ def generate_aggregated_distribution_data(filter_criteria, classifier, name):
         for pub in pubs:
             is_archived = pub.is_archived
             try:
-                date_published = int(datetime_parse(str(pub.date_published)).year)
+                date_published = pub.date_published.year
             except:
                 date_published = None
             if date_published is not None:
@@ -198,3 +204,4 @@ def generate_aggregated_code_archived_platform_data(filter_criteria=None):
 def queryset_gen(search_qs):
     for item in search_qs:
         yield item.pk
+

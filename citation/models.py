@@ -7,6 +7,7 @@ from dateutil.parser import parse as datetime_parse
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
 from django.contrib.sites.requests import RequestSite
+from django.core.exceptions import FieldError
 from django.core.urlresolvers import reverse
 from django.db import models, transaction
 from django.db.models import F
@@ -520,6 +521,23 @@ class PublicationQuerySet(models.QuerySet):
                 .values('name', 'published_count', 'code_availability_count').order_by('-published_count')
         return None
 
+    def get_top_records(self, attribute=None, number=10):
+        """
+        :param: attribute: String - can be any valid publication model attribute (field)
+                                    example: pk, sponsors, sponsors__name, or container
+        :param: number: int - specifies how many record it should return
+        :return: list of top data for the specified attribute
+        """
+        if attribute is None:
+            return list(Publication.objects.filter(is_primary=True, status="REVIEWED")[:number])
+        try:
+            records = self.primary(status="REVIEWED").values(attribute).order_by(
+                attribute).annotate(count=Count(attribute)).values(
+                    'count', attribute).order_by('-count')[:number]
+            return [record[attribute] for record in records]
+        except FieldError:
+            return FieldError
+
 
 class Publication(AbstractLogModel):
     Status = Choices(
@@ -930,3 +948,4 @@ class RawAuthors(AbstractLogModel):
 
     class Meta:
         unique_together = ('author', 'raw')
+
