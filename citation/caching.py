@@ -8,7 +8,7 @@ from django.db.models import Count
 from .models import Publication
 from .graphviz.data import generate_network_graph, \
     generate_aggregated_code_archived_platform_data,generate_aggregated_distribution_data
-from .graphviz.globals import RelationClassifier, CacheNames, NetworkGroupBYType
+from .graphviz.globals import RelationClassifier, CacheNames, NetworkGroupByType
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ def initialize_network_cache():
     for sponsor in sponsors:
         sponsors_name.append(sponsor['sponsors__name'])
     sponsors_filter = {'sponsors__name__in' : sponsors_name, 'is_primary':True, 'status':'REVIEWED'}
-    network_data = generate_network_graph(sponsors_filter, NetworkGroupBYType.SPONSOR.value)
+    network_data = generate_network_graph(sponsors_filter, NetworkGroupByType.SPONSOR.value)
     cache.set(CacheNames.NETWORK_GRAPH_GROUP_BY_SPONSORS.value, network_data.graph, 86410)
     cache.set(CacheNames.NETWORK_GRAPH_SPONSOS_FILTER.value, network_data.filter_value, 86410)
     logger.info("Network cache for group_by sponsors completed using static filter: " + str(sponsors_name))
@@ -95,7 +95,8 @@ def initialize_network_cache():
     for tag in tags:
         tags_name.append(tag['tags__name'])
     tags_filter = {'tags__name__in': tags_name, 'is_primary':True, 'status': 'REVIEWED'}
-    network_data = generate_network_graph(tags_filter, NetworkGroupBYType.TAGS.value)
+    network_data = generate_network_graph(tags_filter, NetworkGroupByType.TAGS.value)
     cache.set(CacheNames.NETWORK_GRAPH_GROUP_BY_TAGS.value, network_data.graph, 86410)
     cache.set(CacheNames.NETWORK_GRAPH_TAGS_FILTER.value, network_data.filter_value, 86410)
     logger.info("Network cache for group_by tags completed using static filter: " + str(tags_name))
+
