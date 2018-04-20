@@ -47,6 +47,7 @@ class CacheNames(Enum):
     NETWORK_GRAPH_TAGS_FILTER = "citation:network_graph_tags_filter"
 
 
-class NetworkGroupBYType(Enum):
+class NetworkGroupByType(Enum):
     TAGS = 'tags'
     SPONSOR = 'sponsors'
+

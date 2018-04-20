@@ -4,7 +4,7 @@ from haystack.query import SearchQuerySet
 from dateutil.parser import parse as datetime_parse
 from datetime import datetime
 
-from .globals import NetworkGroupBYType
+from .globals import NetworkGroupByType
 from ..models import Publication, URLStatusLog
 from ..ping_urls import categorize_url
 
@@ -61,13 +61,13 @@ def generate_link_candidates(filter_criteria):
 
 
 def get_network_default_filter(group_by):
-    if group_by == NetworkGroupBYType.SPONSOR.value:
+    if group_by == NetworkGroupByType.SPONSOR.value:
         return Publication.api.get_top_records(attribute='sponsors__name')
     else:
         return Publication.api.get_top_records(attribute='tags__name')
 
 
-def generate_network_graph(filter_criteria, group_by=NetworkGroupBYType.TAGS.value):
+def generate_network_graph(filter_criteria, group_by=NetworkGroupByType.TAGS.value):
 
     if group_by+'__name__in' in filter_criteria:
         filter_value = filter_criteria[group_by+'__name__in']
@@ -104,11 +104,11 @@ def get_nodes(nodes_candidates, filter_value, group_by):
     for pub in nodes_candidates:
         publication = publications.get(pk=pub)
         group_values = []
-        if group_by == NetworkGroupBYType.SPONSOR.value:
-            for name, in publication.sponsors.all().values_list('name'):
+        if group_by == NetworkGroupByType.SPONSOR.value:
+            for name in publication.sponsors.all().values_list('name', flat=True):
                 group_values.append(name)
         else:
-            for name, in publication.tags.all().values_list('name'):
+            for name in publication.tags.all().values_list('name', flat=True):
                 group_values.append(name)
 
         value = get_common_value(group_values, filter_value)
