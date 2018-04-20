@@ -45,3 +45,9 @@ class CacheNames(Enum):
     NETWORK_GRAPH_GROUP_BY_TAGS = "citation:network_graph_group_by_tags"
     # stores the name of the default tags filter used to cache it
     NETWORK_GRAPH_TAGS_FILTER = "citation:network_graph_tags_filter"
+
+
+class NetworkGroupByType(Enum):
+    TAGS = 'tags'
+    SPONSOR = 'sponsors'
+
