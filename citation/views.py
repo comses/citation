@@ -74,11 +74,15 @@ class CuratorPublicationDetail(LoginRequiredMixin, generics.GenericAPIView):
         # computational models.
         serializer = PublicationSerializer(publication, data=request.data)
         if serializer.is_valid():
+            self.update_contribution_data(pk)
             serializer.save(user=request.user)
             return Response(serializer.data)
         logger.warning("serializer failed validation: %s", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @staticmethod
+    def update_contribution_data(pk):
+        Publication.objects.get(pk=pk).contributor_data()
 
 class NoteDetail(LoginRequiredMixin, generics.GenericAPIView):
     """
@@ -131,3 +135,4 @@ class NoteList(LoginRequiredMixin, generics.GenericAPIView):
             serializer.save(added_by=request.user)
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        

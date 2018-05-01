@@ -655,6 +655,7 @@ class Publication(AbstractLogModel):
                 contribution=(Cast((Count('creator')) * 100 / len(audit_logs), IntegerField())),
                 date_added=(Max('audit_command__date_added'))) \
                 .values('creator', 'contribution', 'date_added').order_by('-date_added')
+            cache.set(CacheNames.CONTRIBUTION_DATA.value + str(self.id), list(unique_logs), 86410)
             return unique_logs
 
     @property
@@ -948,4 +949,5 @@ class RawAuthors(AbstractLogModel):
 
     class Meta:
         unique_together = ('author', 'raw')
+
 
