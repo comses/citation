@@ -1,75 +1,72 @@
 from citation.models import Publication, Platform, Sponsor
 
+CSV_DEFAULT_HEADER = ["id", "title", "abstract", "short_title", "zotero_key", "url",
+                      "date_published_text", "date_accessed", "archive", "archive_location",
+                      "library_catalog", "call_number", "rights", "extra", "published_language", "date_added",
+                      "date_modified", "zotero_date_added", "zotero_date_modified", "status", "code_archive_url",
+                      "contact_email", "author_comments", "email_sent_count", "added_by", "assigned_curator",
+                      "contact_author_name", "is_primary", "doi", "series_text", "series_title", "series", "issue",
+                      "volume", "issn", "pages", "container", "platforms", "sponsors"]
 
-# retrieves elements from tuple and append it to a list - for adding in csv row
-def get_attribute_values(attributes):
-    c = []
-    for attr in attributes:
-        c.append(str(attr[0]))
-    return c
 
+class CsvGenerator:
+    platforms = Platform.objects.all().values_list("name", flat=True).order_by("name")
+    sponsors = Sponsor.objects.all().values_list("name", flat=True).order_by("name")
 
-# creates a list of True/False depending whether values are within the items or not - for creating Matrix
-def generate_boolean_list(items, values):
-    output = []
-    for item in items:
-        if item[0] in values:
-            output.append(1)
+    def __init__(self, attributes=None):
+        self.whitelist = [fields.name for fields in Publication._meta.many_to_many]
+        print("Recieved Attributes: ", attributes)
+        if attributes is None:
+            self.attributes = CSV_DEFAULT_HEADER
         else:
-            output.append(0)
-    return output
+            self.attributes = attributes
 
+        self.verify_attributes()
 
-# Creating header for csv file
-def generate_csv_header():
-    header = ["Id", "Publication Title", "Abstract", "Short Title", "Zotero Key", "Code Url",
-              "Date Published Text", "Date Accessed", "Archive", "Archive location", "Library catalog",
-              "Call number", "Rights", "Extra", "Published Language", "Date Added", "Date Modified",
-              "Zotero Date Added", "Zotero Date Modified", "Status", "Code Archive url", "Contact Email",
-              "Author Comments", "Email Sent out", "Added by", "Assign Curator", "Conatct Author Name",
-              "Resource type", "Is primary", "Journal Id", "doi", "Series text", "Series title", "Series", "Issue",
-              "Volume", "ISSN", "pages", "Year of Publication", "Journal", "Notes", "Platform List"]
+    def verify_attributes(self):
+        for name in self.attributes:
+            if not hasattr(Publication, name):
+                raise AttributeError("Publication model doesn't have attribute :" + name)
 
-    all_platforms = Platform.objects.all().values_list("name").order_by("name")
-    all_sponsors = Sponsor.objects.all().values_list("name").order_by("name")
-    header.extend(get_attribute_values(all_platforms))
-    header.append("Sponsors List")
-    header.extend(get_attribute_values(all_sponsors))
-    return header
+    def generate_boolean_list(self, items, values):
+        return ['1' if item in values else '0' for item in items]
 
+    def get_header(self):
+        header = []
 
-# Creating row for csv file
-def generate_csv_row(pub):
-    platforms = get_attribute_values(list(pub.platforms.all().values_list("name")))
-    sponsors = get_attribute_values(list(pub.sponsors.all().values_list("name")))
-    notes = get_attribute_values(list(pub.note_set.all().values_list("text")))
-    all_platforms = Platform.objects.all().values_list("name").order_by("name")
-    all_sponsors = Sponsor.objects.all().values_list("name").order_by("name")
+        for name in self.attributes:
+            if name in self.whitelist:
+                header.append(name)
+                header.extend(self.get_all_m2m_data(name))
+            else:
+                header.append(name.strip().replace('_', ' '))
 
-    platforms_output = generate_boolean_list(all_platforms, platforms)
-    sponsors_output = generate_boolean_list(all_sponsors, sponsors)
+        return header
 
-    row = [pub.pk, pub.title, str(pub.abstract), pub.short_title, pub.zotero_key, pub.url,
-           pub.date_published_text, pub.date_accessed, pub.archive, pub.archive_location,
-           pub.library_catalog, pub.call_number, pub.rights, pub.extra, pub.published_language, pub.date_added,
-           pub.date_modified, pub.zotero_date_added, pub.zotero_date_modified, pub.status,
-           pub.code_archive_url, pub.contact_email, pub.author_comments,
-           pub.email_sent_count, pub.added_by, pub.assigned_curator, pub.contact_author_name,
-           pub.container.type, pub.is_primary, pub.container.id, pub.doi, pub.series_text,
-           pub.series_title, pub.series, pub.issue, pub.volume, pub.issn, pub.pages,
-           pub.container.date_added, pub.container.name, notes, platforms]
-    row.extend(platforms_output)
-    row.append(sponsors)
-    row.extend(sponsors_output)
+    def get_all_m2m_data(self, name):
+        if name == 'sponsors':
+            return self.sponsors
+        if name == 'platforms':
+            return self.platforms
 
-    return row
+    def get_row(self, pub):
+        row = []
+        for name in self.attributes:
+            if name in self.whitelist:
+                source = getattr(pub, name)
+                pub_m2m_data_list = source.all().values_list('name', flat=True)
+                row.append(pub_m2m_data_list)
+                row.extend(self.generate_boolean_list(self.get_all_m2m_data(name), pub_m2m_data_list))
+            else:
+                row.append(getattr(pub, name))
+        return row
 
+    def create_csv_data(self):
+        csv_data = [self.get_header()]
+        publications = Publication.api.primary()
 
-def create_csv(writer):
-    writer.writerow(generate_csv_header())
-    publications = Publication.api.primary(prefetch=True)
+        for pub in publications:
+            csv_data.append(self.get_row(pub))
 
-    for pub in publications:
-        writer.writerow(generate_csv_row(pub))
+        return csv_data
 
-    return writer
