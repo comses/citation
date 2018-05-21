@@ -1,3 +1,5 @@
+import csv
+
 from citation.models import Publication, Platform, Sponsor
 
 CSV_DEFAULT_HEADER = ["id", "title", "abstract", "short_title", "zotero_key", "url",
@@ -10,12 +12,11 @@ CSV_DEFAULT_HEADER = ["id", "title", "abstract", "short_title", "zotero_key", "u
 
 
 class CsvGenerator:
-    platforms = Platform.objects.all().values_list("name", flat=True).order_by("name")
-    sponsors = Sponsor.objects.all().values_list("name", flat=True).order_by("name")
 
     def __init__(self, attributes=None):
-        self.whitelist = [fields.name for fields in Publication._meta.many_to_many]
-        print("Recieved Attributes: ", attributes)
+        self.m2m_attributes = [fields.name for fields in Publication._meta.many_to_many]
+        self.platforms = Platform.objects.all().values_list("name", flat=True).order_by("name")
+        self.sponsors = Sponsor.objects.all().values_list("name", flat=True).order_by("name")
         if attributes is None:
             self.attributes = CSV_DEFAULT_HEADER
         else:
@@ -28,31 +29,34 @@ class CsvGenerator:
             if not hasattr(Publication, name):
                 raise AttributeError("Publication model doesn't have attribute :" + name)
 
+
     def generate_boolean_list(self, items, values):
         return ['1' if item in values else '0' for item in items]
+
 
     def get_header(self):
         header = []
 
         for name in self.attributes:
-            if name in self.whitelist:
+            if name in self.m2m_attributes:
                 header.append(name)
                 header.extend(self.get_all_m2m_data(name))
             else:
                 header.append(name.strip().replace('_', ' '))
-
         return header
 
+
     def get_all_m2m_data(self, name):
-        if name == 'sponsors':
-            return self.sponsors
-        if name == 'platforms':
-            return self.platforms
+        if name in ['sponsors','platforms']:
+            return getattr(self,name)
+        else:
+            raise AttributeError("Forgot to declare " + name + " m2m attribute")
+
 
     def get_row(self, pub):
         row = []
         for name in self.attributes:
-            if name in self.whitelist:
+            if name in self.m2m_attributes:
                 source = getattr(pub, name)
                 pub_m2m_data_list = source.all().values_list('name', flat=True)
                 row.append(pub_m2m_data_list)
@@ -61,12 +65,12 @@ class CsvGenerator:
                 row.append(getattr(pub, name))
         return row
 
-    def create_csv_data(self):
-        csv_data = [self.get_header()]
+
+    def write_all(self, file):
+        writer = csv.writer(file, delimiter=',')
+        writer.writerow(self.get_header())
         publications = Publication.api.primary()
-
         for pub in publications:
-            csv_data.append(self.get_row(pub))
-
-        return csv_data
+            writer.writerow(self.get_row(pub))
+        return writer
 

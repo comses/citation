@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand
 
-import csv
 import logging
 
 from citation.export_data import CsvGenerator
@@ -26,10 +25,8 @@ class Command(BaseCommand):
             csv_generator = CsvGenerator(header)
         else:
             csv_generator = CsvGenerator()
-        csv_data = csv_generator.create_csv_data()
         with open(filename, 'w', encoding="utf-8") as csvfile:
-            writer = csv.writer(csvfile, delimiter=',')
-            for row in csv_data:
-                writer.writerow(row)
+            csv_generator.write_all(csvfile)
+
         logger.debug("Data export completed.")
 
