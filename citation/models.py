@@ -641,9 +641,9 @@ class Publication(AbstractLogModel):
     def is_archived(self):
         return bool(self.code_archive_url)
 
-    def contributor_data(self):
+    def contributor_data(self, latest=False):
         value = cache.get(CacheNames.CONTRIBUTION_DATA.value + str(self.id))
-        if value:
+        if value and not latest:
             return value
         elif self.is_primary:
             audit_logs = AuditLog.objects.filter(

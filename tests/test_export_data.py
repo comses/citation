@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from citation.export_data import create_csv, generate_csv_row, generate_boolean_list
+from citation.export_data import CsvGenerator
 from citation.models import Publication, Platform, Sponsor
 
 from autofixture import AutoFixture
@@ -14,19 +14,19 @@ class TestExport(TestCase):
     @classmethod
     def setUpClass(cls):
         super(TestExport, cls).setUpClass()
+        cls.csv_generator = CsvGenerator()
         cls.publication = AutoFixture(Publication, generate_fk=['container', 'added_by']).create(10)
 
     # Test if actual data is persisting in the file or not
     def test_export_data(self):
         output = io.StringIO()
-        writer = csv.writer(output, delimiter=',')
-        create_csv(writer=writer)
+        self.csv_generator.write_all(output)
 
         contents = output.getvalue()
         publications = Publication.api.primary(prefetch=True)
 
         for pub in publications:
-            rows = generate_csv_row(pub)
+            rows = self.csv_generator.get_row(pub)
             for row in rows:
                 if row is not None:
                     self.assertIn(str(row), contents)
@@ -40,8 +40,8 @@ class TestExport(TestCase):
         all_platforms = Platform.objects.all().values_list("name").order_by("name")
         all_sponsors = Sponsor.objects.all().values_list("name").order_by("name")
 
-        platforms_output = generate_boolean_list(all_platforms, platforms)
-        sponsors_output = generate_boolean_list(all_sponsors, sponsors)
+        platforms_output = self.csv_generator.generate_boolean_list(all_platforms, platforms)
+        sponsors_output = self.csv_generator.generate_boolean_list(all_sponsors, sponsors)
 
         for platform in all_platforms:
             if platform in platforms:
@@ -52,3 +52,4 @@ class TestExport(TestCase):
             if sponsor in sponsors:
                 self.assertEquals(sponsors_output[sponsor], 1)
             self.assertEquals(sponsors_output[sponsor], 0)
+

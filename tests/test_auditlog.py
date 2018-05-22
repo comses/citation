@@ -76,7 +76,7 @@ class TestModelManagers(TestCase):
         models.AuditLog.objects.create(row_id='1', table='publication', audit_command=self.second_context)
 
         p = models.Publication.objects.get(pk=1)
-        cd = p.contributor_data()
+        cd = p.contributor_data(latest=True)
 
         date_values = models.AuditLog.objects.filter(Q(row_id='1') & Q(audit_command__action='MANUAL')).annotate(
             date_added=(Max('audit_command__date_added'))).values_list('date_added')
@@ -91,8 +91,9 @@ class TestModelManagers(TestCase):
         models.AuditLog.objects.create(row_id='1', table='publication', audit_command=self.second_context)
 
         p = models.Publication.objects.get(pk=1)
-        cd = p.contributor_data()
+        cd = p.contributor_data(latest=True)
 
         # verify the last date_added record is at top
         date_value = date_values.filter(audit_command__creator__username='bar')
         self.assertDictEqual(cd[0], {'creator': 'bar', 'contribution': 66, 'date_added': date_value[0][0]})
+

@@ -25,13 +25,15 @@ class PublicationSerializerTest(BaseTest):
             author=self.author, publication=self.publication, role=PublicationAuthors.RoleChoices.AUTHOR)
 
     def test_add_platform_to_publication(self):
+        initial_auditlog_count = AuditLog.objects.count()
+        initial_audit_command_count = AuditCommand.objects.count()
         serializer = PublicationSerializer(self.publication)
         serializer = PublicationSerializer(self.publication, data=serializer.data)
         if serializer.is_valid():
             serializer.save(self.user)
         # If no changes were made to the data nothing should be logged in the auditlog
-        self.assertEqual(AuditLog.objects.count(), 0)
-        self.assertEqual(AuditCommand.objects.count(), 1)
+        self.assertEqual(AuditLog.objects.count(), initial_auditlog_count)
+        self.assertEqual(AuditCommand.objects.count(), initial_audit_command_count + 1)
 
         platform_cpp = Platform.objects.create(name='C++')
         PublicationPlatforms.objects.create(platform=platform_cpp, publication=self.publication)
@@ -41,7 +43,7 @@ class PublicationSerializerTest(BaseTest):
             serializer.save(self.user)
         self.assertEqual(AuditLog.objects.filter(table='publicationplatforms').count(), 0)
         self.assertEqual(AuditLog.objects.filter(table='platform').count(), 0)
-        self.assertEqual(AuditCommand.objects.count(), 2)
+        self.assertEqual(AuditCommand.objects.count(),initial_audit_command_count + 2)
 
         platform_pascal_str = 'Pascal'
         serializer = PublicationSerializer(Publication.objects.first())
@@ -51,6 +53,7 @@ class PublicationSerializerTest(BaseTest):
         if serializer.is_valid():
             serializer.save(self.user)
         # Two Deletes and One Insert
-        self.assertEqual(AuditLog.objects.filter(table='publicationplatforms').count(), 3)
+        self.assertEqual(AuditLog.objects.filter(table='publicationplatforms').count(), 1)
         self.assertEqual(AuditLog.objects.filter(table='platform').count(), 1)
-        self.assertEqual(AuditCommand.objects.count(), 3)
+        self.assertEqual(AuditCommand.objects.count(), initial_audit_command_count + 3)
+
