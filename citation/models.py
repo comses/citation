@@ -641,8 +641,12 @@ class Publication(AbstractLogModel):
     def is_archived(self):
         return bool(self.code_archive_url)
 
+    @property
+    def contributor_data_cache_key(self):
+        return "{0}{1}".format(CacheNames.CONTRIBUTION_DATA.value, self.pk)
+
     def contributor_data(self, latest=False):
-        value = cache.get(CacheNames.CONTRIBUTION_DATA.value + str(self.id))
+        value = cache.get(self.contributor_data_cache_key)
         if value and not latest:
             return value
         elif self.is_primary:
@@ -655,7 +659,7 @@ class Publication(AbstractLogModel):
                 contribution=(Cast((Count('creator')) * 100 / len(audit_logs), IntegerField())),
                 date_added=(Max('audit_command__date_added'))) \
                 .values('creator', 'contribution', 'date_added').order_by('-date_added')
-            cache.set(CacheNames.CONTRIBUTION_DATA.value + str(self.id), list(unique_logs), 86410)
+            cache.set(self.contributor_data_cache_key, list(unique_logs), 86410)
             return unique_logs
 
     @property
