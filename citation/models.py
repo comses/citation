@@ -641,23 +641,20 @@ class Publication(AbstractLogModel):
     def is_archived(self):
         return bool(self.code_archive_url)
 
-    def contributor_data(self):
-        value = cache.get(CacheNames.CONTRIBUTION_DATA.value + str(self.id))
-        if value:
+    @property
+    def contributor_data_cache_key(self):
+        return "{0}{1}".format(CacheNames.CONTRIBUTION_DATA.value, self.pk)
+
+    def contributor_data(self, latest=False):
+        value = cache.get(self.contributor_data_cache_key)
+        if value and not latest:
             return value
         elif self.is_primary:
-            audit_logs = AuditLog.objects.filter(
-                Q(audit_command__action='MANUAL') & (Q(table='publication', row_id=self.id) |
-                                                     Q(pub_id=self.id))) \
-                .annotate(creator=F('audit_command__creator__username')).values('creator').order_by('creator')
-
-            unique_logs = audit_logs.annotate(
-                contribution=(Cast((Count('creator')) * 100 / len(audit_logs), IntegerField())),
-                date_added=(Max('audit_command__date_added'))) \
-                .values('creator', 'contribution', 'date_added').order_by('-date_added')
-            cache.set(CacheNames.CONTRIBUTION_DATA.value + str(self.id), list(unique_logs), 86410)
-            return unique_logs
-
+            logs = AuditLog.objects.get_contributor_data(self)
+            cache.set(self.contributor_data_cache_key, list(logs), 86410)
+            return logs
+        return []
+    
     @property
     def slug(self):
         year_str = None
@@ -770,17 +767,18 @@ class AuditCommand(models.Model):
         ordering = ['-date_added']
 
 
-# No need of this Queryset manager now...need to remove it
 class AuditLogQuerySet(models.QuerySet):
-    def contributor_data(self, publication):
-        audit_logs = self.filter(Q(table=publication._meta.model_name, row_id=publication.id) |
-                                 Q(payload__data__publication_id=publication.id) & Q(audit_command__action='MANUAL')) \
-            .annotate(creator=F('audit_command__creator__username')).values('creator').order_by('creator')
-        total_count = audit_logs.count()
+
+    def get_contributor_data(self, publication):
+        audit_logs = AuditLog.objects.filter(
+                Q(audit_command__action='MANUAL') & (Q(table=publication._meta.model_name, row_id=publication.id) |
+                                                     Q(pub_id=publication.id))) \
+                .annotate(creator=F('audit_command__creator__username')).values('creator').order_by('creator')
+
         unique_logs = audit_logs.annotate(
-            contribution=(Cast((Count('creator') * 100.0 / total_count), IntegerField())),
-            date_added=(Max('audit_command__date_added'))) \
-            .values("creator", 'contribution', 'date_added').order_by('-date_added')
+                contribution=(Cast((Count('creator')) * 100 / len(audit_logs), IntegerField())),
+                date_added=(Max('audit_command__date_added'))) \
+                .values('creator', 'contribution', 'date_added').order_by('-date_added')
 
         return unique_logs
 
