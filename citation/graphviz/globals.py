@@ -48,6 +48,17 @@ class CacheNames(Enum):
 
 
 class NetworkGroupByType(Enum):
-    TAGS = 'tags'
-    SPONSOR = 'sponsors'
+    TAGS = 'tags__name'
+    SPONSOR = 'sponsors__name'
 
+    def filter_syntax(self):
+        return self.value + '__in'
+
+    def is_sponsor(self):
+        return self.value == self.SPONSOR.value
+
+    def is_tags(self):
+        return self.value == self.TAGS.value
+
+    def top_record_attr(self):
+        return self.value

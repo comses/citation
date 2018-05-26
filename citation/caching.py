@@ -3,11 +3,10 @@ import logging
 
 from django.core.cache import cache
 from django.db import connection
-from django.db.models import Count
 
 from .models import Publication
-from .graphviz.data import generate_network_graph, \
-    generate_aggregated_code_archived_platform_data,generate_aggregated_distribution_data
+from .graphviz.data import NetworkVisualization,AggregatedDistributionVisualization
+
 from .graphviz.globals import RelationClassifier, CacheNames, NetworkGroupByType
 
 logger = logging.getLogger(__name__)
@@ -65,10 +64,10 @@ def _dictfetchall(cursor):
 """
 def initialize_publication_code_platform_cache():
     logger.debug("Caching publication distribution data")
-    distribution_data = generate_aggregated_distribution_data({'is_primary':True,'status':'REVIEWED'}, RelationClassifier.GENERAL.value, "Publications")
-    code_archived_data = generate_aggregated_code_archived_platform_data({'is_primary':True,'status':'REVIEWED'})
-    cache.set(CacheNames.DISTRIBUTION_DATA.value, distribution_data, 86410)
-    cache.set(CacheNames.CODE_ARCHIVED_PLATFORM.value, code_archived_data, 86410)
+    aggregation = AggregatedDistributionVisualization()
+    distribution_data = aggregation.get_data(RelationClassifier.GENERAL.value, "Publications")
+    cache.set(CacheNames.DISTRIBUTION_DATA.value, distribution_data.data, 86410)
+    cache.set(CacheNames.CODE_ARCHIVED_PLATFORM.value, distribution_data.group, 86410)
     logger.debug("Publication code platform distribution data cache completed.")
 
 """
@@ -76,27 +75,22 @@ def initialize_publication_code_platform_cache():
 """
 def initialize_network_cache():
     logger.debug("Caching Network")
-
+    logger.debug("updated citation caching file to see it reflected or not")
     #FIXME use more informational static filters over here
-    sponsors_name = []
-    sponsors = Publication.api.primary(status="REVIEWED").values('sponsors__name').order_by('sponsors__name'). \
-               annotate(count=Count('sponsors__name')).values('count', 'sponsors__name').order_by('-count')[:10]
-    for sponsor in sponsors:
-        sponsors_name.append(sponsor['sponsors__name'])
+    sponsors_name = Publication.api.get_top_records('sponsors__name', 5)
     sponsors_filter = {'sponsors__name__in' : sponsors_name, 'is_primary':True, 'status':'REVIEWED'}
-    network_data = generate_network_graph(sponsors_filter, NetworkGroupByType.SPONSOR.value)
-    cache.set(CacheNames.NETWORK_GRAPH_GROUP_BY_SPONSORS.value, network_data.graph, 86410)
-    cache.set(CacheNames.NETWORK_GRAPH_SPONSOS_FILTER.value, network_data.filter_value, 86410)
+    network = NetworkVisualization(sponsors_filter, NetworkGroupByType.SPONSOR)
+    network_data = network.get_data()
+    cache.set(CacheNames.NETWORK_GRAPH_GROUP_BY_SPONSORS.value, network_data.data, 86410)
+    cache.set(CacheNames.NETWORK_GRAPH_SPONSOS_FILTER.value, network_data.group, 86410)
     logger.info("Network cache for group_by sponsors completed using static filter: " + str(sponsors_name))
 
-    tags_name = []
-    tags = Publication.api.primary(status= "REVIEWED").values('tags__name').order_by('tags__name').\
-        annotate(count=Count('tags__name')).values('count','tags__name').order_by('-count')[:10]
-    for tag in tags:
-        tags_name.append(tag['tags__name'])
+    tags_name = Publication.api.get_top_records('tags__name', 5)
     tags_filter = {'tags__name__in': tags_name, 'is_primary':True, 'status': 'REVIEWED'}
-    network_data = generate_network_graph(tags_filter, NetworkGroupByType.TAGS.value)
-    cache.set(CacheNames.NETWORK_GRAPH_GROUP_BY_TAGS.value, network_data.graph, 86410)
-    cache.set(CacheNames.NETWORK_GRAPH_TAGS_FILTER.value, network_data.filter_value, 86410)
+    network = NetworkVisualization(tags_filter, NetworkGroupByType.TAGS)
+    network_data = network.get_data()
+    cache.set(CacheNames.NETWORK_GRAPH_GROUP_BY_TAGS.value, network_data.data, 86410)
+    cache.set(CacheNames.NETWORK_GRAPH_TAGS_FILTER.value, network_data.group, 86410)
     logger.info("Network cache for group_by tags completed using static filter: " + str(tags_name))
+
 

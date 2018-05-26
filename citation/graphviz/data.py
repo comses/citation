@@ -1,5 +1,4 @@
 from collections import Counter
-from dateutil.parser import parse as datetime_parse
 
 from .globals import NetworkGroupByType, RelationClassifier
 from ..models import Publication, URLStatusLog
@@ -24,45 +23,29 @@ class VisualizationData:
 class VisualizationBaseClass:
 
     def __init__(self, filter_criteria=None):
-        self.start_year = 1901
-        self.end_year = 2100
+
         self.filter_criteria = filter_criteria
 
         if self.filter_criteria is None:
             self.filter_criteria = VIZ_DEFAULT_FILTER
 
-        if 'start_year' in self.filter_criteria:
-            self.start_year = self.filter_criteria.pop('start_year')
-        if 'end_year' in self.filter_criteria:
-            self.end_year = self.filter_criteria.pop('end_year')
-
         # fetching only filtered publication
         self.publications = Publication.api.primary(**self.filter_criteria)
-
-    def qualify(self, year_published):
-        if year_published and self.start_year <= year_published <= self.end_year:
-            return year_published
-
-        return None
 
 
 class NetworkVisualization(VisualizationBaseClass):
 
-    def __init__(self, filter_criteria=None, group_by=NetworkGroupByType.TAGS.value):
+    def __init__(self, filter_criteria=None, group_by=NetworkGroupByType.TAGS):
         super().__init__(filter_criteria)
 
         self.group_by = group_by
-        if group_by + '__name__in' in self.filter_criteria:
-            self.filter_value = self.filter_criteria[group_by + '__name__in']
+        if self.group_by.filter_syntax() in self.filter_criteria:
+            self.filter_value = self.filter_criteria[self.group_by.filter_syntax()]
         else:
-            self.filter_value = self.get_default_group_by_filter()
-            self.filter_criteria[group_by + '__name__in'] = self.filter_value
+            self.filter_value = Publication.api.get_top_records(self.group_by.top_record_attr(), 5)
+            self.filter_criteria[group_by.filter_syntax()] = self.filter_value
 
-    def get_default_group_by_filter(self):
-        if self.group_by == NetworkGroupByType.SPONSOR.value:
-            return Publication.api.get_top_records('sponsors__name', 5)
-        else:
-            return Publication.api.get_top_records('tags__name', 5)
+        self.publications = Publication.api.primary(**self.filter_criteria)
 
     def get_common_value(self, first, second):
         """
@@ -76,20 +59,6 @@ class NetworkVisualization(VisualizationBaseClass):
 
         return None
 
-    # Generates links that will be used to form the network based on the provided filter criteria
-    def generate_link_candidates(self):
-        primary_pk = []
-        primary_pubs = []
-        for pub in self.publications:
-            if self.qualify(pub.year_published):
-                primary_pk.append(pub.pk)
-                primary_pubs.append(pub)
-
-        # fetches links that satisfies the given filter
-        links_candidates = self.publications.filter(pk__in=primary_pk, citations__in=primary_pubs).values_list('pk',
-                                                                                                               'citations')
-        return links_candidates
-
     # Generates unique list of nodes that will be used in network based on the provided link list
     def generate_node_candidates(self, links_candidates):
         nodes = set()
@@ -100,17 +69,16 @@ class NetworkVisualization(VisualizationBaseClass):
         return list(nodes)
 
     def get_nodes(self, nodes_candidates):
-        publications = Publication.api.primary(status="REVIEWED")
         nodes = []
         for pub in nodes_candidates:
-            publication = publications.get(pk=pub)
-            group_values = []
-            if self.group_by == NetworkGroupByType.SPONSOR.value:
-                for name in publication.sponsors.all().values_list('name', flat=True):
-                    group_values.append(name)
+            publication = Publication.api.primary(pk=pub)
+            tags = publication.values_list('tags__name', flat=True)
+            sponsors = publication.values_list('sponsors__name', flat=True)
+            creator = publication.values_list('creators__family_name', 'creators__given_name')
+            if self.group_by.is_sponsor():
+                group_values = sponsors
             else:
-                for name in publication.tags.all().values_list('name', flat=True):
-                    group_values.append(name)
+                group_values = tags
 
             value = self.get_common_value(group_values, self.filter_value)
             if value:
@@ -121,11 +89,11 @@ class NetworkVisualization(VisualizationBaseClass):
             nodes.append({
                 'name': pub,
                 'group': group,
-                'tags': ', '.join(['{0}'.format(s.name) for s in publication.tags.all()]),
-                'sponsors': ', '.join(['{0}'.format(s.name) for s in publication.sponsors.all()]),
+                'tags': ', '.join(['{0}'.format(tag) for tag in tags]),
+                'sponsors': ', '.join(['{0}'.format(sponsor) for sponsor in sponsors]),
                 'Authors': ', '.join(
-                    ['{0}, {1}.'.format(c.family_name, c.given_name_initial) for c in publication.creators.all()]),
-                'title': publication.title
+                    ['{0}, {1}.'.format(c[0], c[1]) for c in creator]),
+                'title': publication.values_list('title', flat=True)[0]
             })
 
         return nodes
@@ -141,13 +109,18 @@ class NetworkVisualization(VisualizationBaseClass):
 
     def get_data(self):
         # fetches links that satisfies the filter criteria
-        links_candidates = self.generate_link_candidates()
+        # Generates links that will be used to form the network based on the provided filter criteria
+        # e.g: l_c = [(100,400),(100,300),(300,200)]
+        links_candidates = self.publications.filter(pk__in=self.publications,
+                                                    citations__in=self.publications).values_list('pk','citations')
 
         # discarding rest keeping only nodes used in forming network link
+        # e.g: n_c = [100,200,300,400]
         nodes_candidates = self.generate_node_candidates(links_candidates)
 
         # Forming network group
         nodes = self.get_nodes(nodes_candidates)
+        # e.g: links  = [{ 'source':0 , 'target':3}, {'source': 0, 'target':2}, {'source': 2, 'target':1}]
         links = self.get_links(links_candidates, nodes_candidates)
         data = {'nodes': nodes, 'links': links}
 
@@ -164,7 +137,7 @@ class AggregatedDistributionVisualization(VisualizationBaseClass):
         non_availability = Counter()
         years_list = []
         for pub in self.publications:
-            year_published = self.qualify(pub.year_published)
+            year_published = pub.date_published.year
             if year_published:
                 years_list.append(year_published)
                 bucket = availability if pub.is_archived else non_availability
@@ -211,28 +184,37 @@ class AggregatedCodeArchivedLocationVisualization(VisualizationBaseClass):
         self.url_status_logs = URLStatusLog.objects.all().values('publication'). \
             order_by('publication', '-last_modified'). \
             annotate(last_modified=Max('last_modified')). \
-            values_list('publication', 'type', 'publication__date_published_text').order_by('publication')
+            values_list('publication', 'type', 'publication__date_published').order_by('publication')
 
     def get_data(self):
         all_records = Counter()
         years_list = []
         if self.url_status_logs:
             for pub, category, date_published in self.url_status_logs:
-                try:
-                    year_published = int(datetime_parse(date_published).year)
-                except ValueError:
-                    year_published = None
-                year_published = self.qualify(year_published)
+                year_published = date_published.year
                 if year_published:
                     years_list.append(year_published)
                     all_records[(year_published, category)] += 1
         else:
             for pub in self.publications:
-                year_published = self.qualify(pub.year_published)
-                if pub.is_archived and year_published:
+                year_published = pub.date_published.year
+                archive_url = pub.code_archive_url
+                if archive_url is not '' and year_published:
                     years_list.append(year_published)
-                    all_records[(year_published, categorize_url(pub.code_archive_url))] += 1
+                    all_records[(year_published, categorize_url(archive_url))] += 1
 
+
+        # converting to d3 format(staged-bar):
+        # [
+        #  [x, 2000, 2001, 2002, 2003]
+        #  ['COMSES', 0, 0, 0, 0],
+        #  ['OPEN SOURCE', 0, 0, 0, 1],
+        #  ['PLATFORM', 0, 0, 0, 0],
+        #  ['JOURNAL', 0, 0, 0, 0],
+        #  ['PERSONAL', 0, 0, 0, 1],
+        #  ['INVALID', 0, 0, 0, 0],
+        #  ['OTHERS', 1, 2, 1, 0]
+        # ]
         group = []
         data = [['x']]
         for name in URLStatusLog.PLATFORM_TYPES:

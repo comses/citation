@@ -554,6 +554,7 @@ class Publication(AbstractLogModel):
     zotero_key = models.CharField(max_length=64, null=True, unique=True, blank=True)
     url = models.URLField(blank=True)
     date_published_text = models.CharField(max_length=64, blank=True)
+    date_published = models.DateField(null =True, blank=True)
     date_accessed = models.DateField(null=True, blank=True)
     archive = models.CharField(max_length=255, blank=True)
     archive_location = models.CharField(max_length=255, blank=True)
@@ -654,7 +655,7 @@ class Publication(AbstractLogModel):
             cache.set(self.contributor_data_cache_key, list(logs), 86410)
             return logs
         return []
-    
+
     @property
     def slug(self):
         year_str = None
@@ -683,17 +684,10 @@ class Publication(AbstractLogModel):
         return self._pk_url('citation:publication_detail')
 
     @property
-    def date_published(self):
-        try:
-            return datetime_parse(self.date_published_text).date()
-        except ValueError:
-            return None
-
-    @property
     def year_published(self):
         try:
-            return int(datetime_parse(self.date_published_text).year)
-        except ValueError:
+            return self.date_published.year
+        except AttributeError:
             return None
 
     @property
@@ -771,14 +765,14 @@ class AuditLogQuerySet(models.QuerySet):
 
     def get_contributor_data(self, publication):
         audit_logs = AuditLog.objects.filter(
-                Q(audit_command__action='MANUAL') & (Q(table=publication._meta.model_name, row_id=publication.id) |
-                                                     Q(pub_id=publication.id))) \
-                .annotate(creator=F('audit_command__creator__username')).values('creator').order_by('creator')
+            Q(audit_command__action='MANUAL') & (Q(table=publication._meta.model_name, row_id=publication.id) |
+                                                 Q(pub_id=publication.id))) \
+            .annotate(creator=F('audit_command__creator__username')).values('creator').order_by('creator')
 
         unique_logs = audit_logs.annotate(
-                contribution=(Cast((Count('creator')) * 100 / len(audit_logs), IntegerField())),
-                date_added=(Max('audit_command__date_added'))) \
-                .values('creator', 'contribution', 'date_added').order_by('-date_added')
+            contribution=Cast((Count('creator')) * 100 / len(audit_logs), IntegerField()),
+            date_added=Max('audit_command__date_added')) \
+            .values('creator', 'contribution', 'date_added').order_by('-date_added')
 
         return unique_logs
 
