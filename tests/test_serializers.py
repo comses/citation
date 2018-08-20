@@ -53,7 +53,7 @@ class PublicationSerializerTest(BaseTest):
         if serializer.is_valid():
             serializer.save(self.user)
         # Two Deletes and One Insert
-        self.assertEqual(AuditLog.objects.filter(table='publicationplatforms').count(), 1)
+        self.assertEqual(AuditLog.objects.filter(table='publicationplatforms').count(), 3)
         self.assertEqual(AuditLog.objects.filter(table='platform').count(), 1)
         self.assertEqual(AuditCommand.objects.count(), initial_audit_command_count + 3)
 
