@@ -1,8 +1,10 @@
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.db import connection
+
 from ...merger import ContainerMergeGroup
 from ...models import Container, AuditCommand
-from django.contrib.auth.models import User
+
 
 class Command(BaseCommand):
     help = "Merge containers by name"

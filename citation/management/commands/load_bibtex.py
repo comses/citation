@@ -1,12 +1,11 @@
-from django.core.management.base import BaseCommand
-from django.contrib.auth.models import User
-
-from citation import bibtex as bibtex_api
-
 import logging
 import os
 import pathlib
 import pickle
+
+from citation import bibtex as bibtex_api
+from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand
 
 logger = logging.getLogger(__name__)
 

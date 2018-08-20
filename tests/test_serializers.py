@@ -1,13 +1,11 @@
-from django.contrib.auth.models import User
-from django.core import management
+from collections import OrderedDict
+
 from citation.models import AuditCommand, AuditLog, Container, Publication, PublicationPlatforms, Platform, \
     Author, \
     PublicationAuthors
 from citation.serializers import PublicationSerializer
 
 from .common import BaseTest
-
-from collections import OrderedDict
 
 
 class PublicationSerializerTest(BaseTest):
@@ -43,7 +41,7 @@ class PublicationSerializerTest(BaseTest):
             serializer.save(self.user)
         self.assertEqual(AuditLog.objects.filter(table='publicationplatforms').count(), 0)
         self.assertEqual(AuditLog.objects.filter(table='platform').count(), 0)
-        self.assertEqual(AuditCommand.objects.count(),initial_audit_command_count + 2)
+        self.assertEqual(AuditCommand.objects.count(), initial_audit_command_count + 2)
 
         platform_pascal_str = 'Pascal'
         serializer = PublicationSerializer(Publication.objects.first())
@@ -56,4 +54,3 @@ class PublicationSerializerTest(BaseTest):
         self.assertEqual(AuditLog.objects.filter(table='publicationplatforms').count(), 3)
         self.assertEqual(AuditLog.objects.filter(table='platform').count(), 1)
         self.assertEqual(AuditCommand.objects.count(), initial_audit_command_count + 3)
-

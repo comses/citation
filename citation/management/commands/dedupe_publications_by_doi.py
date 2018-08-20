@@ -1,10 +1,10 @@
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from django.db import connection
 from django.db.models.functions import Lower
-from django.db.models import F
+
 from ...merger import PublicationMergeGroup
 from ...models import Publication, AuditCommand
-from django.contrib.auth.models import User
 
 
 class Command(BaseCommand):

@@ -1,10 +1,9 @@
 # Test the Metadata Extraction Pipeline Beginning to End
 
-from django.contrib.auth.models import User
-from django.db.models import Count
-from django.test import TestCase
-from citation.management.commands.load_bibtex import Command
 from citation import models
+from citation.management.commands.load_bibtex import Command
+from django.contrib.auth.models import User
+from django.test import TestCase
 
 
 class TestPipeline(TestCase):

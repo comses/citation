@@ -1,8 +1,9 @@
-from django.contrib.auth.models import User
+from django import forms
 from django.contrib import admin
 from django.contrib.admin.helpers import ActionForm
-from django import forms
+from django.contrib.auth.models import User
 from django.utils.translation import ugettext_lazy as _
+
 from .models import AuditCommand, Publication, Note, Tag, Author, Sponsor, Platform, Container, ModelDocumentation
 
 

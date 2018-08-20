@@ -1,18 +1,17 @@
+import json
+import logging
+import re
 from datetime import datetime
+
+import requests
+from citation import models
+from citation.models import (Author, Publication, Tag, Note, Platform, Sponsor, Container,
+                             ModelDocumentation)
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 from lxml import html
 from pyzotero import zotero
-
-from citation.models import (Author, Publication, Tag, Note, Platform, Sponsor, Container,
-                             ModelDocumentation)
-from citation import models
-
-import json
-import logging
-import requests
-import re
 
 logger = logging.getLogger(__name__)
 

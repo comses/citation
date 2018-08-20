@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
-import django
 import os
 import sys
+
+import django
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tests.settings')
 

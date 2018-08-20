@@ -1,11 +1,13 @@
-from . import entry as entry_api
+import logging
+import textwrap
 
 import bibtexparser
-import textwrap
-import logging
 from django.db import transaction
 
+from . import entry as entry_api
+
 logger = logging.getLogger(__name__)
+
 
 class AlreadyExistsError(Exception): pass
 

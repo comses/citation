@@ -1,8 +1,8 @@
-from django.test import TestCase
+import logging
+
 from citation import dedupe, models
 from django.contrib.auth.models import User
-
-import logging
+from django.test import TestCase
 
 logger = logging.getLogger(__name__)
 

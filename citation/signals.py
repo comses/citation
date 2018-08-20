@@ -15,14 +15,14 @@ def sync_model_documentation(sender, instance: Publication, **kwargs):
     """
     model_documentation = ModelDocumentation.objects.get(name='Source code')
     has_source_code_model_documentation = PublicationModelDocumentations.objects.filter(publication=instance.id,
-                                                            model_documentation=model_documentation).exists()
+                                                                                        model_documentation=model_documentation).exists()
 
     if instance.code_archive_url.strip() is not '' and not has_source_code_model_documentation:
         creator = User.objects.get(username='alee14')
         audit_command = AuditCommand.objects.create(creator=creator,
                                                     action=AuditCommand.Action.MANUAL)
-        PublicationModelDocumentations.objects.log_get_or_create(audit_command=audit_command, publication_id=instance.id,
+        PublicationModelDocumentations.objects.log_get_or_create(audit_command=audit_command,
+                                                                 publication_id=instance.id,
                                                                  model_documentation_id=model_documentation.id)
 
         logger.info("syncing model documentation: source code for updated code archive url on %s", instance)
-

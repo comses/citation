@@ -1,10 +1,7 @@
 from django.db import models
-from django.core.exceptions import ValidationError
-from django.utils.translation import ugettext_lazy as _
 
 
 class NonEmptyTextField(models.TextField):
-
     description = "An Unique Nullable ID field"
 
     def __init__(self, *args, **kwargs):

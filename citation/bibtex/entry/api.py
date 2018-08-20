@@ -1,15 +1,15 @@
-import re
 import datetime
-from django.contrib.auth.models import User
+import logging
+import re
 from collections import defaultdict
+from typing import Dict, List, Optional
 
-from typing import Dict, List, Optional, Tuple
+from django.contrib.auth.models import User
+
 from .. import common
 from .. import ref
 from ... import models, merger
 from ... import util
-
-import logging
 
 logger = logging.getLogger(__name__)
 

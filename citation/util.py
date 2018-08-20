@@ -1,8 +1,9 @@
-from typing import Tuple
-from unidecode import unidecode
 import logging
 import re
+from typing import Tuple
+
 from django.db.models.aggregates import Aggregate
+from unidecode import unidecode
 
 logger = logging.getLogger(__name__)
 

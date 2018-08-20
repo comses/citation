@@ -1,10 +1,9 @@
+from autofixture import AutoFixture
+from citation import models
+from django.contrib.auth.models import User
 from django.db.models import Max
 from django.db.models import Q
 from django.test import TestCase
-from autofixture import AutoFixture
-from django.contrib.auth.models import User
-
-from citation import models
 
 
 class TestModelManagers(TestCase):
@@ -96,4 +95,3 @@ class TestModelManagers(TestCase):
         # verify the last date_added record is at top
         date_value = date_values.filter(audit_command__creator__username='bar')
         self.assertDictEqual(cd[0], {'creator': 'bar', 'contribution': 66, 'date_added': date_value[0][0]})
-

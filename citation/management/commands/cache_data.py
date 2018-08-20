@@ -1,9 +1,8 @@
 import logging
 
-from django.core.management.base import BaseCommand
-
 from citation.caching import initialize_contributor_cache, initialize_publication_code_platform_cache, \
-                             initialize_network_cache
+    initialize_network_cache
+from django.core.management.base import BaseCommand
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,6 @@ class Command(BaseCommand):
                             help='caches the publication distribution data and code availability platform information for visualization')
         parser.add_argument('-n', '--network',
                             help='caches the network relation of publication')
-
 
     def handle(self, *args, **options):
         contributor = options.get('contributor')

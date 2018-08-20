@@ -1,9 +1,10 @@
 """Module to migrate external IDs to unique, nullable format. Temporary file. Remove after migration on DB"""
 
+from django.contrib.auth.models import User
 from django.db import connection
+
 from . import models
 from .merger import ContainerMergeGroup
-from django.contrib.auth.models import User
 
 
 def merge_issns():

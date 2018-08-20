@@ -1,10 +1,10 @@
-from django.urls import reverse
+import logging
+
 from citation.models import (
     Container, Publication, PublicationPlatforms, Platform, Author, PublicationAuthors)
+from django.urls import reverse
 
 from .common import BaseTest
-
-import logging
 
 logger = logging.getLogger(__name__)
 

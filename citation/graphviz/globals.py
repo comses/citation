@@ -5,7 +5,7 @@ class RelationClassifier(Enum):
     """
     Helper class to store the global default name for the visualization Identifier
     """
-    JOURNAL ='Journal'
+    JOURNAL = 'Journal'
     SPONSOR = 'Sponsor'
     PLATFORM = 'Platform'
     AUTHOR = 'Author'
@@ -50,4 +50,3 @@ class CacheNames(Enum):
 class NetworkGroupByType(Enum):
     TAGS = 'tags'
     SPONSOR = 'sponsors'
-

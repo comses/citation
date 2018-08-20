@@ -1,10 +1,11 @@
-from . import models
-from django.db.models import Q, Count
-from typing import List, Set
-from collections import defaultdict
-
-import textwrap
 import logging
+import textwrap
+from collections import defaultdict
+from typing import List, Set
+
+from django.db.models import Q, Count
+
+from . import models
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +178,7 @@ class AuthorMergeGroup:
 
         for other in self.others:
             if other.family_name != self.final.family_name or \
-                            other.given_name != self.final.given_name:
+                    other.given_name != self.final.given_name:
                 models.AuthorAlias.objects.log_get_or_create(
                     audit_command=audit_command,
                     author_id=self.final.id,
@@ -636,6 +637,7 @@ class PublicationMergeGroup:
         self.final.log_update(audit_command, **changes)
 
         self._move_citations()
+
 
 MERGE_GROUPS = {
     models.Publication: PublicationMergeGroup,

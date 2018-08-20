@@ -1,8 +1,9 @@
-import logging
 import ast
+import logging
+
+from django.db import transaction
 
 from . import models
-from django.db import transaction
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,8 @@
 import logging
+
+from citation import models
 from django.core.management.base import BaseCommand
 
-from citation import dedupe, models
 logger = logging.getLogger(__name__)
 
 
@@ -11,7 +12,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         qs = models.Platform.objects.exclude(pk__in=models.Publication.platforms.through.objects.values('platform'))
         logger.info("              -----------------------------------------------------------------           ")
-        logger.info("                    Following platform orphans has been deleted: "                         )
+        logger.info("                    Following platform orphans has been deleted: ")
         logger.info("              -----------------------------------------------------------------           ")
         name = []
         for q in qs:

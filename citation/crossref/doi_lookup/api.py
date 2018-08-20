@@ -1,12 +1,14 @@
-import requests
 from typing import Dict
+
+import requests
 from django.contrib.auth.models import User
 
 from .. import common
 from ... import models
 
 
-def process(publication: models.Publication, response_json: Dict, key: str, value: Dict, audit_command: models.AuditCommand):
+def process(publication: models.Publication, response_json: Dict, key: str, value: Dict,
+            audit_command: models.AuditCommand):
     raw = models.Raw(key=key, value=value)
     if response_json:
         item_json = common.get_message(response_json)
@@ -17,7 +19,8 @@ def process(publication: models.Publication, response_json: Dict, key: str, valu
             is_primary=False,
             added_by=audit_command.creator)
         author_author_alias_pairs = common.make_author_author_alias_pairs(new_publication, item_json, create=False)
-        container_container_alias_pair = common.make_container_container_alias_pair(new_publication, item_json, create=False)
+        container_container_alias_pair = common.make_container_container_alias_pair(new_publication, item_json,
+                                                                                    create=False)
 
         detached_publication = common.DetachedPublication(publication=new_publication,
                                                           author_author_alias_pairs=author_author_alias_pairs,

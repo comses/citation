@@ -1,9 +1,9 @@
-from django.test import TestCase
-from citation.bibtex import ref as bibtex_ref_api, entry as bibtex_entry_api
-from citation import merger, models, util
-from django.contrib.auth.models import User
-
 import ast
+
+from citation import models, util
+from citation.bibtex import ref as bibtex_ref_api, entry as bibtex_entry_api
+from django.contrib.auth.models import User
+from django.test import TestCase
 
 
 class TestAuthorParsing(TestCase):

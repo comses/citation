@@ -1,12 +1,12 @@
-from ... import models
-from .. import common
-from ... import util
-from django.contrib.auth.models import User
+from typing import Dict, List, Set
 
 import requests
-from typing import Dict, List, Optional, Set
-from fuzzywuzzy import fuzz
+from django.contrib.auth.models import User
 from django.db import connection
+from fuzzywuzzy import fuzz
+
+from .. import common
+from ... import models
 
 
 def process_item(year_authors_result: Dict, response_item: Dict, raw: models.Raw,

@@ -1,7 +1,8 @@
+import copy
+
+from citation import models, merger
 from django.contrib.auth.models import User
 from django.test import TestCase
-from citation import models, merger
-import copy
 
 
 def sort_by_id(instance):
@@ -309,4 +310,3 @@ class TestMergers(TestCase):
 
         pmg = merger.PublicationMergeGroup(final=all_publications[0], others=set(all_publications[1:]))
         self.assertTrue(pmg.is_valid())
-

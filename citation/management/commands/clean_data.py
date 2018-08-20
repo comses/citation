@@ -1,8 +1,8 @@
-from django.core.management.base import BaseCommand
-from django.contrib.auth.models import User
 import os
 
 from citation import dedupe, models
+from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):

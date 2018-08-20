@@ -1,9 +1,9 @@
 import logging
 
+from citation import models
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
-from citation import models
 logger = logging.getLogger(__name__)
 
 
@@ -17,8 +17,10 @@ class Command(BaseCommand):
                 for name in category['modelDocumentationList']:
                     narrative_list.append(name['name'])
 
-        faulty_publications = models.Publication.api.primary(status='REVIEWED').exclude(model_documentation__name__in=narrative_list)
-        logger.debug("-------------------------Following publication contains faulty data -----------------------------")
+        faulty_publications = models.Publication.api.primary(status='REVIEWED').exclude(
+            model_documentation__name__in=narrative_list)
+        logger.debug(
+            "-------------------------Following publication contains faulty data -----------------------------")
         for pub in faulty_publications:
             try:
                 creator = User.objects.get(username='alee14')

@@ -29,10 +29,8 @@ class CsvGenerator:
             if not hasattr(Publication, name):
                 raise AttributeError("Publication model doesn't have attribute :" + name)
 
-
     def generate_boolean_list(self, items, values):
         return ['1' if item in values else '0' for item in items]
-
 
     def get_header(self):
         header = []
@@ -45,13 +43,11 @@ class CsvGenerator:
                 header.append(name.strip().replace('_', ' '))
         return header
 
-
     def get_all_m2m_data(self, name):
-        if name in ['sponsors','platforms']:
-            return getattr(self,name)
+        if name in ['sponsors', 'platforms']:
+            return getattr(self, name)
         else:
             raise AttributeError("Forgot to declare " + name + " m2m attribute")
-
 
     def get_row(self, pub):
         row = []
@@ -65,7 +61,6 @@ class CsvGenerator:
                 row.append(getattr(pub, name))
         return row
 
-
     def write_all(self, file):
         writer = csv.writer(file, delimiter=',')
         writer.writerow(self.get_header())
@@ -73,4 +68,3 @@ class CsvGenerator:
         for pub in publications:
             writer.writerow(self.get_row(pub))
         return writer
-

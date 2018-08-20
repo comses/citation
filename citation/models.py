@@ -7,6 +7,7 @@ from dateutil.parser import parse as datetime_parse
 from django.contrib.auth.models import User
 from django.contrib.postgres.fields import JSONField
 from django.contrib.sites.requests import RequestSite
+from django.core.cache import cache
 from django.core.exceptions import FieldError
 from django.core.urlresolvers import reverse
 from django.db import models, transaction
@@ -16,11 +17,10 @@ from django.db.models.functions import Cast
 from django.template.defaultfilters import slugify
 from django.template.loader import get_template
 from django.utils.translation import ugettext_lazy as _
-from django.core.cache import cache
 from model_utils import Choices
 
-from .graphviz.globals import CodePlatformIdentifier, CacheNames
 from . import fields
+from .graphviz.globals import CodePlatformIdentifier, CacheNames
 
 
 def datetime_json_serialize(datetime_obj: Optional[datetime]):
@@ -533,7 +533,7 @@ class PublicationQuerySet(models.QuerySet):
         try:
             records = self.primary(status="REVIEWED").values(attribute).order_by(
                 attribute).annotate(count=Count(attribute)).values(
-                    'count', attribute).order_by('-count')[:number]
+                'count', attribute).order_by('-count')[:number]
             return [record[attribute] for record in records]
         except FieldError:
             return FieldError
@@ -654,7 +654,7 @@ class Publication(AbstractLogModel):
             cache.set(self.contributor_data_cache_key, list(logs), 86410)
             return logs
         return []
-    
+
     @property
     def slug(self):
         year_str = None
@@ -718,29 +718,29 @@ class Publication(AbstractLogModel):
 
 class URLStatusLog(models.Model):
     PLATFORM_TYPES = Choices((CodePlatformIdentifier.COMSES.value, _('CoMSES')),
-                     (CodePlatformIdentifier.OPEN_SOURCE.value, _('Open Source')),
-                     (CodePlatformIdentifier.PLATFORM.value, _('Platform')),
-                     (CodePlatformIdentifier.JOURNAL.value, _('Journal')),
-                     (CodePlatformIdentifier.PERSONAL.value, _('Personal')),
-                     (CodePlatformIdentifier.INVALID.value, _('Invalid')),
-                     (CodePlatformIdentifier.OTHERS.value, _('Others'))
-                     )
+                             (CodePlatformIdentifier.OPEN_SOURCE.value, _('Open Source')),
+                             (CodePlatformIdentifier.PLATFORM.value, _('Platform')),
+                             (CodePlatformIdentifier.JOURNAL.value, _('Journal')),
+                             (CodePlatformIdentifier.PERSONAL.value, _('Personal')),
+                             (CodePlatformIdentifier.INVALID.value, _('Invalid')),
+                             (CodePlatformIdentifier.OTHERS.value, _('Others'))
+                             )
     publication = models.ForeignKey(Publication, related_name='url_status', null=True, blank=True, db_constraint=False)
     url = models.URLField(blank=True, max_length=500)
     date_created = models.DateTimeField(auto_now_add=True,
-                                      help_text=_('Date this url was last verified'))
+                                        help_text=_('Date this url was last verified'))
     last_modified = models.DateTimeField(auto_now=True,
                                          help_text=_('Date this url status was last modified on this system'))
     headers = models.TextField(blank=True, help_text=_('contains information about the url header'))
     type = models.TextField(choices=PLATFORM_TYPES)
     status_code = models.PositiveIntegerField(default=0)
-    status_reason = models.TextField(blank= True, help_text=_('contains reason for the url success/failure'))
+    status_reason = models.TextField(blank=True, help_text=_('contains reason for the url success/failure'))
     system_generated = models.BooleanField(default=True)
 
     def get_message(self):
-        return "Pub: {pub} {type} {url} {code} {reason}".format(pub=self.publication , type =self.type,
-                                                                  url = self.url, code=self.status_code,
-                                                                  reason= self.status_reason)
+        return "Pub: {pub} {type} {url} {code} {reason}".format(pub=self.publication, type=self.type,
+                                                                url=self.url, code=self.status_code,
+                                                                reason=self.status_reason)
 
 
 class AuditCommand(models.Model):
@@ -771,14 +771,14 @@ class AuditLogQuerySet(models.QuerySet):
 
     def get_contributor_data(self, publication):
         audit_logs = AuditLog.objects.filter(
-                Q(audit_command__action='MANUAL') & (Q(table=publication._meta.model_name, row_id=publication.id) |
-                                                     Q(pub_id=publication.id))) \
-                .annotate(creator=F('audit_command__creator__username')).values('creator').order_by('creator')
+            Q(audit_command__action='MANUAL') & (Q(table=publication._meta.model_name, row_id=publication.id) |
+                                                 Q(pub_id=publication.id))) \
+            .annotate(creator=F('audit_command__creator__username')).values('creator').order_by('creator')
 
         unique_logs = audit_logs.annotate(
-                contribution=(Cast((Count('creator')) * 100 / len(audit_logs), IntegerField())),
-                date_added=(Max('audit_command__date_added'))) \
-                .values('creator', 'contribution', 'date_added').order_by('-date_added')
+            contribution=(Cast((Count('creator')) * 100 / len(audit_logs), IntegerField())),
+            date_added=(Max('audit_command__date_added'))) \
+            .values('creator', 'contribution', 'date_added').order_by('-date_added')
 
         return unique_logs
 
@@ -947,5 +947,3 @@ class RawAuthors(AbstractLogModel):
 
     class Meta:
         unique_together = ('author', 'raw')
-
-

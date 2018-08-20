@@ -1,12 +1,9 @@
-from django.test import TestCase
-
-from citation.export_data import CsvGenerator
-from citation.models import Publication, Platform, Sponsor
+import io
 
 from autofixture import AutoFixture
-
-import io
-import csv
+from citation.export_data import CsvGenerator
+from citation.models import Publication, Platform, Sponsor
+from django.test import TestCase
 
 
 # Test for export_data file
@@ -52,4 +49,3 @@ class TestExport(TestCase):
             if sponsor in sponsors:
                 self.assertEquals(sponsors_output[sponsor], 1)
             self.assertEquals(sponsors_output[sponsor], 0)
-

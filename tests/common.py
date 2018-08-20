@@ -1,9 +1,7 @@
-from django.contrib.auth.models import User
-from django.core.urlresolvers import reverse
-from django.test import TestCase
-from django.utils.http import urlencode
-
 import logging
+
+from django.contrib.auth.models import User
+from django.test import TestCase
 
 logger = logging.getLogger(__name__)
 

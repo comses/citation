@@ -1,11 +1,11 @@
 import ast
-
 import itertools
+
+from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
-from django.db.models.functions import Lower
+
 from ...merger import PublicationMergeGroup
 from ...models import Publication, AuditCommand
-from django.contrib.auth.models import User
 
 
 class Command(BaseCommand):
@@ -35,8 +35,9 @@ class Command(BaseCommand):
         creator = User.objects.get(username=options['creator'])
         with open(options['file'], 'r') as f:
             duplicate_id_groups = ast.literal_eval(f.read())
-        self.merge_publications(creator,  duplicate_id_groups)
-        flagged_publications = Publication.objects.filter(id__in=list(itertools.chain.from_iterable(duplicate_id_groups)))
+        self.merge_publications(creator, duplicate_id_groups)
+        flagged_publications = Publication.objects.filter(
+            id__in=list(itertools.chain.from_iterable(duplicate_id_groups)))
         audit_command = AuditCommand(creator=creator, action='MANUAL')
         for publication in flagged_publications:
             if publication.flagged:

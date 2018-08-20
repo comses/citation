@@ -1,18 +1,16 @@
-from .models import Publication, ModelDocumentation, Note
-from .serializers import (CatalogPagination, ModelDocumentationSerializer, NoteSerializer,
-                                  PublicationSerializer, PublicationListSerializer, )
-
+import logging
 from datetime import datetime
+from json import dumps
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
-
-from json import dumps
-import logging
-
-from rest_framework.response import Response
 from rest_framework import status, renderers, generics
+from rest_framework.response import Response
+
+from .models import Publication, ModelDocumentation, Note
+from .serializers import (CatalogPagination, ModelDocumentationSerializer, NoteSerializer,
+                          PublicationSerializer, PublicationListSerializer, )
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +82,7 @@ class CuratorPublicationDetail(LoginRequiredMixin, generics.GenericAPIView):
     def update_contribution_data(pk):
         Publication.objects.get(pk=pk).contributor_data()
 
+
 class NoteDetail(LoginRequiredMixin, generics.GenericAPIView):
     """
     Retrieve, update or delete a note instance.
@@ -135,4 +134,3 @@ class NoteList(LoginRequiredMixin, generics.GenericAPIView):
             serializer.save(added_by=request.user)
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        

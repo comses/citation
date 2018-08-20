@@ -1,26 +1,23 @@
+import logging
+import time
+from collections import OrderedDict
+from collections import defaultdict
+from hashlib import sha1
+
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core import signing
 from django.core.mail import send_mass_mail, send_mail
 from django.core.validators import URLValidator
-from django.db.models import F, Q, IntegerField, Count, Max
-from django.db.models.functions import Cast
+from django.db.models import F, Q
 from django.utils.translation import ugettext as _
-
 from rest_framework import serializers, pagination
-from collections import OrderedDict
-from rest_framework.utils import model_meta
 from rest_framework.exceptions import ValidationError
+from rest_framework.utils import model_meta
 
 from .models import (Tag, Sponsor, Platform, Author, Publication, Container, InvitationEmail,
                      ModelDocumentation, Note, AuditCommand, AuditLog,
-                     PublicationAuthors, PublicationModelDocumentations, PublicationPlatforms, PublicationSponsors, )
-
-from collections import defaultdict
-from hashlib import sha1
-
-import logging
-import time
+                     PublicationModelDocumentations, PublicationPlatforms, PublicationSponsors, )
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +87,7 @@ class TagSerializer(serializers.ModelSerializer):
                 "validators": [],
             },
         }
-        fields = read_only_fields = ('id', 'name', 'date_modified', 'date_added', )
+        fields = read_only_fields = ('id', 'name', 'date_modified', 'date_added',)
 
 
 class PlatformSerializer(serializers.ModelSerializer):
@@ -101,7 +98,7 @@ class PlatformSerializer(serializers.ModelSerializer):
                 "validators": [],
             },
         }
-        fields = ('id', 'name', )
+        fields = ('id', 'name',)
         read_only_fields = ('id',)
 
 
@@ -113,8 +110,9 @@ class SponsorSerializer(serializers.ModelSerializer):
                 "validators": [],
             },
         }
-        fields = ('id', 'name', )
-        read_only_fields = ('id', )
+        fields = ('id', 'name',)
+        read_only_fields = ('id',)
+
 
 class ModelDocumentationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -124,8 +122,8 @@ class ModelDocumentationSerializer(serializers.ModelSerializer):
                 "validators": [],
             },
         }
-        fields = ('id', 'name', )
-        read_only_fields = ('id', )
+        fields = ('id', 'name',)
+        read_only_fields = ('id',)
 
 
 class ContainerSerializer(serializers.ModelSerializer):
@@ -222,6 +220,7 @@ class PublicationListSerializer(serializers.ModelSerializer):
             'apa_citation_string', 'date_modified', 'detail_url', 'contributor_data',
         )
 
+
 class PublicationSerializer(serializers.ModelSerializer):
     """
     Serializes publication querysets.
@@ -279,7 +278,8 @@ class PublicationSerializer(serializers.ModelSerializer):
     def save_platform(audit_command, publication, raw_platforms):
         names = [raw_platform['name'] for raw_platform in raw_platforms]
         for name in names:
-            platform, created = Platform.objects.log_get_or_create(audit_command=audit_command, publication=publication, name=name)
+            platform, created = Platform.objects.log_get_or_create(audit_command=audit_command, publication=publication,
+                                                                   name=name)
             PublicationPlatforms.objects.log_get_or_create(audit_command=audit_command,
                                                            publication=publication,
                                                            publication_id=publication.id,
@@ -293,7 +293,8 @@ class PublicationSerializer(serializers.ModelSerializer):
     def save_sponsor(audit_command, publication, raw_sponsors):
         names = [raw_sponsor['name'] for raw_sponsor in raw_sponsors]
         for name in names:
-            platform, created = Sponsor.objects.log_get_or_create(audit_command=audit_command, publication=publication, name=name)
+            platform, created = Sponsor.objects.log_get_or_create(audit_command=audit_command, publication=publication,
+                                                                  name=name)
             PublicationSponsors.objects.log_get_or_create(audit_command=audit_command,
                                                           publication=publication,
                                                           publication_id=publication.id,
@@ -371,10 +372,10 @@ class PublicationSerializer(serializers.ModelSerializer):
                                                     action=AuditCommand.Action.MANUAL)
 
         assert not hasattr(self, 'save_object'), (
-            'Serializer `%s.%s` has old-style version 2 `.save_object()` '
-            'that is no longer compatible with REST framework 3. '
-            'Use the new-style `.create()` and `.update()` methods instead.' %
-            (self.__class__.__module__, self.__class__.__name__)
+                'Serializer `%s.%s` has old-style version 2 `.save_object()` '
+                'that is no longer compatible with REST framework 3. '
+                'Use the new-style `.create()` and `.update()` methods instead.' %
+                (self.__class__.__module__, self.__class__.__name__)
         )
 
         assert hasattr(self, '_errors'), (
@@ -536,7 +537,6 @@ class PublicationAggregationSerializer(serializers.Serializer):
 
 # Serializes the aggregated data for Author relation.
 class AuthorAggregrationSerializer(serializers.Serializer):
-    
     name = serializers.ReadOnlyField()
     given_name = serializers.ReadOnlyField()
     family_name = serializers.ReadOnlyField()

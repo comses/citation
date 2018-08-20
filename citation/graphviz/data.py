@@ -1,16 +1,13 @@
+import logging
 from collections import Counter
-
-from haystack.query import SearchQuerySet
-from dateutil.parser import parse as datetime_parse
 from datetime import datetime
+
+from django.db.models import Max
+from haystack.query import SearchQuerySet
 
 from .globals import NetworkGroupByType
 from ..models import Publication, URLStatusLog
 from ..ping_urls import categorize_url
-
-from django.db.models import Max, Count
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +32,6 @@ def generate_node_candidates(links_candidates):
 
 # Generates links that will be used to form the network based on the provided filter criteria
 def generate_link_candidates(filter_criteria):
-
     start_year = 1901
     end_year = 2100
 
@@ -68,12 +64,11 @@ def get_network_default_filter(group_by):
 
 
 def generate_network_graph(filter_criteria, group_by=NetworkGroupByType.TAGS.value):
-
-    if group_by+'__name__in' in filter_criteria:
-        filter_value = filter_criteria[group_by+'__name__in']
+    if group_by + '__name__in' in filter_criteria:
+        filter_value = filter_criteria[group_by + '__name__in']
     else:
         filter_value = get_network_default_filter(group_by)
-        filter_criteria[group_by+'__name__in'] = filter_value
+        filter_criteria[group_by + '__name__in'] = filter_value
 
     # fetches links that satisfies the given filter
     links_candidates = generate_link_candidates(filter_criteria)
@@ -122,7 +117,8 @@ def get_nodes(nodes_candidates, filter_value, group_by):
             'group': group,
             'tags': ', '.join(['{0}'.format(s.name) for s in publication.tags.all()]),
             'sponsors': ', '.join(['{0}'.format(s.name) for s in publication.sponsors.all()]),
-            'Authors': ', '.join(['{0}, {1}.'.format(c.family_name, c.given_name_initial) for c in publication.creators.all()]),
+            'Authors': ', '.join(
+                ['{0}, {1}.'.format(c.family_name, c.given_name_initial) for c in publication.creators.all()]),
             'title': publication.title
         })
     return nodes
@@ -204,4 +200,3 @@ def generate_aggregated_code_archived_platform_data(filter_criteria=None):
 def queryset_gen(search_qs):
     for item in search_qs:
         yield item.pk
-

@@ -1,11 +1,11 @@
-from .. import models, util
-from django.contrib.auth.models import User
+import json
+from typing import Dict, List, Optional, Tuple
+
+import requests
+from django.db import transaction
 from unidecode import unidecode
 
-import json
-import requests
-from typing import Dict, List, Optional, Tuple
-from django.db import transaction
+from .. import models
 
 
 class ResponseDictEncoder:
