@@ -1,6 +1,6 @@
 import logging
 
-from citation.export_data import CsvGenerator
+from citation.export_data import PublicationCSVExporter
 from django.core.management.base import BaseCommand
 
 logger = logging.getLogger(__name__)
@@ -21,10 +21,10 @@ class Command(BaseCommand):
         filename = options['outfile']
         if options.get('header') is not None:
             header = options.get('header').strip('[]').split(',')
-            csv_generator = CsvGenerator(header)
+            publication_csv_exporter = PublicationCSVExporter(header)
         else:
-            csv_generator = CsvGenerator()
+            publication_csv_exporter = PublicationCSVExporter()
         with open(filename, 'w', encoding="utf-8") as csvfile:
-            csv_generator.write_all(csvfile)
+            publication_csv_exporter.write_all(csvfile)
 
         logger.debug("Data export completed.")

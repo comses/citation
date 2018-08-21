@@ -1,4 +1,5 @@
 import csv
+import io
 
 from citation.models import Publication, Platform, Sponsor
 
@@ -10,8 +11,19 @@ CSV_DEFAULT_HEADER = ["id", "title", "abstract", "short_title", "zotero_key", "u
                       "contact_author_name", "is_primary", "doi", "series_text", "series_title", "series", "issue",
                       "volume", "issn", "pages", "container", "platforms", "sponsors"]
 
+# Streaming CSV taken from
+# https://docs.djangoproject.com/en/2.1/howto/outputting-csv/
 
-class CsvGenerator:
+class Echo:
+    """An object that implements just the write method of the file-like
+    interface.
+    """
+    def write(self, value):
+        """Write the value by returning it, instead of storing in a buffer."""
+        return value
+
+
+class PublicationCSVExporter:
 
     def __init__(self, attributes=None):
         self.m2m_attributes = [fields.name for fields in Publication._meta.many_to_many]
@@ -68,3 +80,11 @@ class CsvGenerator:
         for pub in publications:
             writer.writerow(self.get_row(pub))
         return writer
+
+    def stream(self):
+        pseudo_buffer = Echo()
+        writer = csv.writer(pseudo_buffer, delimiter=',')
+        writer.writerow(self.get_header())
+        publications = Publication.api.primary()
+        for pub in publications:
+            yield writer.writerow(self.get_row(pub))

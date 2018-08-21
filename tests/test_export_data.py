@@ -1,7 +1,7 @@
 import io
 
 from autofixture import AutoFixture
-from citation.export_data import CsvGenerator
+from citation.export_data import PublicationCSVExporter
 from citation.models import Publication, Platform, Sponsor
 from django.test import TestCase
 
@@ -11,7 +11,7 @@ class TestExport(TestCase):
     @classmethod
     def setUpClass(cls):
         super(TestExport, cls).setUpClass()
-        cls.csv_generator = CsvGenerator()
+        cls.csv_generator = PublicationCSVExporter()
         cls.publication = AutoFixture(Publication, generate_fk=['container', 'added_by']).create(10)
 
     # Test if actual data is persisting in the file or not
