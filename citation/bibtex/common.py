@@ -1,7 +1,9 @@
 import logging
+import re
 import textwrap
 
 import bibtexparser
+from bibtexparser.bparser import BibTexParser
 from django.db import transaction
 
 from . import entry as entry_api
@@ -50,10 +52,24 @@ class PublicationLoadErrors:
                                unaugmented_emails_str)
 
 
+def strip_whitespace_and_braces_replace_middle_brackets(record):
+    whitespace = re.compile(r'^\s+|\s+$')
+    brackets = re.compile(r'^{+|}+$')
+    middle_brackets = re.compile(r'{\[}')
+    for k, v in record.items():
+        v = whitespace.sub('', v)
+        v = brackets.sub('', v)
+        v = middle_brackets.sub('[', v)
+        record[k] = v
+    return record
+
+
 def load_bibtex(file_name):
     with open(file_name) as f:
         contents = f.read()
-        bib_db = bibtexparser.loads(contents)
+        parser = BibTexParser()
+        parser.customization = strip_whitespace_and_braces_replace_middle_brackets
+        bib_db = bibtexparser.loads(contents, parser=parser)
         return bib_db.entries
 
 
