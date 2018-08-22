@@ -1,9 +1,12 @@
 import logging
 import re
+from hashlib import sha1
 from typing import Tuple
 
 from django.db.models.aggregates import Aggregate
 from unidecode import unidecode
+
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -93,3 +96,8 @@ class ArrayAgg(Aggregate):
         if not value:
             return []
         return value
+
+
+def create_timestamp_hash(timestamp: float):
+    info = (str(timestamp), settings.SECRET_KEY)
+    return sha1("".join(info).encode("ascii")).hexdigest()

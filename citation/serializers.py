@@ -464,7 +464,7 @@ class ContactFormSerializer(serializers.Serializer):
         min_seconds = 3
         max_seconds = 2 * 60 * 60
         difference = float(time.time()) - float(value)
-        if min_seconds < difference < max_seconds:
+        if not (min_seconds < difference < max_seconds):
             raise serializers.ValidationError("Timestamp check failed")
         return value
 
