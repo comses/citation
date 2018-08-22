@@ -23,12 +23,23 @@ class Echo:
         return value
 
 
+class CategoricalVariable:
+    def __init__(self, levels):
+        self._levels = levels
+
+    def dense_encode(self, values):
+        return [(level in values) for level in self._levels]
+
+    def __iter__(self):
+        return iter(self._levels)
+
+
 class PublicationCSVExporter:
 
     def __init__(self, attributes=None):
         self.m2m_attributes = [fields.name for fields in Publication._meta.many_to_many]
-        self.platforms = Platform.objects.all().values_list("name", flat=True).order_by("name")
-        self.sponsors = Sponsor.objects.all().values_list("name", flat=True).order_by("name")
+        self.platforms = CategoricalVariable(Platform.objects.all().values_list("name", flat=True).order_by("name"))
+        self.sponsors = CategoricalVariable(Sponsor.objects.all().values_list("name", flat=True).order_by("name"))
         if attributes is None:
             self.attributes = CSV_DEFAULT_HEADER
         else:
@@ -41,21 +52,18 @@ class PublicationCSVExporter:
             if not hasattr(Publication, name):
                 raise AttributeError("Publication model doesn't have attribute :" + name)
 
-    def dummy_encode(self, exhaustive_categories_list, values):
-        return ['1' if category in values else '0' for category in exhaustive_categories_list]
-
     def get_header(self):
         header = []
 
         for name in self.attributes:
             if name in self.m2m_attributes:
                 header.append(name)
-                header.extend(self.get_all_m2m_data(name))
+                header.extend(self.get_all_m2m_levels(name))
             else:
                 header.append(name.strip().replace('_', ' '))
         return header
 
-    def get_all_m2m_data(self, name):
+    def get_all_m2m_levels(self, name):
         if name in ['sponsors', 'platforms']:
             return getattr(self, name)
         else:
@@ -68,7 +76,7 @@ class PublicationCSVExporter:
                 source = getattr(pub, name)
                 pub_m2m_data_list = source.all().values_list('name', flat=True)
                 row.append(pub_m2m_data_list)
-                row.extend(self.dummy_encode(self.get_all_m2m_data(name), pub_m2m_data_list))
+                row.extend(self.get_all_m2m_levels(name).dense_encode(pub_m2m_data_list))
             else:
                 row.append(getattr(pub, name))
         return row

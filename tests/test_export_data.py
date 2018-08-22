@@ -1,11 +1,10 @@
 import io
 
-from citation.export_data import PublicationCSVExporter
-from citation.models import Publication, Platform, Sponsor, Author, Container
+from citation.export_data import PublicationCSVExporter, CategoricalVariable
+from citation.models import Publication, Platform, Author, Container
 from .common import BaseTest
 
 
-# Test for export_data file
 class TestExport(BaseTest):
     @classmethod
     def setUpClass(cls):
@@ -19,7 +18,7 @@ class TestExport(BaseTest):
         self.container = Container.objects.create(name='JASSS')
         self.platform = Platform.objects.create(name='NetLogo')
         self.publications = [Publication(title='Foo', added_by=self.user, container=self.container),
-                            Publication(title='Bar', added_by=self.user, container=self.container)]
+                             Publication(title='Bar', added_by=self.user, container=self.container)]
         Publication.objects.bulk_create(self.publications)
 
     def test_export_data(self):
@@ -36,11 +35,7 @@ class TestExport(BaseTest):
                     self.assertIn(str(row), contents)
         output.close()
 
-    # Test if boolean list for sponsors/platforms is generating proper output or not for export data
     def test_dummy_encoding(self):
-        all_platforms = ['NetLogo', 'MatLab', 'Repast']
-        all_sponsors = ['National Bank of Belgium', 'European Commission',
-                    'United Kingdom Engineering and Physical Sciences Research Council (EPSRC)']
-
-        encoded_platforms = self.csv_generator.dummy_encode(all_platforms, ['NetLogo'])
-        self.assertListEqual(encoded_platforms, ['1', '0', '0'])
+        all_platforms = CategoricalVariable(['NetLogo', 'MatLab', 'Repast'])
+        encoded_platforms = all_platforms.dense_encode(['NetLogo'])
+        self.assertListEqual(encoded_platforms, [True, False, False])
