@@ -41,8 +41,8 @@ class PublicationCSVExporter:
             if not hasattr(Publication, name):
                 raise AttributeError("Publication model doesn't have attribute :" + name)
 
-    def generate_boolean_list(self, items, values):
-        return ['1' if item in values else '0' for item in items]
+    def dummy_encode(self, exhaustive_categories_list, values):
+        return ['1' if category in values else '0' for category in exhaustive_categories_list]
 
     def get_header(self):
         header = []
@@ -68,7 +68,7 @@ class PublicationCSVExporter:
                 source = getattr(pub, name)
                 pub_m2m_data_list = source.all().values_list('name', flat=True)
                 row.append(pub_m2m_data_list)
-                row.extend(self.generate_boolean_list(self.get_all_m2m_data(name), pub_m2m_data_list))
+                row.extend(self.dummy_encode(self.get_all_m2m_data(name), pub_m2m_data_list))
             else:
                 row.append(getattr(pub, name))
         return row

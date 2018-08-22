@@ -9,13 +9,13 @@ from django.contrib.postgres.fields import JSONField
 from django.contrib.sites.requests import RequestSite
 from django.core.cache import cache
 from django.core.exceptions import FieldError
-from django.core.urlresolvers import reverse
 from django.db import models, transaction
 from django.db.models import F
 from django.db.models import Q, IntegerField, Count, Max
 from django.db.models.functions import Cast
 from django.template.defaultfilters import slugify
 from django.template.loader import get_template
+from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 from model_utils import Choices
 
@@ -249,7 +249,7 @@ class InvitationEmailTemplate(models.Model):
     text = models.TextField()
     date_added = models.DateTimeField(auto_now_add=True)
     last_modified = models.DateTimeField(auto_now=True)
-    added_by = models.ForeignKey(User, related_name="citation_added_by")
+    added_by = models.ForeignKey(User, related_name="citation_added_by", on_delete=models.PROTECT)
 
 
 class Author(AbstractLogModel):
@@ -265,7 +265,7 @@ class Author(AbstractLogModel):
     orcid = fields.NonEmptyTextField(max_length=200, unique=True)
     researcherid = fields.NonEmptyTextField(max_length=100, unique=True)
     email = models.EmailField(blank=True)
-    user = models.OneToOneField(User, null=True)
+    user = models.OneToOneField(User, null=True, on_delete=models.SET_NULL)
 
     date_added = models.DateTimeField(auto_now_add=True,
                                       help_text=_('Date this model was imported into this system'))
@@ -352,7 +352,7 @@ class AuthorCorrespondenceTemplate(models.Model):
 class AuthorCorrespondence(models.Model):
     date_created = models.DateTimeField(auto_now=True)
     date_responded = models.DateTimeField(blank=True, null=True)
-    template = models.ForeignKey(AuthorCorrespondenceTemplate, related_name='correspondences')
+    template = models.ForeignKey(AuthorCorrespondenceTemplate, related_name='correspondences', on_delete=models.PROTECT)
     author = models.ForeignKey(Author, on_delete=models.PROTECT, related_name='correspondences')
     hash = models.CharField(max_length=255)
 
@@ -407,9 +407,9 @@ class Note(AbstractLogModel):
     zotero_key = models.CharField(max_length=64, null=True, unique=True, blank=True)
     zotero_date_added = models.DateTimeField(null=True, blank=True)
     zotero_date_modified = models.DateTimeField(null=True, blank=True)
-    added_by = models.ForeignKey(User, related_name='citation_added_note_set')
+    added_by = models.ForeignKey(User, related_name='citation_added_note_set', on_delete=models.PROTECT)
     deleted_on = models.DateTimeField(null=True, blank=True)
-    deleted_by = models.ForeignKey(User, related_name='citation_deleted_note_set', null=True, blank=True)
+    deleted_by = models.ForeignKey(User, related_name='citation_deleted_note_set', null=True, blank=True, on_delete=models.SET_NULL)
     publication = models.ForeignKey('Publication', null=True, blank=True, on_delete=models.SET_NULL)
 
     @property
@@ -577,7 +577,7 @@ class Publication(AbstractLogModel):
     model_documentation = models.ManyToManyField(ModelDocumentation, through='PublicationModelDocumentations',
                                                  blank=True, related_name='publications')
     tags = models.ManyToManyField(Tag, through='PublicationTags', blank=True)
-    added_by = models.ForeignKey(User, related_name='citation_added_publication_set')
+    added_by = models.ForeignKey(User, related_name='citation_added_publication_set', on_delete=models.PROTECT)
 
     # custom fields used by catalog internally
     status = models.CharField(choices=Status, max_length=64, default=Status.UNREVIEWED)
@@ -593,13 +593,14 @@ class Publication(AbstractLogModel):
                                          null=True,
                                          blank=True,
                                          help_text=_("Currently assigned curator"),
-                                         related_name='citation_assigned_publication_set')
+                                         related_name='citation_assigned_publication_set',
+                                         on_delete=models.SET_NULL)
 
     # type fields
     is_primary = models.BooleanField(default=True)
 
     # container specific fields
-    container = models.ForeignKey(Container, related_name='publications')
+    container = models.ForeignKey(Container, related_name='publications', on_delete=models.PROTECT)
     pages = models.CharField(max_length=255, default='', blank=True)
     issn = models.CharField(max_length=255, default='', blank=True)
     volume = models.CharField(max_length=255, default='', blank=True)
@@ -725,7 +726,8 @@ class URLStatusLog(models.Model):
                              (CodePlatformIdentifier.INVALID.value, _('Invalid')),
                              (CodePlatformIdentifier.OTHERS.value, _('Others'))
                              )
-    publication = models.ForeignKey(Publication, related_name='url_status', null=True, blank=True, db_constraint=False)
+    publication = models.ForeignKey(Publication, related_name='url_status', null=True, blank=True, db_constraint=False,
+                                    on_delete=models.DO_NOTHING)
     url = models.URLField(blank=True, max_length=500)
     date_created = models.DateTimeField(auto_now_add=True,
                                         help_text=_('Date this url was last verified'))
@@ -752,7 +754,7 @@ class AuditCommand(models.Model):
     action = models.CharField(max_length=64, choices=Action)
     date_added = models.DateTimeField(auto_now_add=True)
     creator = models.ForeignKey(User, related_name="citation_creator_set",
-                                help_text=_('The user who initiated this action, if any.'))
+                                help_text=_('The user who initiated this action, if any.'), on_delete=models.PROTECT)
     message = models.TextField(blank=True, help_text=_('A human readable representation of the change made'))
 
     def save_once(self, *args, **kwargs):
@@ -793,8 +795,9 @@ class AuditLog(models.Model):
     table = models.CharField(max_length=128)
     payload = JSONField(blank=True, null=True,
                         help_text=_('A JSON dictionary containing modified fields, if any, for the given publication'))
-    pub_id = models.ForeignKey(Publication, related_name='auditlog', null=True, blank=True, db_constraint=False)
-    audit_command = models.ForeignKey(AuditCommand, related_name='auditlogs')
+    pub_id = models.ForeignKey(Publication, related_name='auditlog', null=True, blank=True, db_constraint=False,
+                               on_delete=models.DO_NOTHING)
+    audit_command = models.ForeignKey(AuditCommand, related_name='auditlogs', on_delete=models.CASCADE)
     message = models.CharField(max_length=2000, blank=True)
     objects = AuditLogQuerySet.as_manager()
 
@@ -872,8 +875,8 @@ class PublicationAuthors(AbstractLogModel):
         ('TRANSLATOR', _('translator')),
         ('SERIES_EDITOR', _('series editor')),
     )
-    publication = models.ForeignKey(Publication, related_name='publication_authors')
-    author = models.ForeignKey(Author, related_name='publication_authors')
+    publication = models.ForeignKey(Publication, related_name='publication_authors', on_delete=models.CASCADE)
+    author = models.ForeignKey(Author, related_name='publication_authors', on_delete=models.CASCADE)
     role = models.CharField(choices=RoleChoices, max_length=64)
 
     date_added = models.DateTimeField(auto_now_add=True)
@@ -884,8 +887,8 @@ class PublicationAuthors(AbstractLogModel):
 
 
 class PublicationCitations(AbstractLogModel):
-    publication = models.ForeignKey(Publication, related_name='publication_citations')
-    citation = models.ForeignKey(Publication, related_name='publication_citations_referenced_by')
+    publication = models.ForeignKey(Publication, related_name='publication_citations', on_delete=models.CASCADE)
+    citation = models.ForeignKey(Publication, related_name='publication_citations_referenced_by', on_delete=models.CASCADE)
 
     date_added = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
@@ -895,8 +898,8 @@ class PublicationCitations(AbstractLogModel):
 
 
 class PublicationModelDocumentations(AbstractLogModel):
-    publication = models.ForeignKey(Publication, related_name='publication_modeldocumentations')
-    model_documentation = models.ForeignKey(ModelDocumentation, related_name='publication_modeldocumentations')
+    publication = models.ForeignKey(Publication, related_name='publication_modeldocumentations', on_delete=models.CASCADE)
+    model_documentation = models.ForeignKey(ModelDocumentation, related_name='publication_modeldocumentations', on_delete=models.CASCADE)
 
     date_added = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
@@ -906,8 +909,8 @@ class PublicationModelDocumentations(AbstractLogModel):
 
 
 class PublicationPlatforms(AbstractLogModel):
-    publication = models.ForeignKey(Publication, related_name='publication_platforms')
-    platform = models.ForeignKey(Platform, related_name='publications_platforms')
+    publication = models.ForeignKey(Publication, related_name='publication_platforms', on_delete=models.CASCADE)
+    platform = models.ForeignKey(Platform, related_name='publications_platforms', on_delete=models.CASCADE)
 
     date_added = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
@@ -917,8 +920,8 @@ class PublicationPlatforms(AbstractLogModel):
 
 
 class PublicationSponsors(AbstractLogModel):
-    publication = models.ForeignKey(Publication, related_name='publication_sponsors')
-    sponsor = models.ForeignKey(Sponsor, related_name='publication_sponsors')
+    publication = models.ForeignKey(Publication, related_name='publication_sponsors', on_delete=models.CASCADE)
+    sponsor = models.ForeignKey(Sponsor, related_name='publication_sponsors', on_delete=models.CASCADE)
 
     date_added = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
@@ -928,8 +931,8 @@ class PublicationSponsors(AbstractLogModel):
 
 
 class PublicationTags(AbstractLogModel):
-    publication = models.ForeignKey(Publication, related_name='publication_tags')
-    tag = models.ForeignKey(Tag, related_name='publication_tags')
+    publication = models.ForeignKey(Publication, related_name='publication_tags', on_delete=models.CASCADE)
+    tag = models.ForeignKey(Tag, related_name='publication_tags', on_delete=models.CASCADE)
 
     date_added = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
@@ -939,8 +942,8 @@ class PublicationTags(AbstractLogModel):
 
 
 class RawAuthors(AbstractLogModel):
-    author = models.ForeignKey(Author, related_name='raw_authors')
-    raw = models.ForeignKey(Raw, related_name='raw_authors')
+    author = models.ForeignKey(Author, related_name='raw_authors', on_delete=models.CASCADE)
+    raw = models.ForeignKey(Raw, related_name='raw_authors', on_delete=models.CASCADE)
 
     date_added = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)

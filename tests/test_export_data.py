@@ -1,20 +1,27 @@
 import io
 
-from autofixture import AutoFixture
 from citation.export_data import PublicationCSVExporter
-from citation.models import Publication, Platform, Sponsor
-from django.test import TestCase
+from citation.models import Publication, Platform, Sponsor, Author, Container
+from .common import BaseTest
 
 
 # Test for export_data file
-class TestExport(TestCase):
+class TestExport(BaseTest):
     @classmethod
     def setUpClass(cls):
-        super(TestExport, cls).setUpClass()
+        super().setUpClass()
         cls.csv_generator = PublicationCSVExporter()
-        cls.publication = AutoFixture(Publication, generate_fk=['container', 'added_by']).create(10)
 
-    # Test if actual data is persisting in the file or not
+    def setUp(self):
+        self.user = self.create_user(username='bobsmith',
+                                     email='a@b.com', password='test')
+        self.author = Author.objects.create(given_name='Bob', family_name='Smith', type=Author.INDIVIDUAL)
+        self.container = Container.objects.create(name='JASSS')
+        self.platform = Platform.objects.create(name='NetLogo')
+        self.publications = [Publication(title='Foo', added_by=self.user, container=self.container),
+                            Publication(title='Bar', added_by=self.user, container=self.container)]
+        Publication.objects.bulk_create(self.publications)
+
     def test_export_data(self):
         output = io.StringIO()
         self.csv_generator.write_all(output)
@@ -30,22 +37,10 @@ class TestExport(TestCase):
         output.close()
 
     # Test if boolean list for sponsors/platforms is generating proper output or not for export data
-    def test_boolean_list(self):
-        platforms = ['NetLogo', 'MatLab', 'Repast']
-        sponsors = ['National Bank of Belgium', 'European Commission',
+    def test_dummy_encoding(self):
+        all_platforms = ['NetLogo', 'MatLab', 'Repast']
+        all_sponsors = ['National Bank of Belgium', 'European Commission',
                     'United Kingdom Engineering and Physical Sciences Research Council (EPSRC)']
-        all_platforms = Platform.objects.all().values_list("name").order_by("name")
-        all_sponsors = Sponsor.objects.all().values_list("name").order_by("name")
 
-        platforms_output = self.csv_generator.generate_boolean_list(all_platforms, platforms)
-        sponsors_output = self.csv_generator.generate_boolean_list(all_sponsors, sponsors)
-
-        for platform in all_platforms:
-            if platform in platforms:
-                self.assertEquals(platforms_output[platform], 1)
-            self.assertEquals(platforms_output[platform], 0)
-
-        for sponsor in all_sponsors:
-            if sponsor in sponsors:
-                self.assertEquals(sponsors_output[sponsor], 1)
-            self.assertEquals(sponsors_output[sponsor], 0)
+        encoded_platforms = self.csv_generator.dummy_encode(all_platforms, ['NetLogo'])
+        self.assertListEqual(encoded_platforms, ['1', '0', '0'])

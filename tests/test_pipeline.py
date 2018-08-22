@@ -1,9 +1,10 @@
 # Test the Metadata Extraction Pipeline Beginning to End
 
-from citation import models
-from citation.management.commands.load_bibtex import Command
 from django.contrib.auth.models import User
 from django.test import TestCase
+
+from citation import models
+from citation.management.commands.load_bibtex import Command
 
 
 class TestPipeline(TestCase):
@@ -146,18 +147,18 @@ class TestPipeline(TestCase):
                              self.secondary_publication)
 
         # This ensures that duplicate secondary publications part of the same primary publication only get added once
-        self.assertListEqual(list(models.Publication.objects.filter(
-            referenced_by=models.Publication.objects.filter(title='Duplicate Citations One Publication'))
-                                  .values('title', 'doi')),
-                             self.duplicate_citation_one_publication_references)
+        self.assertListEqual(
+            list(models.Publication.objects.filter(
+                referenced_by__in=models.Publication.objects.filter(title='Duplicate Citations One Publication')).values('doi', 'title')),
+            self.duplicate_citation_one_publication_references)
         self.assertListEqual(list(p.doi for p in models.Publication.objects.filter(
-            referenced_by=models.Publication.objects.filter(
+            referenced_by__in=models.Publication.objects.filter(
                 title='Towards realistic and effective Agent-based models of crowd dynamics'))),
                              self.realistic_and_effective_abms_references)
-        self.assertSetEqual(set(p.doi for p in models.Publication.objects.filter(
-            referenced_by=models.Publication.objects.filter(
+        self.assertSetEqual(
+            set(p.doi for p in models.Publication.objects.filter(referenced_by__in=models.Publication.objects.filter(
                 title='An integrated framework of agent-based modelling and robust optimization for microgrid energy management'))),
-                            self.microgrid_energy_management_references)
+            self.microgrid_energy_management_references)
 
         self.assertFalse(models.Publication.objects.filter(doi=self.not_a_publication[0]).exists())
 
@@ -180,22 +181,22 @@ class TestPipeline(TestCase):
 
         self.assertSetEqual(
             set(a.family_name for a in models.Author.objects.filter(
-                publications=models.Publication.objects.filter(doi='10.1016/j.neucom.2014.04.057'))),
+                publications__in=models.Publication.objects.filter(doi='10.1016/j.neucom.2014.04.057'))),
             self.authors_duplicate_citation_one_publication)
 
         self.assertSetEqual(
             set(a.family_name for a in models.Author.objects.filter(
-                publications=models.Publication.objects.filter(doi='10.1016/j.jclepro.2013.12.009'))),
+                publications__in=models.Publication.objects.filter(doi='10.1016/j.jclepro.2013.12.009'))),
             self.authors_sustainability_in_the_malaysian_palm_oil_industry)
 
         self.assertSetEqual(
             set(a.family_name for a in models.Author.objects.filter(
-                publications=models.Publication.objects.filter(doi='10.1016/j.jtbi.2014.08.016'))),
+                publications__in=models.Publication.objects.filter(doi='10.1016/j.jtbi.2014.08.016'))),
             self.authors_of_realistic_and_effective_abms)
 
         self.assertSetEqual(
             set(a.email for a in models.Author.objects.filter(
-                publications=models.Publication.objects.filter(doi='10.1016/j.apenergy.2014.04.024'))),
+                publications__in=models.Publication.objects.filter(doi='10.1016/j.apenergy.2014.04.024'))),
             self.authors_of_microgrid_energy_management)
 
         self.assertFalse(models.Author.objects.filter(email=self.missing_emails[0]).exists())
