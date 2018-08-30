@@ -576,7 +576,7 @@ class Publication(AbstractLogModel):
     sponsors = models.ManyToManyField(Sponsor, blank=True, through='PublicationSponsors', related_name='publications')
     model_documentation = models.ManyToManyField(ModelDocumentation, through='PublicationModelDocumentations',
                                                  blank=True, related_name='publications')
-    tags = models.ManyToManyField(Tag, through='PublicationTags', blank=True)
+    tags = models.ManyToManyField(Tag, through='PublicationTags', blank=True, related_name='publications')
     added_by = models.ForeignKey(User, related_name='citation_added_publication_set', on_delete=models.PROTECT)
 
     # custom fields used by catalog internally
@@ -910,7 +910,7 @@ class PublicationModelDocumentations(AbstractLogModel):
 
 class PublicationPlatforms(AbstractLogModel):
     publication = models.ForeignKey(Publication, related_name='publication_platforms', on_delete=models.CASCADE)
-    platform = models.ForeignKey(Platform, related_name='publications_platforms', on_delete=models.CASCADE)
+    platform = models.ForeignKey(Platform, related_name='publication_platforms', on_delete=models.CASCADE)
 
     date_added = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
