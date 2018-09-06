@@ -2,9 +2,12 @@ import datetime
 import logging
 import re
 from collections import defaultdict
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 from django.contrib.auth.models import User
+from fuzzywuzzy import fuzz
+from scipy.optimize import linear_sum_assignment
 
 from .. import common
 from .. import ref
@@ -47,10 +50,43 @@ def guess_researcherid_str_split(researcherid_str):
     return researcherids
 
 
-def combine_author_info(author_names, author_emails, author_orcids, author_researcherids) -> List[models.Author]:
-    n_author_names = len(author_names)
-    include_emails = n_author_names == len(author_emails)
+def match_authors_with_emails_by_order(authors: List[models.Author], emails: List[str]) -> List[str]:
+    if len(authors) == len(emails):
+        for author, email in zip(authors, emails):
+            author.email = email
+        return []
+    else:
+        return emails
 
+
+def match_authors_with_emails_as_linear_assignment_problem(authors: List[models.Author], emails: List[str]):
+    """Matches authors with email addresses
+
+    Should consider using other smaller libraries than scipy"""
+    n_authors, n_emails = len(authors), len(emails)
+    if n_emails > n_authors:
+        return emails
+
+    costs = np.zeros((len(authors), len(emails)))
+    for (i, author) in enumerate(authors):
+        for (j, email) in enumerate(emails):
+            local_part_email = email.split('@', 1)[0]
+            costs[i, j] = -fuzz.WRatio(author.name, local_part_email)
+    if not (costs < -50).any():
+        return authors
+
+    author_inds, email_inds = linear_sum_assignment(costs)
+    for author_ind in author_inds:
+        for email_ind in email_inds:
+            author = authors[author_ind]
+            email = emails[email_ind]
+            logger.debug('author {} fuzzy matched with email {}'.format(author.name, email))
+            authors[author_ind].email = emails[email_ind]
+    return []
+
+
+def combine_author_info(author_names, author_emails, author_orcids, author_researcherids) -> Tuple[
+    List[models.Author], List[str]]:
     author_name_orcid_map = defaultdict(lambda: [])
     for author_orcid in author_orcids:
         author_name = author_orcid[1:3]
@@ -72,13 +108,8 @@ def combine_author_info(author_names, author_emails, author_orcids, author_resea
                                researcherid=researcherids[0] if len(researcherids) > 0 else "")
         authors.append(author)
 
-    if include_emails:
-        for ind, author in enumerate(authors):
-            author.email = author_emails[ind]
-        unassigned_emails = []
-    else:
-        unassigned_emails = author_emails
-
+    unassigned_emails = match_authors_with_emails_by_order(authors, author_emails)
+    unassigned_emails = match_authors_with_emails_as_linear_assignment_problem(authors, unassigned_emails)
     return authors, unassigned_emails
 
 

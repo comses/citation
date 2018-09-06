@@ -248,9 +248,9 @@ class ContainerMergeGroup:
     def is_valid(self):
         """Determine if it is safe to merge a set of related containers
 
-        A set of related containers is safe to merge if:
+        A set of related containers is always safe to merge but generates a warning if:
 
-        1. every container with an ISSN has the same ISSN
+        1. Their are two or more different ISSNs in the merge group
         """
 
         issns = set(other.issn for other in self.others if other.issn)
@@ -262,7 +262,8 @@ class ContainerMergeGroup:
 
         self._errors = ContainerMergerValidationMessage(containers=containers,
                                                         issns=issns) if len(issns) > 1 else None
-        self._is_valid = len(issns) <= 1
+        logger.warning(self._errors)
+        self._is_valid = True
         return self._is_valid
 
     @property

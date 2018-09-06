@@ -1,5 +1,7 @@
 # Test the Metadata Extraction Pipeline Beginning to End
+from pprint import pprint
 
+from citation.models import Author
 from django.contrib.auth.models import User
 from django.test import TestCase
 
@@ -73,18 +75,41 @@ class TestPipeline(TestCase):
             'APPLIED ENERGY',
         ]
 
-        cls.authors_with_ids_or_emails = [
-            {'family_name': 'Kuznetsova', 'given_name': 'Elizaveta', 'email': 'elizaveta.kuznetsova@uvsq.fr',
-             'researcherid': 'J-4492-2016', 'orcid': None},
-            {'family_name': 'Li', 'given_name': 'Yan-Fu', 'email': 'yanfu.li@ecp.fr',
-             'researcherid': 'B-6610-2014', 'orcid': '0000-0001-5755-7115'},
-            {'family_name': 'Ruiz', 'given_name': 'Carlos', 'email': 'caruizm@est-econ.uc3m.es',
-             'researcherid': 'B-2183-2012', 'orcid': '0000-0003-1663-1061'},
-            {'family_name': 'Was', 'given_name': 'Jaroslaw', 'email': 'jarek@agh.edu.pl',
-             'researcherid': 'B-5835-2012', 'orcid': None},
-            {'family_name': 'Zio', 'given_name': 'Enrico', 'email': 'enrico.zio@ecp.fr',
-             'researcherid': None, 'orcid': '0000-0002-7108-637X'},
-        ]
+        cls.authors_with_ids_or_emails = [{'email': 'cgchoong@gmail.com',
+                                           'family_name': 'Choong',
+                                           'given_name': 'Chee Guan',
+                                           'orcid': None,
+                                           'researcherid': None},
+                                          {'email': 'elizaveta.kuznetsova@uvsq.fr',
+                                           'family_name': 'Kuznetsova',
+                                           'given_name': 'Elizaveta',
+                                           'orcid': None,
+                                           'researcherid': 'J-4492-2016'},
+                                          {'email': 'kerryl@unimelb.edu.au',
+                                           'family_name': 'Landman',
+                                           'given_name': 'Kerry A',
+                                           'orcid': None,
+                                           'researcherid': None},
+                                          {'email': 'yanfu.li@ecp.fr',
+                                           'family_name': 'Li',
+                                           'given_name': 'Yan-Fu',
+                                           'orcid': '0000-0001-5755-7115',
+                                           'researcherid': 'B-6610-2014'},
+                                          {'email': 'caruizm@est-econ.uc3m.es',
+                                           'family_name': 'Ruiz',
+                                           'given_name': 'Carlos',
+                                           'orcid': '0000-0003-1663-1061',
+                                           'researcherid': 'B-2183-2012'},
+                                          {'email': 'jarek@agh.edu.pl',
+                                           'family_name': 'Was',
+                                           'given_name': 'Jaroslaw',
+                                           'orcid': None,
+                                           'researcherid': 'B-5835-2012'},
+                                          {'email': 'enrico.zio@ecp.fr',
+                                           'family_name': 'Zio',
+                                           'given_name': 'Enrico',
+                                           'orcid': '0000-0002-7108-637X',
+                                           'researcherid': None}]
 
         cls.authors_duplicate_citation_one_publication = {
             'Was',
@@ -149,7 +174,8 @@ class TestPipeline(TestCase):
         # This ensures that duplicate secondary publications part of the same primary publication only get added once
         self.assertListEqual(
             list(models.Publication.objects.filter(
-                referenced_by__in=models.Publication.objects.filter(title='Duplicate Citations One Publication')).values('doi', 'title')),
+                referenced_by__in=models.Publication.objects.filter(
+                    title='Duplicate Citations One Publication')).values('doi', 'title')),
             self.duplicate_citation_one_publication_references)
         self.assertListEqual(list(p.doi for p in models.Publication.objects.filter(
             referenced_by__in=models.Publication.objects.filter(
@@ -199,7 +225,7 @@ class TestPipeline(TestCase):
                 publications__in=models.Publication.objects.filter(doi='10.1016/j.apenergy.2014.04.024'))),
             self.authors_of_microgrid_energy_management)
 
-        self.assertFalse(models.Author.objects.filter(email=self.missing_emails[0]).exists())
+        self.assertTrue(Author.objects.filter(family_name__iexact='mckay', given_name__iexact='alison').exists())
 
     def test_bibtex_load_idempotent(self):
         """Loading the same dataset into the database twice should not result in any changes to the database"""
