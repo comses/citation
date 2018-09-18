@@ -436,7 +436,7 @@ class PublicationSerializer(serializers.ModelSerializer):
             'id', 'apa_citation_string', 'activity_logs', 'assigned_curator', 'code_archive_url', 'contact_author_name',
             'contact_email', 'container', 'creators', 'date_modified', 'detail_url', 'flagged', 'model_documentation',
             'notes', 'pages', 'platforms', 'sponsors', 'status', 'status_options', 'tags', 'title', 'volume',
-            'year_published',
+            'year_published', 'doi'
         )
 
 
