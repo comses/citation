@@ -648,7 +648,7 @@ class Publication(AbstractLogModel):
 
     def contributor_data(self, latest=False):
         value = cache.get(self.contributor_data_cache_key)
-        if value and not latest:
+        if value is not None and not latest:
             return value
         elif self.is_primary:
             logs = AuditLog.objects.get_contributor_data(self)
