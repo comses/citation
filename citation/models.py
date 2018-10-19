@@ -409,7 +409,8 @@ class Note(AbstractLogModel):
     zotero_date_modified = models.DateTimeField(null=True, blank=True)
     added_by = models.ForeignKey(User, related_name='citation_added_note_set', on_delete=models.PROTECT)
     deleted_on = models.DateTimeField(null=True, blank=True)
-    deleted_by = models.ForeignKey(User, related_name='citation_deleted_note_set', null=True, blank=True, on_delete=models.SET_NULL)
+    deleted_by = models.ForeignKey(User, related_name='citation_deleted_note_set', null=True, blank=True,
+                                   on_delete=models.SET_NULL)
     publication = models.ForeignKey('Publication', null=True, blank=True, on_delete=models.SET_NULL)
 
     @property
@@ -712,6 +713,9 @@ class Publication(AbstractLogModel):
             self.pages
         )
 
+    def get_public_detail_url(self):
+        return reverse('core:public-publication-detail', kwargs={'pk': self.pk})
+
     def __str__(self):
         return 'id: {id} {title} {year}. {container}'.format(id=self.id, title=self.title, year=self.year_published,
                                                              container=self.container)
@@ -888,7 +892,8 @@ class PublicationAuthors(AbstractLogModel):
 
 class PublicationCitations(AbstractLogModel):
     publication = models.ForeignKey(Publication, related_name='publication_citations', on_delete=models.CASCADE)
-    citation = models.ForeignKey(Publication, related_name='publication_citations_referenced_by', on_delete=models.CASCADE)
+    citation = models.ForeignKey(Publication, related_name='publication_citations_referenced_by',
+                                 on_delete=models.CASCADE)
 
     date_added = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
@@ -898,8 +903,10 @@ class PublicationCitations(AbstractLogModel):
 
 
 class PublicationModelDocumentations(AbstractLogModel):
-    publication = models.ForeignKey(Publication, related_name='publication_modeldocumentations', on_delete=models.CASCADE)
-    model_documentation = models.ForeignKey(ModelDocumentation, related_name='publication_modeldocumentations', on_delete=models.CASCADE)
+    publication = models.ForeignKey(Publication, related_name='publication_modeldocumentations',
+                                    on_delete=models.CASCADE)
+    model_documentation = models.ForeignKey(ModelDocumentation, related_name='publication_modeldocumentations',
+                                            on_delete=models.CASCADE)
 
     date_added = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
