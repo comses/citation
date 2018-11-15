@@ -957,3 +957,19 @@ class RawAuthors(AbstractLogModel):
 
     class Meta:
         unique_together = ('author', 'raw')
+
+
+class Submitter(models.Model):
+    user = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
+    email = models.EmailField(blank=True, unique=True)
+
+
+class SuggestedPublication(models.Model):
+    doi = fields.NonEmptyTextField(max_length=255, unique=True, verbose_name=_('DOI'))
+    title = models.TextField(default='', blank=True)
+    journal = models.TextField(default='', blank=True)
+    volume = models.CharField(max_length=255, default='', blank=True)
+    issue = models.CharField(max_length=255, default='', blank=True)
+    pages = models.CharField(max_length=255, default='', blank=True)
+    authors = models.CharField(max_length=300, default='', blank=True)
+    submitter = models.ForeignKey(Submitter, on_delete=models.PROTECT)
