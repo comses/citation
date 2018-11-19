@@ -961,7 +961,10 @@ class RawAuthors(AbstractLogModel):
 
 class Submitter(models.Model):
     user = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
-    email = models.EmailField(blank=True, unique=True)
+    email = models.EmailField(blank=True)
+
+    def get_email(self):
+        return self.email if self.email else self.user.email
 
 
 class SuggestedPublication(models.Model):
@@ -973,3 +976,12 @@ class SuggestedPublication(models.Model):
     pages = models.CharField(max_length=255, default='', blank=True)
     authors = models.CharField(max_length=300, default='', blank=True)
     submitter = models.ForeignKey(Submitter, on_delete=models.PROTECT)
+
+    @property
+    def short_name(self):
+        name = []
+        if self.title:
+            name.append(self.title)
+        if self.doi:
+            name.append('DOI: {}'.format(self.doi))
+        return ' '.join(name)
