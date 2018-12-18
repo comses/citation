@@ -2,11 +2,30 @@ import copy
 
 from citation import models, merger
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 
 
 def sort_by_id(instance):
     return instance.id
+
+
+class MergerTest(SimpleTestCase):
+    def to_frozen(self, merger):
+        return set(map(frozenset, merger.group_id_to_pks.values()))
+
+    def test_merge_set(self):
+        ms = merger.MergeSet([1,2])
+        ms.update(merger.MergeSet([5,2]))
+        self.assertEqual(ms.items, [1,5,2])
+
+    def test_distinct_union_set(self):
+        self.assertEqual(self.to_frozen(merger.DisjointUnionSet.from_items(
+            [merger.MergeSet([1, 2]), merger.MergeSet([2, 3]), merger.MergeSet([4, 5])])),
+            {frozenset([1, 2, 3]), frozenset([4, 5])})
+        self.assertEqual(self.to_frozen(merger.DisjointUnionSet.from_items([{1, 2}, {3, 4}])),
+                         {frozenset([1, 2]), frozenset([3, 4])})
+        self.assertEqual(self.to_frozen(merger.DisjointUnionSet.from_items([{1, 2}, {2, 3}, {3, 4}])),
+                         {frozenset([1, 2, 3, 4]), })
 
 
 class MetadataObjectGraph:

@@ -1,8 +1,11 @@
+import itertools
 import logging
 import textwrap
 from collections import defaultdict
-from typing import List, Set
+from itertools import chain
+from typing import List, Set, Dict
 
+from citation.models import Author
 from django.db.models import Q, Count
 
 from . import models
@@ -102,6 +105,126 @@ class AuthoritativeAuthorMergeGroupSet:
                     author.log_delete(audit_command=audit_command)
                 else:
                     models.PublicationAuthors.objects.filter(author=author).log_delete(audit_command=audit_command)
+
+
+class MergeSet:
+    def __init__(self, items):
+        self.items: List = items
+        self.item_set = set(items)
+
+    def __iter__(self):
+        return iter(self.items)
+
+    def copy(self):
+        return MergeSet(self.items.copy())
+
+    def update(self, other):
+        items = self.items
+        self.items = []
+        self.item_set = set()
+        for (fst, snd) in itertools.zip_longest(items, other.items):
+            if fst is not None and fst not in self.item_set:
+                self.items.append(fst)
+                self.item_set.add(fst)
+            if snd is not None and snd not in self.item_set:
+                self.items.append(snd)
+                self.item_set.add(snd)
+
+    def __getitem__(self, i):
+        return self.items[i]
+
+    def __repr__(self):
+        return '{}({})'.format(self.__class__.__name__, repr(self.items))
+
+
+class DisjointUnionSet:
+    """
+    A set of sets than can have no overlapping sets.
+
+    Adding a set that overlaps with an existing set results in unioning in removing the existing overlapping sets and
+    adding new set that is the union of the overlapping sets and the set you wanted to add
+    """
+
+    def __init__(self):
+        self.group_id = 0
+        self.group_id_to_pks: Dict[int, MergeSet] = {}
+        self.pk_to_group_id: Dict[int, int] = {}
+
+    def __iter__(self):
+        return iter(self.group_id_to_pks.values())
+
+    def add(self, group: MergeSet):
+        self.group_id_to_pks[self.group_id] = group
+        for pk in group.copy():
+            if pk in self.pk_to_group_id:
+                group_id = self.pk_to_group_id.pop(pk)
+                existing_group = self.group_id_to_pks.pop(group_id)
+                group.update(existing_group)
+            assert pk not in self.pk_to_group_id
+            self.pk_to_group_id[pk] = self.group_id
+
+        self.group_id += 1
+
+    def update(self, other: 'DisjointUnionSet'):
+        for group in other.group_id_to_pks.values():
+            self.add(group)
+
+    @classmethod
+    def from_items(cls, groups):
+        merger = cls()
+        for group in groups:
+            merger.add(group)
+        return merger
+
+    def __repr__(self):
+        return "{}.from_items({})".format(self.__class__.__name__, [v for v in self.group_id_to_pks.values()])
+
+
+class AuthorMerges:
+    def __init__(self):
+        self.author_alias_creates = []
+        self.author_updates = []
+        self.author_deletes = []
+        self.publication_author_updates = []
+        self.publication_author_deletes = []
+
+    def coalesce(self, authors):
+        kept_author = authors[0]
+        discarded_authors = authors[1:]
+        for discarded_author in discarded_authors:
+            for attr in ['family_name', 'given_name']:
+                kept_name = getattr(kept_author, attr)
+                discarded_name = getattr(discarded_author, attr)
+
+    def point_publication_authors_to_kept(kept_author, discarded_authors):
+        pass
+
+    def point_author_aliases_to_kept(kept_author, discarded_authors):
+        pass
+
+    def add(self, merges: DisjointUnionSet):
+        all_author_ids = list(itertools.chain.from_iterable(merges))
+        all_authors = Author.objects.filter(id__in=all_author_ids).in_bulk()
+        for group in merges:
+            author_ids = list(group)
+            authors = [all_authors[author_id] for author_id in author_ids]
+            kept_author, kept_author_updates, discarded_authors = self.coalesce(authors)
+            self.author_updates.append((kept_author, kept_author_updates))
+            self.author_deletes += discarded_authors
+            self.point_publication_authors_to_kept(kept_author, discarded_authors)
+            self.point_author_aliases_to_kept(kept_author, discarded_authors)
+
+    def match_updated_authors():
+        """Find updated entities matching anything in the database"""
+        pass
+
+    def merge_matched_updated_authors(matched_authors):
+        pass
+
+
+class AuthorMergesStaged:
+    def __init__(self):
+        pass
 
 
 class AuthorMergeGroup:
