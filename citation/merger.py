@@ -165,6 +165,13 @@ class DisjointUnionSet:
 
         self.group_id += 1
 
+    def get_kept_pk(pk):
+        """Get the entities pk that will be kept after the merge given a pk part of the MergeSet"""
+        group_id = self.pk_to_group_id[pk]
+        group =  self.group_id_to_pks[group_id]
+        kept_pk = group[0]
+        return kept_pk
+
     def update(self, other: 'DisjointUnionSet'):
         for group in other.group_id_to_pks.values():
             self.add(group)
@@ -179,32 +186,65 @@ class DisjointUnionSet:
     def __repr__(self):
         return "{}.from_items({})".format(self.__class__.__name__, [v for v in self.group_id_to_pks.values()])
 
+class _Empty:
+    def __len__(self):
+        return 0
+
+    def __bool__(self):
+        return False
+
+
+empty = _Empty()
+
+
+class AuthorCoalescer:
+    def _max_str_len_agg(authors, attr):
+        v = empty
+        for author in authors:
+            if len(v) < len(getattr(author, attr))
+                v = getattr(author, family_name)
+        return v
+
+    def family_name(self, authors):
+        return self._max_str_len_agg(authors, 'family_name')
+
+    def given_name(self, authors):
+        return self._max_str_len_agg(authors, 'given_name')
+
+    def orcid(self, authors):
+        orcids = set(a.orcid for a in authors)
+        if len(orcids) > 1:
+            raise MergeError("More than ORCiD in a merge group\n{}".format(authors))
+        return orcids.pop() if orcids else empty
+
+    def calculate_changes(self, authors):
+        changes = {}
+        for attr in ['family_name', 'given_name', 'orcid']:
+            v = get_attr(self, attr)(authors)
+            if v is empty:
+                change[attr] = v
+        return changes
+
 
 class AuthorMerges:
     def __init__(self):
+        self.coalescer = AuthorCoalescer()
         self.author_alias_creates = []
         self.author_updates = []
         self.author_deletes = []
+        self.author_alias_updates = []
         self.publication_author_updates = []
-        self.publication_author_deletes = []
 
     def coalesce(self, authors):
         kept_author = authors[0]
         discarded_authors = authors[1:]
-        for discarded_author in discarded_authors:
-            for attr in ['family_name', 'given_name']:
-                kept_name = getattr(kept_author, attr)
-                discarded_name = getattr(discarded_author, attr)
-
-    def point_publication_authors_to_kept(kept_author, discarded_authors):
-        pass
-
-    def point_author_aliases_to_kept(kept_author, discarded_authors):
-        pass
+        changes = self.coalescer(authors)
+        return kept_author, changes, discarded_authors
 
     def add(self, merges: DisjointUnionSet):
         all_author_ids = list(itertools.chain.from_iterable(merges))
         all_authors = Author.objects.filter(id__in=all_author_ids).in_bulk()
+        all_publication_authors = PublicationAuthor.objects.filter(author_id__in=all_author_ids)
         for group in merges:
             author_ids = list(group)
             authors = [all_authors[author_id] for author_id in author_ids]
@@ -214,16 +254,20 @@ class AuthorMerges:
             self.point_publication_authors_to_kept(kept_author, discarded_authors)
             self.point_author_aliases_to_kept(kept_author, discarded_authors)
 
+        for publication_author in all_publication_authors:
+            kept_pk = merges.get_kept_pk[publication_author.author_id]
+            if kept_pk != publication_author.author_id:
+                self.publication_author_updates.append((publication_author, {'author_id': kept_pk}))
+
+        for author_alias in all_author_aliases:
+            if kept_pk != author_alias.author_id:
+                self.author_alias_updates.append((author_alias, {'author_id': kept_pk}))
+
     def match_updated_authors():
         """Find updated entities matching anything in the database"""
         pass
 
     def merge_matched_updated_authors(matched_authors):
-        pass
-
-
-class AuthorMergesStaged:
-    def __init__(self):
         pass
 
 
