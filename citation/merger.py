@@ -5,8 +5,9 @@ from collections import defaultdict
 from itertools import chain
 from typing import List, Set, Dict
 
-from citation.models import Author
+from citation.models import Author, PublicationAuthors, AuthorAlias, RawAuthors
 from django.db.models import Q, Count
+from django_bulk_update.helper import bulk_update
 
 from . import models
 
@@ -165,7 +166,7 @@ class DisjointUnionSet:
 
         self.group_id += 1
 
-    def get_kept_pk(pk):
+    def get_kept_pk(self, pk):
         """Get the entities pk that will be kept after the merge given a pk part of the MergeSet"""
         group_id = self.pk_to_group_id[pk]
         group =  self.group_id_to_pks[group_id]
@@ -198,11 +199,11 @@ empty = _Empty()
 
 
 class AuthorCoalescer:
-    def _max_str_len_agg(authors, attr):
+    def _max_str_len_agg(self, authors, attr):
         v = empty
         for author in authors:
-            if len(v) < len(getattr(author, attr))
-                v = getattr(author, family_name)
+            if len(v) < len(getattr(author, attr)):
+                v = getattr(author, attr)
         return v
 
     def family_name(self, authors):
@@ -220,9 +221,9 @@ class AuthorCoalescer:
     def calculate_changes(self, authors):
         changes = {}
         for attr in ['family_name', 'given_name', 'orcid']:
-            v = get_attr(self, attr)(authors)
+            v = getattr(self, attr)(authors)
             if v is empty:
-                change[attr] = v
+                changes[attr] = v
         return changes
 
 
@@ -232,43 +233,137 @@ class AuthorMerges:
         self.author_alias_creates = []
         self.author_updates = []
         self.author_deletes = []
+        self.raw_author_updates = []
+        self.raw_author_deletes = []
         self.author_alias_updates = []
+        self.author_alias_deletes = []
         self.publication_author_updates = []
 
     def coalesce(self, authors):
         kept_author = authors[0]
         discarded_authors = authors[1:]
-        changes = self.coalescer(authors)
+        changes = self.coalescer.calculate_changes(authors)
         return kept_author, changes, discarded_authors
 
     def add(self, merges: DisjointUnionSet):
         all_author_ids = list(itertools.chain.from_iterable(merges))
         all_authors = Author.objects.filter(id__in=all_author_ids).in_bulk()
-        all_publication_authors = PublicationAuthor.objects.filter(author_id__in=all_author_ids)
+        all_publication_authors = PublicationAuthors.objects.filter(author_id__in=all_author_ids)
+        all_author_aliases = AuthorAlias.objects.filter(author_id__in=all_author_ids)
+        all_raw_authors = RawAuthors.objects.filter(author_id__in=all_author_ids)
+
         for group in merges:
             author_ids = list(group)
             authors = [all_authors[author_id] for author_id in author_ids]
             kept_author, kept_author_updates, discarded_authors = self.coalesce(authors)
             self.author_updates.append((kept_author, kept_author_updates))
             self.author_deletes += discarded_authors
-            self.point_publication_authors_to_kept(kept_author, discarded_authors)
-            self.point_author_aliases_to_kept(kept_author, discarded_authors)
 
         for publication_author in all_publication_authors:
-            kept_pk = merges.get_kept_pk[publication_author.author_id]
+            kept_pk = merges.get_kept_pk(publication_author.author_id)
             if kept_pk != publication_author.author_id:
                 self.publication_author_updates.append((publication_author, {'author_id': kept_pk}))
 
+        #
+        # Fixup RawAuthors
+        #
+        kept_raw_authors = []
+        raw_author_updates = []
+        for raw_author in all_raw_authors:
+            kept_pk = merges.get_kept_pk(raw_author.author_id)
+            if kept_pk != raw_author.author_id:
+                raw_author_updates.append((raw_author, {'author_id': kept_pk}))
+            else:
+                kept_raw_authors.append(raw_author)
+
+        # Discard raw authors that are listed
+        kept_raw_author_raw_ids = frozenset(a.raw_id for a in kept_raw_authors)
+        for (raw_author, changes) in raw_author_updates:
+            if raw_author.raw_id in kept_raw_author_raw_ids:
+                self.raw_author_deletes.append(raw_author)
+            else:
+                self.raw_author_updates.append((raw_author, changes))
+
+        #
+        # Fixup AuthorAlias
+        #
+        kept_author_aliases = []
+        author_alias_updates = []
         for author_alias in all_author_aliases:
+            kept_pk = merges.get_kept_pk(all_author_aliases)
             if kept_pk != author_alias.author_id:
-                self.author_alias_updates.append((author_alias, {'author_id': kept_pk}))
+                author_alias_updates.append((author_alias, {'author_id': kept_pk}))
+            else:
+                kept_author_aliases.append(author_alias)
 
-    def match_updated_authors():
-        """Find updated entities matching anything in the database"""
-        pass
+        # Discard author aliases that are listed
+        kept_author_alias_names = frozenset((a.given_name, a.family_name) for a in kept_author_aliases)
+        for (author_alias, changes) in author_alias_updates:
+            if (author_alias.given_name, author_alias.family_name) in kept_author_alias_names:
+                self.author_alias_deletes.append(author_alias)
+            else:
+                self.author_alias_updates.append((author_alias, changes))
 
-    def merge_matched_updated_authors(matched_authors):
-        pass
+    def _apply(self, instance, changes):
+        for k, v in changes.items():
+            setattr(instance, k, v)
+        return instance
+
+    def bulk_apply_updates(self, updates):
+        instances = []
+        for instance, changes in updates:
+            self._apply(instance, changes)
+            instances.append(instance)
+        return instances
+
+    def log_updates(self, audit_command, updates):
+        audit_logs = []
+        for (instance, changes) in updates:
+            versioned_payload = make_versioned_payload(instance, changes)
+            audit_logs.append(AuditLog(
+                action='UPDATE',
+                row_id=instance.id,
+                table=instance._meta.model_name,
+                payload=versioned_payload,
+                audit_command=audit_command))
+        return audit_logs
+
+    def log_deletes(self, audit_command, deletes):
+        audit_logs = []
+        for instance in deletes:
+            payload = make_payload(instance)
+            audit_logs.append(AuditLog(
+                action='DELETE',
+                row_id=instance.id,
+                table=instance._meta.model_name,
+                payload=payload,
+                audit_command=audit_command))
+        return audit_logs
+
+    def execute(self, creator):
+        audit_command = AuditCommand.objects.create(action='MERGE', creator=creator, message='Bulk Merging Authors')
+        # Add update logs
+        audit_logs = self.log_updates(audit_command, self.author_updates)
+        audit_logs += self.log_updates(audit_command, self.author_alias_updates)
+        audit_logs += self.log_updates(audit_command, self.publication_author_updates)
+        audit_logs += self.log_updates(audit_command, self.raw_author_updates)
+
+        # Add delete logs
+        audit_logs += self.log_deletes(audit_command, self.author_deletes)
+        audit_logs += self.log_deletes(audit_command, self.author_alias_updates)
+        audit_logs += self.log_deletes(audit_command, self.raw_author_updates)
+
+        AuditLog.objects.bulk_create(audit_logs)
+
+        Author.objects.filter(id__in=[r.id for r in self.author_deletes]).delete()
+        AuthorAlias.objects.filter(id__in=[a.id for a in self.author_alias_deletes]).delete()
+        PublicationAuthors.objects.filter(id__in=[pa.id for pa in self.publication_author_deletes]).delete()
+        RawAuthors.objects.filter(id__in=[r.id for r in self.raw_author_deletes]).delete()
+
+        bulk_update(self.bulk_apply_updates(self.author_updates))
+        bulk_update(self.bulk_apply_updates(self.author_alias_updates))
+        bulk_update(self.bulk_apply_updates(self.publication_author_updates))
+        bulk_update(self.bulk_apply_updates(self.raw_author_updates))
 
 
 class AuthorMergeGroup:
