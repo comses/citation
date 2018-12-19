@@ -968,7 +968,7 @@ class Submitter(models.Model):
 
 
 class SuggestedPublication(models.Model):
-    doi = fields.NonEmptyTextField(max_length=255, unique=True, verbose_name=_('DOI'))
+    doi = fields.NonEmptyTextField(max_length=255, unique=True, verbose_name=_('DOI'), blank=True)
     title = models.TextField(default='', blank=True)
     journal = models.TextField(default='', blank=True)
     volume = models.CharField(max_length=255, default='', blank=True)
@@ -976,6 +976,7 @@ class SuggestedPublication(models.Model):
     pages = models.CharField(max_length=255, default='', blank=True)
     authors = models.CharField(max_length=300, default='', blank=True)
     submitter = models.ForeignKey(Submitter, on_delete=models.PROTECT)
+    code_archive_url = models.URLField(max_length=255, blank=True)
 
     @property
     def short_name(self):
