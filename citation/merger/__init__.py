@@ -5,7 +5,8 @@ from collections import defaultdict
 from itertools import chain
 from typing import List, Set, Dict
 
-from citation.models import Author, PublicationAuthors, AuthorAlias, RawAuthors
+from citation.models import Author, PublicationAuthors, AuthorAlias, RawAuthors, make_versioned_payload, AuditLog, \
+    make_payload, AuditCommand
 from django.db.models import Q, Count
 from django_bulk_update.helper import bulk_update
 
@@ -355,15 +356,15 @@ class AuthorMerges:
 
         AuditLog.objects.bulk_create(audit_logs)
 
-        Author.objects.filter(id__in=[r.id for r in self.author_deletes]).delete()
-        AuthorAlias.objects.filter(id__in=[a.id for a in self.author_alias_deletes]).delete()
-        PublicationAuthors.objects.filter(id__in=[pa.id for pa in self.publication_author_deletes]).delete()
-        RawAuthors.objects.filter(id__in=[r.id for r in self.raw_author_deletes]).delete()
-
         bulk_update(self.bulk_apply_updates(self.author_updates))
         bulk_update(self.bulk_apply_updates(self.author_alias_updates))
         bulk_update(self.bulk_apply_updates(self.publication_author_updates))
         bulk_update(self.bulk_apply_updates(self.raw_author_updates))
+
+
+        Author.objects.filter(id__in=[r.id for r in self.author_deletes]).delete()
+        AuthorAlias.objects.filter(id__in=[a.id for a in self.author_alias_deletes]).delete()
+        RawAuthors.objects.filter(id__in=[r.id for r in self.raw_author_deletes]).delete()
 
 
 class AuthorMergeGroup:
