@@ -5,8 +5,8 @@ from typing import Dict, List
 
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import transaction
-from django.db.models import Count
-from django.db.models.functions import Lower
+from django.db.models import Count, Func
+from django.db.models.functions import Lower, Substr
 from django_bulk_update.helper import bulk_update
 
 from citation.merger import MergeError
@@ -135,9 +135,19 @@ class AuthorCoalescer:
             raise MergeError("More than ORCiD in a merge group\n{}".format(authors))
         return orcids.pop() if orcids else empty
 
+    def email(self, authors):
+        v = empty
+        first = authors[0]
+        rest = authors[1:]
+        if not first.email:
+            for author in rest:
+                if author.email:
+                    v = author.email
+        return v
+
     def calculate_changes(self, authors):
         changes = {}
-        for attr in ['family_name', 'given_name', 'orcid']:
+        for attr in ['family_name', 'given_name', 'orcid', 'email']:
             v = getattr(self, attr)(authors)
             if v != empty:
                 changes[attr] = v
@@ -296,13 +306,14 @@ def grouper(n, iterable):
         yield chunk
 
 
-def merge_authors_by_name(creator):
+def merge_authors_by_name(creator, only_primary=True):
+    author_qs = Author.objects \
+        .filter(
+        id__in=PublicationAuthors.objects \
+            .filter(publication__in=Publication.api.primary()) \
+            .values_list('author_id', flat=True)) if only_primary else Author.objects.all()
     with transaction.atomic():
-        matchings = Author.objects \
-            .filter(
-            id__in=PublicationAuthors.objects \
-                .filter(publication__in=Publication.api.primary()) \
-                .values_list('author_id', flat=True)) \
+        matchings = author_qs \
             .exclude(family_name='') \
             .annotate(l_family_name=Lower('family_name'), l_given_name=Lower('given_name')) \
             .exclude(l_family_name='[anonymous]') \

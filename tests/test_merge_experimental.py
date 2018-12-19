@@ -31,7 +31,7 @@ class AuthorMergeByNameTest(TestCase):
         self.creator = User.objects.create(username='frank', email='a@b.com', first_name='Frank', last_name='Bob')
 
     def test_simple_merge_by_name(self):
-        merge_authors_by_name(self.creator)
+        merge_authors_by_name(self.creator, only_primary=False)
         self.assertEqual(Author.objects.count(), 1)
 
     def test_merge_by_name_with_aliases(self):
@@ -39,7 +39,7 @@ class AuthorMergeByNameTest(TestCase):
                           AuthorAlias(given_name='FA', family_name='Bob', author=self.frank1),
                           AuthorAlias(given_name='F', family_name='Bob', author=self.frank2)]
         AuthorAlias.objects.bulk_create(author_aliases)
-        merge_authors_by_name(self.creator)
+        merge_authors_by_name(self.creator, only_primary=False)
 
         self.assertEqual(Author.objects.count(), 1)
         self.assertEqual(self.frank1.author_aliases.count(), 2)
@@ -50,7 +50,7 @@ class AuthorMergeByNameTest(TestCase):
                  Author(given_name='Beth', family_name='bOB')]
         collin = Author.objects.create(given_name='Collin', family_name='Bob')
         Author.objects.bulk_create(beths)
-        merge_authors_by_name(self.creator)
+        merge_authors_by_name(self.creator, only_primary=False)
 
         self.assertEqual(Author.objects.filter(id=collin.id).count(), 1)
         self.assertEqual(Author.objects.filter(given_name='Frank', family_name='Bob').count(), 1)
