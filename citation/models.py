@@ -5,7 +5,8 @@ from typing import Dict, Optional
 
 from dateutil.parser import parse as datetime_parse
 from django.contrib.auth.models import User
-from django.contrib.postgres.fields import JSONField
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.fields import JSONField, ArrayField
 from django.contrib.sites.requests import RequestSite
 from django.core.cache import cache
 from django.core.exceptions import FieldError
@@ -986,3 +987,15 @@ class SuggestedPublication(models.Model):
         if self.doi:
             name.append('DOI: {}'.format(self.doi))
         return ' '.join(name)
+
+
+class SuggestedMerge(models.Model):
+    content_type = models.ForeignKey(
+        ContentType, related_name='suggested_merge_set', on_delete=models.PROTECT,
+        limit_choices_to=
+            models.Q(model__in=[m._meta.model_name for m in (Author, Container, Platform, Publication, Sponsor)]) &
+            models.Q(app_label='citation'))
+    duplicate_names = ArrayField(models.CharField(max_length=255))
+    creator = models.ForeignKey(User, related_name='suggested_merge_set', on_delete=models.PROTECT)
+    comment = models.CharField(max_length=1000, blank=True)
+    date_added = models.DateTimeField()
