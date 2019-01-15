@@ -82,7 +82,7 @@ LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'root': {
-        'level': 'DEBUG',
+        'level': 'INFO',
         'handlers': ['console'],
     },
     'handlers': {
@@ -97,6 +97,13 @@ LOGGING = {
             'format': '%(asctime)s %(levelname)-7s %(name)s:%(funcName)s:%(lineno)d %(message)s',
             'datefmt': '%Y-%m-%d %H:%M:%S'
         },
+    },
+    'loggers': {
+        'citation.merger': {
+            'level': 'DEBUG',
+            'handlers': ['console'],
+            'propagate': False,
+        }
     }
 }
 

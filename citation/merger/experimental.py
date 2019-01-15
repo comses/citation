@@ -16,7 +16,8 @@ from citation.models import Author, PublicationAuthors, AuthorAlias, RawAuthors,
 logger = logging.getLogger(__name__)
 
 
-class MergeSet:
+class MergeList:
+    """"""
     def __init__(self, items):
         self.items: List = items
         self.item_set = set(items)
@@ -25,7 +26,7 @@ class MergeSet:
         return iter(self.items)
 
     def copy(self):
-        return MergeSet(self.items.copy())
+        return MergeList(self.items.copy())
 
     def update(self, other):
         items = self.items
@@ -46,7 +47,7 @@ class MergeSet:
         return '{}({})'.format(self.__class__.__name__, repr(self.items))
 
 
-class DisjointUnionSet:
+class DisjointUnionList:
     """
     A set of sets than can have no overlapping sets.
 
@@ -56,7 +57,7 @@ class DisjointUnionSet:
 
     def __init__(self):
         self.group_id = 0
-        self.group_id_to_pks: Dict[int, MergeSet] = {}
+        self.group_id_to_pks: Dict[int, MergeList] = {}
         self.pk_to_group_id: Dict[int, int] = {}
 
     def __iter__(self):
@@ -65,7 +66,7 @@ class DisjointUnionSet:
     def __len__(self):
         return len(self.group_id_to_pks)
 
-    def add(self, group: MergeSet):
+    def add(self, group: MergeList):
         self.group_id_to_pks[self.group_id] = group
         for pk in group.copy():
             if pk in self.pk_to_group_id:
@@ -84,7 +85,7 @@ class DisjointUnionSet:
         kept_pk = group[0]
         return kept_pk
 
-    def update(self, other: 'DisjointUnionSet'):
+    def update(self, other: 'DisjointUnionList'):
         for group in other.group_id_to_pks.values():
             self.add(group)
 
@@ -172,7 +173,7 @@ class AuthorMerges:
         changes = self.coalescer.calculate_changes(authors)
         return kept_author, changes, discarded_authors
 
-    def add(self, merges: DisjointUnionSet):
+    def add(self, merges: DisjointUnionList):
         all_author_ids = list(itertools.chain.from_iterable(merges))
         all_authors = Author.objects.filter(id__in=all_author_ids).in_bulk()
         logger.debug('Author merges added : %s', pformat(all_authors))
@@ -183,6 +184,7 @@ class AuthorMerges:
         for group in merges:
             author_ids = list(group)
             authors = [all_authors[author_id] for author_id in author_ids]
+            # move coalesce out - pass data in as an argument
             kept_author, kept_author_updates, discarded_authors = self.coalesce(authors)
             self.author_updates.append((kept_author, kept_author_updates))
             self.author_deletes += discarded_authors
@@ -322,16 +324,16 @@ def merge_authors_by_name(creator, only_primary=True):
             .annotate(author_ids=ArrayAgg('id')) \
             .order_by('-author_count')
 
-        author_disjoint_union_set = DisjointUnionSet()
+        author_disjoint_union_set = DisjointUnionList()
         for match in matchings:
-            author_ids = MergeSet(sorted(match['author_ids']))
+            author_ids = MergeList(sorted(match['author_ids']))
             author_disjoint_union_set.add(author_ids)
 
         chunked_disjoint_set = grouper(1, author_disjoint_union_set)
         ind = 0
         for chunk in chunked_disjoint_set:
             logger.info('Chunk # %i', ind)
-            chunk_author_disjoint_union_set = DisjointUnionSet.from_items(chunk)
+            chunk_author_disjoint_union_set = DisjointUnionList.from_items(chunk)
             author_merges = AuthorMerges()
             author_merges.add(chunk_author_disjoint_union_set)
             author_merges.execute(creator)

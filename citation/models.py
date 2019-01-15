@@ -993,9 +993,11 @@ class SuggestedMerge(models.Model):
     content_type = models.ForeignKey(
         ContentType, related_name='suggested_merge_set', on_delete=models.PROTECT,
         limit_choices_to=
-            models.Q(model__in=[m._meta.model_name for m in (Author, Container, Platform, Publication, Sponsor)]) &
-            models.Q(app_label='citation'))
-    duplicate_names = ArrayField(models.CharField(max_length=255))
+        models.Q(model__in=[m._meta.model_name for m in (Author, Container, Platform, Publication, Sponsor)]) &
+        models.Q(app_label='citation'))
+    duplicates = ArrayField(models.IntegerField())
+    new_content = JSONField()
     creator = models.ForeignKey(User, related_name='suggested_merge_set', on_delete=models.PROTECT)
     comment = models.CharField(max_length=1000, blank=True)
-    date_added = models.DateTimeField()
+    date_added = models.DateTimeField(auto_now_add=True)
+    date_applied = models.DateTimeField(null=True)

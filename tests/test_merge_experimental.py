@@ -8,18 +8,18 @@ class MergeSetTest(SimpleTestCase):
         return set(map(frozenset, merger.group_id_to_pks.values()))
 
     def test_merge_set(self):
-        ms = MergeSet([1, 2])
-        ms.update(MergeSet([5, 2]))
+        ms = MergeList([1, 2])
+        ms.update(MergeList([5, 2]))
         self.assertEqual(ms.items, [1, 5, 2])
 
     def test_distinct_union_set(self):
-        self.assertEqual(self.to_frozen(DisjointUnionSet.from_items(
-            [MergeSet([1, 2]), MergeSet([2, 3]), MergeSet([4, 5])])),
+        self.assertEqual(self.to_frozen(DisjointUnionList.from_items(
+            [MergeList([1, 2]), MergeList([2, 3]), MergeList([4, 5])])),
             {frozenset([1, 2, 3]), frozenset([4, 5])})
-        self.assertEqual(self.to_frozen(DisjointUnionSet.from_items([{1, 2}, {3, 4}])),
+        self.assertEqual(self.to_frozen(DisjointUnionList.from_items([{1, 2}, {3, 4}])),
                          {frozenset([1, 2]), frozenset([3, 4])})
         self.assertEqual(self.to_frozen(
-            DisjointUnionSet.from_items([{1, 2}, {2, 3}, {3, 4}])),
+            DisjointUnionList.from_items([{1, 2}, {2, 3}, {3, 4}])),
             {frozenset([1, 2, 3, 4]), })
 
 
