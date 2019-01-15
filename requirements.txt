@@ -9,6 +9,7 @@ fuzzywuzzy==0.16.0
 invoke
 lxml==4.2.1
 psycopg2==2.7.4
+pyparsing==2.3.0 # https://github.com/sciunto-org/python-bibtexparser/issues/225
 python-Levenshtein>=0.12,<0.13
 python-dateutil==2.7.2
 requests==2.21.0
