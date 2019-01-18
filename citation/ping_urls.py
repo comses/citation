@@ -4,7 +4,7 @@ import requests
 from django.db.models import Q
 
 from .graphviz.globals import CodePlatformIdentifier
-from .models import Publication, URLStatusLog
+from .models import Publication, URLStatusLog, CodeArchiveUrl
 
 logger = logging.getLogger(__name__)
 
@@ -18,29 +18,31 @@ logger = logging.getLogger(__name__)
 
 
 def verify_url_status():
-    publication = Publication.objects.filter(~Q(code_archive_url=''), is_primary="True", status="REVIEWED")
+    code_archive_urls = CodeArchiveUrl.objects.all()
 
-    for pub in publication:
-        logger.info("Pinging: " + pub.code_archive_url)
-        ping_url(pub.pk, pub.code_archive_url)
+    for code_archive_url in code_archive_urls:
+        logger.info("Pinging: " + code_archive_url.url)
+        ping_url(code_archive_url)
 
 
-def ping_url(pk, url):
+def ping_url(code_archive_url):
+    url = code_archive_url.url
     try:
         s = requests.Session()
+        # HEAD requests hang on some URLs so using GET for now
         r = requests.Request('GET', url)
         resp = s.send(r.prepare())
         resp.raise_for_status()
-        platform_type = categorize_url(url)
-        add_url_status_log(pk, platform_type, resp)
+        category = categorize_url(url)
+        add_url_status_log(code_archive_url, category, resp)
 
     except requests.exceptions.HTTPError as err:
         # URL Not found or forbidden (Private access)
-        add_url_status_log(pk, CodePlatformIdentifier.INVALID.value, err.response)
+        add_url_status_log(code_archive_url, CodePlatformIdentifier.INVALID.value, err.response)
 
     except requests.exceptions.RequestException as e:
         # Server not reachable
-        add_url_status_log_bad_request(pk, CodePlatformIdentifier.INVALID.value, url)
+        add_url_status_log_bad_request(code_archive_url, CodePlatformIdentifier.INVALID.value)
 
 
 """
@@ -89,14 +91,17 @@ def categorize_url(url):
 """
 
 
-def add_url_status_log(pk, type, request):
-    url_log_object = URLStatusLog.objects.create(type=type, status_code=request.status_code,
-                                                 status_reason=request.reason, url=request.url, headers=request.headers)
-    url_log_object.publication = Publication.objects.get(pk=pk)
-    url_log_object.save()
+def add_url_status_log(code_archive_url: CodeArchiveUrl, category, request):
+    url_status_log = URLStatusLog.objects.create(status_code=request.status_code, code_archive_url=code_archive_url,
+                                                 status_reason=request.reason, headers=request.headers)
+    if not code_archive_url.category:
+        code_archive_url.category = category
+        code_archive_url.save()
 
 
-def add_url_status_log_bad_request(pk, type, url):
-    url_log_object = URLStatusLog.objects.create(type=type, url=url, status_code=500)
-    url_log_object.publication = Publication.objects.get(pk=pk)
-    url_log_object.save()
+def add_url_status_log_bad_request(code_archive_url, category):
+    url_status_log = URLStatusLog.objects.create(status_code=500, code_archive_url=code_archive_url)
+
+    if not code_archive_url.category:
+        code_archive_url.category = category
+        code_archive_url.save()

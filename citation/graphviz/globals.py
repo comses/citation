@@ -24,6 +24,7 @@ class CodePlatformIdentifier(Enum):
     PERSONAL = "PERSONAL"
     INVALID = "INVALID"
     OTHERS = "OTHERS"
+    EMPTY = ""
 
 
 class CacheNames(Enum):

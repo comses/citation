@@ -723,24 +723,22 @@ class Publication(AbstractLogModel):
 
 
 class CodeArchiveUrl(models.Model):
-    URL_CATEGORIES = Choices((
-        ('Archived',
-         ('comses', _('CoMSES')),
-         ('figshare', _('FigShare'))),
-        ('Not Archived',
-         ('bitbucket', _('BitBucket')),
-         ('github', _('GitHub')),
-         ('gitlab', _('GitLab')),
-         ('personal', _('Personal')),
-         ('journal', _('Journal'))),
-        ('Not Assigned',
-         ('', _('Empty')))))
+    URL_CATEGORIES = Choices(
+        (CodePlatformIdentifier.COMSES.value, _('CoMSES')),
+        (CodePlatformIdentifier.OPEN_SOURCE.value, _('Open Source')),
+        (CodePlatformIdentifier.PLATFORM.value, _('Platform')),
+        (CodePlatformIdentifier.JOURNAL.value, _('Journal')),
+        (CodePlatformIdentifier.PERSONAL.value, _('Personal')),
+        (CodePlatformIdentifier.INVALID.value, _('Invalid')),
+        (CodePlatformIdentifier.OTHERS.value, _('Others')),
+        (CodePlatformIdentifier.EMPTY.value, _('Empty'))
+    )
 
-    STATUS = Choices((
+    STATUS = Choices(
         ('available', _('Available')),
         ('restricted', _('Restricted')),
-        ('unavailable', _('Unavailable')),
-    ))
+        ('unavailable', _('Unavailable'))
+    )
 
     publication = models.ForeignKey(Publication, on_delete=models.PROTECT)
 
@@ -752,33 +750,25 @@ class CodeArchiveUrl(models.Model):
     status = models.CharField(choices=STATUS, max_length=100)
     creator = models.ForeignKey(User, on_delete=models.PROTECT)
 
+    def __str__(self):
+        return f'url={self.url} category={self.category} status={self.status} creator={self.creator}'
+
 
 class URLStatusLog(models.Model):
-    PLATFORM_TYPES = Choices((CodePlatformIdentifier.COMSES.value, _('CoMSES')),
-                             (CodePlatformIdentifier.OPEN_SOURCE.value, _('Open Source')),
-                             (CodePlatformIdentifier.PLATFORM.value, _('Platform')),
-                             (CodePlatformIdentifier.JOURNAL.value, _('Journal')),
-                             (CodePlatformIdentifier.PERSONAL.value, _('Personal')),
-                             (CodePlatformIdentifier.INVALID.value, _('Invalid')),
-                             (CodePlatformIdentifier.OTHERS.value, _('Others'))
-                             )
-    publication = models.ForeignKey(Publication, related_name='url_status', null=True, blank=True, db_constraint=False,
-                                    on_delete=models.DO_NOTHING)
-    url = models.URLField(blank=True, max_length=2000)
+    code_archive_url = models.ForeignKey(CodeArchiveUrl, on_delete=models.PROTECT)
     date_created = models.DateTimeField(auto_now_add=True,
                                         help_text=_('Date this url was last verified'))
     last_modified = models.DateTimeField(auto_now=True,
                                          help_text=_('Date this url status was last modified on this system'))
     headers = models.TextField(blank=True, help_text=_('contains information about the url header'))
-    type = models.TextField(choices=PLATFORM_TYPES)
     status_code = models.PositiveIntegerField(default=0)
     status_reason = models.TextField(blank=True, help_text=_('contains reason for the url success/failure'))
     system_generated = models.BooleanField(default=True)
 
     def get_message(self):
-        return "Pub: {pub} {type} {url} {code} {reason}".format(pub=self.publication, type=self.type,
-                                                                url=self.url, code=self.status_code,
-                                                                reason=self.status_reason)
+        return "Pub: {pub} {url} {code} {reason}".format(pub=self.code_archive_url.publication,
+                                                                url=self.code_archive_url,
+                                                                code=self.status_code, reason=self.status_reason)
 
 
 class AuditCommand(models.Model):
