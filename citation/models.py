@@ -1,7 +1,7 @@
 import re
 from collections import defaultdict
 from datetime import datetime, date
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from dateutil.parser import parse as datetime_parse
 from django.contrib.auth.models import User
@@ -1001,3 +1001,24 @@ class SuggestedMerge(models.Model):
     comment = models.CharField(max_length=1000, blank=True)
     date_added = models.DateTimeField(auto_now_add=True)
     date_applied = models.DateTimeField(null=True)
+
+    @classmethod
+    def annotate_names(cls, instances: List['SuggestedMerge']):
+        model_lookups = defaultdict(list)
+        model_class_to_indices = defaultdict(list)
+        for i, instance in enumerate(instances):
+            model_class = instance.content_type.model_class()
+            model_lookups[model_class] += instance.duplicates
+
+            model_class_to_indices[model_class].append(i)
+
+        for model, ids in model_lookups.items():
+            pk_to_related_instances = model.objects.filter(id__in=ids).in_bulk()
+            matching_instances = [instances[ind] for ind in model_class_to_indices[model]]
+            for instance_match in matching_instances:
+                instance_match.duplicate_instances = [pk_to_related_instances[pk] for pk in instance_match.duplicates
+                                                      if pk in pk_to_related_instances]
+        return instances
+
+    def __str__(self):
+        return f'content_type={self.content_type} duplicates={self.duplicates} new_content={self.new_content}'
