@@ -722,6 +722,37 @@ class Publication(AbstractLogModel):
                                                              container=self.container)
 
 
+class CodeArchiveUrl(models.Model):
+    URL_CATEGORIES = Choices((
+        ('Archived',
+         ('comses', _('CoMSES')),
+         ('figshare', _('FigShare'))),
+        ('Not Archived',
+         ('bitbucket', _('BitBucket')),
+         ('github', _('GitHub')),
+         ('gitlab', _('GitLab')),
+         ('personal', _('Personal')),
+         ('journal', _('Journal'))),
+        ('Not Assigned',
+         ('', _('Empty')))))
+
+    STATUS = Choices((
+        ('available', _('Available')),
+        ('restricted', _('Restricted')),
+        ('unavailable', _('Unavailable')),
+    ))
+
+    publication = models.ForeignKey(Publication, on_delete=models.PROTECT)
+
+    date_created = models.DateTimeField(auto_now_add=True)
+    last_modified = models.DateTimeField(auto_now=True)
+
+    url = models.URLField(blank=True, max_length=2000)
+    category = models.CharField(choices=URL_CATEGORIES, default='', max_length=100)
+    status = models.CharField(choices=STATUS, max_length=100)
+    creator = models.ForeignKey(User, on_delete=models.PROTECT)
+
+
 class URLStatusLog(models.Model):
     PLATFORM_TYPES = Choices((CodePlatformIdentifier.COMSES.value, _('CoMSES')),
                              (CodePlatformIdentifier.OPEN_SOURCE.value, _('Open Source')),
