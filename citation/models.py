@@ -733,7 +733,7 @@ class URLStatusLog(models.Model):
                              )
     publication = models.ForeignKey(Publication, related_name='url_status', null=True, blank=True, db_constraint=False,
                                     on_delete=models.DO_NOTHING)
-    url = models.URLField(blank=True, max_length=500)
+    url = models.URLField(blank=True, max_length=2000)
     date_created = models.DateTimeField(auto_now_add=True,
                                         help_text=_('Date this url was last verified'))
     last_modified = models.DateTimeField(auto_now=True,
