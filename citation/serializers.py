@@ -542,3 +542,18 @@ class AuthorAggregrationSerializer(serializers.Serializer):
     family_name = serializers.ReadOnlyField()
     published_count = serializers.ReadOnlyField()
     code_availability_count = serializers.ReadOnlyField()
+
+
+class SuggestMergeInstanceSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+
+
+class SuggestMergeSerializer(serializers.Serializer):
+    model_name = serializers.CharField()
+    instances = SuggestMergeInstanceSerializer(many=True)
+    name = serializers.CharField()
+
+    def validate_instances(self, value):
+        if len(value) < 2:
+            raise serializers.ValidationError('must have multiple instances to merge')
+        return value
