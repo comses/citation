@@ -552,6 +552,7 @@ class SuggestMergeSerializer(serializers.Serializer):
     model_name = serializers.CharField()
     instances = SuggestMergeInstanceSerializer(many=True)
     name = serializers.CharField()
+    email = serializers.EmailField(required=False, min_length=5)
 
     def validate_instances(self, value):
         if len(value) < 2:

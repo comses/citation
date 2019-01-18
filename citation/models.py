@@ -967,6 +967,19 @@ class Submitter(models.Model):
     def get_email(self):
         return self.email if self.email else self.user.email
 
+    @classmethod
+    def get_or_create(cls, user: User, email):
+        if user.is_anonymous:
+            return Submitter.objects.get_or_create(email=email)
+        else:
+            return Submitter.objects.get_or_create(user=user)
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return f'<Submitter: user={self.user}>' if self.user else f'<Submitter: email={self.email}>'
+
 
 class SuggestedPublication(models.Model):
     doi = fields.NonEmptyTextField(max_length=255, unique=True, verbose_name=_('DOI'), blank=True)
@@ -997,7 +1010,7 @@ class SuggestedMerge(models.Model):
         models.Q(app_label='citation'))
     duplicates = ArrayField(models.IntegerField())
     new_content = JSONField()
-    creator = models.ForeignKey(User, related_name='suggested_merge_set', on_delete=models.PROTECT)
+    creator = models.ForeignKey(Submitter, related_name='suggested_merge_set', on_delete=models.PROTECT)
     comment = models.CharField(max_length=1000, blank=True)
     date_added = models.DateTimeField(auto_now_add=True)
     date_applied = models.DateTimeField(null=True)
@@ -1021,4 +1034,4 @@ class SuggestedMerge(models.Model):
         return instances
 
     def __str__(self):
-        return f'content_type={self.content_type} duplicates={self.duplicates} new_content={self.new_content}'
+        return f'content_type={self.content_type} duplicates={self.duplicates} new_content={self.new_content} creator={self.creator}'
