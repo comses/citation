@@ -56,7 +56,8 @@ def make_payload(instance):
             labels[field.name] = label
 
     # this is to ensure we have at least one label for every insert and delete entry
-    if instance._meta.model_name not in labels:
+    # TODO: isinstance check is ugly - should change interface to avoid needing it
+    if len(labels) == 0 or isinstance(instance, CodeArchiveUrl):
         labels[instance._meta.model_name] = instance.get_message()
     payload = {'data': data, 'labels': labels}
     return payload
