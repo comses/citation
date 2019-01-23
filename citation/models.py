@@ -56,7 +56,7 @@ def make_payload(instance):
             labels[field.name] = label
 
     # this is to ensure we have at least one label for every insert and delete entry
-    if len(labels) == 0:
+    if instance._meta.model_name not in labels:
         labels[instance._meta.model_name] = instance.get_message()
     payload = {'data': data, 'labels': labels}
     return payload
@@ -722,7 +722,7 @@ class Publication(AbstractLogModel):
                                                              container=self.container)
 
 
-class CodeArchiveUrl(models.Model):
+class CodeArchiveUrl(AbstractLogModel):
     URL_CATEGORIES = Choices(
         (CodePlatformIdentifier.COMSES.value, _('CoMSES')),
         (CodePlatformIdentifier.OPEN_SOURCE.value, _('Open Source')),
@@ -753,9 +753,14 @@ class CodeArchiveUrl(models.Model):
     def __str__(self):
         return f'url={self.url} category={self.category} status={self.status} creator={self.creator}'
 
+    def get_message(self):
+        return self.__str__()
+
 
 class URLStatusLog(models.Model):
-    code_archive_url = models.ForeignKey(CodeArchiveUrl, on_delete=models.PROTECT)
+    publication = models.ForeignKey(Publication, on_delete=models.PROTECT)
+
+    url = models.URLField(blank=True, max_length=2000)
     date_created = models.DateTimeField(auto_now_add=True,
                                         help_text=_('Date this url was last verified'))
     last_modified = models.DateTimeField(auto_now=True,
@@ -766,9 +771,10 @@ class URLStatusLog(models.Model):
     system_generated = models.BooleanField(default=True)
 
     def get_message(self):
-        return "Pub: {pub} {url} {code} {reason}".format(pub=self.code_archive_url.publication,
-                                                                url=self.code_archive_url,
-                                                                code=self.status_code, reason=self.status_reason)
+        return "Pub: {pub} {url} {code} {reason}".format(pub=self.publication,
+                                                         url=self.url,
+                                                         code=self.status_code,
+                                                         reason=self.status_reason)
 
 
 class AuditCommand(models.Model):

@@ -92,15 +92,19 @@ def categorize_url(url):
 
 
 def add_url_status_log(code_archive_url: CodeArchiveUrl, category, request):
-    url_status_log = URLStatusLog.objects.create(status_code=request.status_code, code_archive_url=code_archive_url,
-                                                 status_reason=request.reason, headers=request.headers)
+    url_status_log = URLStatusLog.objects.create(status_code=request.status_code,
+                                                 publication=code_archive_url.publication,
+                                                 status_reason=request.reason, headers=request.headers,
+                                                 url=code_archive_url.url)
     if not code_archive_url.category:
         code_archive_url.category = category
         code_archive_url.save()
 
 
 def add_url_status_log_bad_request(code_archive_url, category):
-    url_status_log = URLStatusLog.objects.create(status_code=500, code_archive_url=code_archive_url)
+    url_status_log = URLStatusLog.objects.create(status_code=500,
+                                                 publication=code_archive_url.publication,
+                                                 url=code_archive_url.url)
 
     if not code_archive_url.category:
         code_archive_url.category = category

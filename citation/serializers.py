@@ -3,6 +3,7 @@ import time
 from collections import OrderedDict
 from collections import defaultdict
 from hashlib import sha1
+from pprint import pformat
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -222,6 +223,11 @@ class PublicationListSerializer(serializers.ModelSerializer):
 
 
 class CodeArchiveUrlSerializer(serializers.ModelSerializer):
+    id = serializers.ModelField(model_field=CodeArchiveUrl()._meta.get_field('id'), allow_null=True)
+    creator = serializers.PrimaryKeyRelatedField(allow_null=True, queryset=User.objects.all())
+    publication = serializers.PrimaryKeyRelatedField(allow_null=True, queryset=Publication.api.primary(),
+                                                     required=False)
+
     class Meta:
         model = CodeArchiveUrl
         fields = (
@@ -321,6 +327,33 @@ class PublicationSerializer(serializers.ModelSerializer):
             .filter(publication=publication) \
             .log_delete(audit_command=audit_command)
 
+    @staticmethod
+    def save_code_archive_url(audit_command, publication, raw_code_archive_urls):
+        code_archive_urls = []
+        for raw_code_archive_url in raw_code_archive_urls:
+            logger.info(pformat(raw_code_archive_url))
+            pk = raw_code_archive_url.get('id')
+            if pk is not None:
+                code_archive_url = CodeArchiveUrl.objects.get(pk=pk)
+                code_archive_url.log_update(audit_command=audit_command,
+                                            category=raw_code_archive_url['category'],
+                                            status=raw_code_archive_url['status'],
+                                            url=raw_code_archive_url['url'])
+            else:
+                code_archive_url = CodeArchiveUrl.objects.log_create(audit_command=audit_command,
+                                                                            creator=audit_command.creator,
+                                                                            publication=publication,
+                                                                            publication_id=publication.id,
+                                                                            category=raw_code_archive_url['category'],
+                                                                            status=raw_code_archive_url['status'],
+                                                                            url=raw_code_archive_url['url'])
+            code_archive_urls.append(code_archive_url.id)
+
+        CodeArchiveUrl.objects \
+            .exclude(id__in=code_archive_urls) \
+            .filter(publication=publication) \
+            .log_delete(audit_command=audit_command)
+
     @classmethod
     def save_related(cls, audit_command, publication, validated_data):
         cls.save_model_documentation(audit_command=audit_command,
@@ -332,6 +365,9 @@ class PublicationSerializer(serializers.ModelSerializer):
         cls.save_sponsor(audit_command=audit_command,
                          publication=publication,
                          raw_sponsors=validated_data['sponsors'])
+        cls.save_code_archive_url(audit_command=audit_command,
+                                  publication=publication,
+                                  raw_code_archive_urls=validated_data['code_archive_urls'])
 
     def create(self, audit_command, validated_data):
         ModelClass = self.Meta.model
@@ -366,6 +402,10 @@ class PublicationSerializer(serializers.ModelSerializer):
 
         raw_sponsors = validated_data.pop('sponsors')
         self.save_sponsor(audit_command=audit_command, publication=instance, raw_sponsors=raw_sponsors)
+
+        raw_code_archive_urls = validated_data.pop('code_archive_urls')
+        self.save_code_archive_url(audit_command=audit_command, publication=instance,
+                                   raw_code_archive_urls=raw_code_archive_urls)
 
         for field_name, updated_data_value in validated_data.items():
             try:
