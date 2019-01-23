@@ -740,7 +740,7 @@ class CodeArchiveUrl(models.Model):
         ('unavailable', _('Unavailable'))
     )
 
-    publication = models.ForeignKey(Publication, on_delete=models.PROTECT)
+    publication = models.ForeignKey(Publication, on_delete=models.PROTECT, related_name='code_archive_urls')
 
     date_created = models.DateTimeField(auto_now_add=True)
     last_modified = models.DateTimeField(auto_now=True)

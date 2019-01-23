@@ -17,7 +17,7 @@ from rest_framework.utils import model_meta
 
 from .models import (Tag, Sponsor, Platform, Author, Publication, Container, InvitationEmail,
                      ModelDocumentation, Note, AuditCommand, AuditLog,
-                     PublicationModelDocumentations, PublicationPlatforms, PublicationSponsors, )
+                     PublicationModelDocumentations, PublicationPlatforms, PublicationSponsors, CodeArchiveUrl)
 
 logger = logging.getLogger(__name__)
 
@@ -221,12 +221,21 @@ class PublicationListSerializer(serializers.ModelSerializer):
         )
 
 
+class CodeArchiveUrlSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CodeArchiveUrl
+        fields = (
+            'id', 'category', 'url', 'status', 'creator', 'publication'
+        )
+
+
 class PublicationSerializer(serializers.ModelSerializer):
     """
     Serializes publication querysets.
     """
     detail_url = serializers.CharField(source='get_absolute_url', read_only=True)
     assigned_curator = serializers.StringRelatedField()
+    code_archive_urls = CodeArchiveUrlSerializer(many=True)
     date_modified = serializers.DateTimeField(read_only=True, format='%m/%d/%Y %H:%M')
     notes = NoteSerializer(source='note_set', many=True, read_only=True)
     activity_logs = serializers.SerializerMethodField()
@@ -237,6 +246,8 @@ class PublicationSerializer(serializers.ModelSerializer):
     model_documentation = ModelDocumentationSerializer(many=True)
     creators = CreatorSerializer(many=True, read_only=True)
     status_options = serializers.SerializerMethodField()
+    code_archive_category_options = serializers.SerializerMethodField()
+    code_archive_status_options = serializers.SerializerMethodField()
     apa_citation_string = serializers.ReadOnlyField()
     flagged = serializers.BooleanField()
 
@@ -256,6 +267,12 @@ class PublicationSerializer(serializers.ModelSerializer):
         pacs = PublicationAuditCommand.many_from_queryset(audit_logs)
         serialized_pacs = [PublicationAuditCommandSerializer(pac).data for pac in pacs]
         return serialized_pacs
+
+    def get_code_archive_category_options(self, obj):
+        return [{'value': choice[0], 'label': str(choice[1])} for choice in CodeArchiveUrl.URL_CATEGORIES]
+
+    def get_code_archive_status_options(self, obj):
+        return [{'value': choice[0], 'label': str(choice[1])} for choice in CodeArchiveUrl.STATUS]
 
     def get_status_options(self, obj):
         return {choice[0]: str(choice[1]) for choice in Publication.Status}
@@ -436,7 +453,7 @@ class PublicationSerializer(serializers.ModelSerializer):
             'id', 'apa_citation_string', 'activity_logs', 'assigned_curator', 'code_archive_url', 'contact_author_name',
             'contact_email', 'container', 'creators', 'date_modified', 'detail_url', 'flagged', 'model_documentation',
             'notes', 'pages', 'platforms', 'sponsors', 'status', 'status_options', 'tags', 'title', 'volume',
-            'year_published', 'doi'
+            'year_published', 'doi', 'code_archive_urls', 'code_archive_status_options', 'code_archive_category_options'
         )
 
 
