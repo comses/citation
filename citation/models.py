@@ -724,16 +724,7 @@ class Publication(AbstractLogModel):
 
 
 class CodeArchiveUrl(AbstractLogModel):
-    URL_CATEGORIES = Choices(
-        (CodePlatformIdentifier.COMSES.value, _('CoMSES')),
-        (CodePlatformIdentifier.OPEN_SOURCE.value, _('Open Source')),
-        (CodePlatformIdentifier.PLATFORM.value, _('Platform')),
-        (CodePlatformIdentifier.JOURNAL.value, _('Journal')),
-        (CodePlatformIdentifier.PERSONAL.value, _('Personal')),
-        (CodePlatformIdentifier.INVALID.value, _('Invalid')),
-        (CodePlatformIdentifier.OTHERS.value, _('Others')),
-        (CodePlatformIdentifier.EMPTY.value, _('Empty'))
-    )
+    URL_CATEGORIES = Choices(*CodePlatformIdentifier.options())
 
     STATUS = Choices(
         ('available', _('Available')),
@@ -749,6 +740,7 @@ class CodeArchiveUrl(AbstractLogModel):
     url = models.URLField(blank=True, max_length=2000)
     category = models.CharField(choices=URL_CATEGORIES, default='', max_length=100)
     status = models.CharField(choices=STATUS, max_length=100)
+    system_overridable_category = models.BooleanField(default=True)
     creator = models.ForeignKey(User, on_delete=models.PROTECT)
 
     def __str__(self):

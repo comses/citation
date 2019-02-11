@@ -14,17 +14,62 @@ class RelationClassifier(Enum):
 
 
 class CodePlatformIdentifier(Enum):
-    """
-        Helper class to store name of the global defaults for the code archived platform
-    """
-    COMSES = "COMSES"
-    OPEN_SOURCE = "OPEN SOURCE"
-    PLATFORM = "PLATFORM"
-    JOURNAL = "JOURNAL"
-    PERSONAL = "PERSONAL"
-    INVALID = "INVALID"
-    OTHERS = "OTHERS"
-    EMPTY = ""
+    CoMSES = 'CoMSES'
+    Zenodo = 'Zenodo'
+    Dataverse = 'Dataverse'
+    Figshare = 'Figshare'
+    OSF = 'OSF'
+    GitHub = 'GitHub'
+    SourceForge = 'SourceForge'
+    CCPForge = 'CCPForge'
+    BitBucket = 'BitBucket'
+    GoogleCode = 'GoogleCode'
+    Journal = 'Journal'
+    DropBox = 'Personal'
+    ResearchGate = 'ResearchGate'
+    PersonalWebsite = 'PersonalWebsite'
+    CORMAS = 'CORMAS'
+    NetLogo = 'NetLogo'
+    Invalid = 'Invalid'
+    Unknown = 'Unknown'
+    Empty = ''
+
+    @classmethod
+    def archives(cls):
+        return ((v.value, f'Archives / {v.name}') for v in [
+            cls.CoMSES,
+            cls.Zenodo,
+            cls.Dataverse,
+            cls.Figshare,
+            cls.OSF,
+        ])
+
+    @classmethod
+    def repositories(cls):
+        return ((v.value, f'Repositories / {v.name}') for v in [
+            cls.GitHub,
+            cls.SourceForge,
+            cls.BitBucket,
+            cls.GoogleCode
+        ])
+
+    @classmethod
+    def personal(cls):
+        return ((v.value, f'Personal / {v.name}') for v in [
+            cls.DropBox,
+            cls.ResearchGate,
+            cls.PersonalWebsite
+        ])
+
+    @classmethod
+    def options(cls):
+        return (*cls.archives(),
+                *cls.repositories(),
+                *cls.personal(),
+                (cls.Invalid.value, cls.Invalid.name),
+                (cls.Unknown.value, cls.Unknown.name),
+                (cls.Empty.value, cls.Empty.name),
+                )
 
 
 class CacheNames(Enum):

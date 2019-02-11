@@ -231,7 +231,7 @@ class CodeArchiveUrlSerializer(serializers.ModelSerializer):
     class Meta:
         model = CodeArchiveUrl
         fields = (
-            'id', 'category', 'url', 'status', 'creator', 'publication'
+            'id', 'category', 'system_overridable_category', 'url', 'status', 'creator', 'publication'
         )
 
 
@@ -336,17 +336,19 @@ class PublicationSerializer(serializers.ModelSerializer):
             if pk is not None:
                 code_archive_url = CodeArchiveUrl.objects.get(pk=pk)
                 code_archive_url.log_update(audit_command=audit_command,
+                                            system_overridable_category=raw_code_archive_url['system_overridable_category'],
                                             category=raw_code_archive_url['category'],
                                             status=raw_code_archive_url['status'],
                                             url=raw_code_archive_url['url'])
             else:
                 code_archive_url = CodeArchiveUrl.objects.log_create(audit_command=audit_command,
-                                                                            creator=audit_command.creator,
-                                                                            publication=publication,
-                                                                            publication_id=publication.id,
-                                                                            category=raw_code_archive_url['category'],
-                                                                            status=raw_code_archive_url['status'],
-                                                                            url=raw_code_archive_url['url'])
+                                                                     creator=audit_command.creator,
+                                                                     publication=publication,
+                                                                     publication_id=publication.id,
+                                                                     system_overridable_category=raw_code_archive_url['system_overridable_category'],
+                                                                     category=raw_code_archive_url['category'],
+                                                                     status=raw_code_archive_url['status'],
+                                                                     url=raw_code_archive_url['url'])
             code_archive_urls.append(code_archive_url.id)
 
         CodeArchiveUrl.objects \

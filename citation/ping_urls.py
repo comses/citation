@@ -27,22 +27,25 @@ def verify_url_status():
 
 def ping_url(code_archive_url):
     url = code_archive_url.url
+    category = categorize_url(url)
     try:
         s = requests.Session()
         # HEAD requests hang on some URLs so using GET for now
         r = requests.Request('GET', url)
         resp = s.send(r.prepare())
         resp.raise_for_status()
-        category = categorize_url(url)
-        add_url_status_log(code_archive_url, category, resp)
+        add_url_status_log(code_archive_url, category, resp, 'available')
 
     except requests.exceptions.HTTPError as err:
-        # URL Not found or forbidden (Private access)
-        add_url_status_log(code_archive_url, CodePlatformIdentifier.INVALID.value, err.response)
+        if err.response.status_code == 403:
+            add_url_status_log(code_archive_url, category, err.response, 'restricted')
+        else:
+            # URL Not found (Private access)
+            add_url_status_log(code_archive_url, category, err.response, 'unavailable')
 
     except requests.exceptions.RequestException as e:
         # Server not reachable
-        add_url_status_log_bad_request(code_archive_url, CodePlatformIdentifier.INVALID.value)
+        add_url_status_log_bad_request(code_archive_url, category)
 
 
 """
@@ -53,37 +56,47 @@ def ping_url(code_archive_url):
 
 # FIXME This may not be the best way to categorize url - in future categorization will be added manually while updating
 def categorize_url(url):
-    if "www.openabm.org/" in url \
-            or "www.comses.net" in url:
-        model_platform_type = CodePlatformIdentifier.COMSES.value
+    if 'sourceforge.net/' in url:
+        model_platform_type = CodePlatformIdentifier.SourceForge
+    elif 'ccpforge.cse.rl.ac.uk/' in url:
+        model_platform_type = CodePlatformIdentifier.CCPForge
+    elif 'bitbucket.org/' in url:
+        model_platform_type = CodePlatformIdentifier.BitBucket
+    elif 'code.google.com/' in url:
+        model_platform_type = CodePlatformIdentifier.GoogleCode
 
-    elif "sourceforge.net/" in url or "github.com/" in url \
-            or "ccpforge.cse.rl.ac.uk/" in url \
-            or "bitbucket.org/" in url \
-            or "dataverse.harvard.edu/" in url \
-            or "code.google.com/" in url \
-            or "sciencedirect.com" in url \
-            or "figshare.com" in url:
-        model_platform_type = CodePlatformIdentifier.OPEN_SOURCE.value
+
+    elif 'www.openabm.org/' in url \
+            or 'www.comses.net/' in url:
+        model_platform_type = CodePlatformIdentifier.CoMSES
+    elif 'zenodo.org/' in url:
+        model_platform_type = CodePlatformIdentifier.Zenodo
+    elif 'figshare.com/' in url:
+        model_platform_type = CodePlatformIdentifier.Figshare
+    elif 'dataverse.harvard.edu/' in url:
+        model_platform_type = CodePlatformIdentifier.Dataverse
+    elif 'osf.io/' in url:
+        model_platform_type = CodePlatformIdentifier.OSF
 
     elif "modelingcommons.org/" in url \
-            or "ccl.northwestern.edu/netlogo/models/community" in url \
-            or "cormas.cirad.fr/" in url:
-        model_platform_type = CodePlatformIdentifier.PLATFORM.value
+            or "ccl.northwestern.edu/netlogo/models/community" in url:
+        model_platform_type = CodePlatformIdentifier.NetLogo
+    elif "cormas.cirad.fr/" in url:
+        model_platform_type = CodePlatformIdentifier.CORMAS
 
+    elif 'sciencedirect.com' in url:
+        model_platform_type = CodePlatformIdentifier.Journal
     elif "journals.plos.org" in url:
-        model_platform_type = CodePlatformIdentifier.JOURNAL.value
+        model_platform_type = CodePlatformIdentifier.Journal
 
-    elif "dropbox.com" in url \
-            or "researchgate.net" in url \
-            or ".zip" in url or ".pdf" in url \
-            or ".txt" in url or '.docx' in url:
-        model_platform_type = CodePlatformIdentifier.PERSONAL.value
-
+    elif "dropbox.com" in url:
+        model_platform_type = CodePlatformIdentifier.DropBox
+    elif "researchgate.net" in url:
+        model_platform_type = CodePlatformIdentifier.ResearchGate
     else:
-        model_platform_type = CodePlatformIdentifier.OTHERS.value
+        model_platform_type = CodePlatformIdentifier.Empty
 
-    return model_platform_type
+    return model_platform_type.value
 
 
 """ 
@@ -91,21 +104,22 @@ def categorize_url(url):
 """
 
 
-def add_url_status_log(code_archive_url: CodeArchiveUrl, category, request):
+def add_url_status_log(code_archive_url: CodeArchiveUrl, category, request, status):
     url_status_log = URLStatusLog.objects.create(status_code=request.status_code,
                                                  publication=code_archive_url.publication,
                                                  status_reason=request.reason, headers=request.headers,
                                                  url=code_archive_url.url)
-    if not code_archive_url.category:
+    code_archive_url.status = status
+    if code_archive_url.system_overridable_category:
         code_archive_url.category = category
-        code_archive_url.save()
+    code_archive_url.save()
 
 
-def add_url_status_log_bad_request(code_archive_url, category):
+def add_url_status_log_bad_request(code_archive_url: CodeArchiveUrl, category):
     url_status_log = URLStatusLog.objects.create(status_code=500,
                                                  publication=code_archive_url.publication,
                                                  url=code_archive_url.url)
-
-    if not code_archive_url.category:
+    code_archive_url.status = 'unavailable'
+    if code_archive_url.system_overridable_category:
         code_archive_url.category = category
-        code_archive_url.save()
+    code_archive_url.save()
