@@ -643,7 +643,7 @@ class Publication(AbstractLogModel):
 
     @property
     def is_archived(self):
-        return bool(self.code_archive_url)
+        return self.code_archive_urls.exists()
 
     @property
     def contributor_data_cache_key(self):
