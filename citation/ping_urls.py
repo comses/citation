@@ -109,17 +109,30 @@ def add_url_status_log(code_archive_url: CodeArchiveUrl, category, request, stat
                                                  publication=code_archive_url.publication,
                                                  status_reason=request.reason, headers=request.headers,
                                                  url=code_archive_url.url)
-    code_archive_url.status = status
-    if code_archive_url.system_overridable_category:
+    changes = {}
+    if code_archive_url.status != status:
+        changes['status'] = {'old': code_archive_url.status, 'new': status}
+        code_archive_url.status = status
+    if code_archive_url.system_overridable_category and code_archive_url.category != category:
+        changes['category'] = {'old': code_archive_url.category, 'new': category}
         code_archive_url.category = category
-    code_archive_url.save()
+    if changes:
+        logger.info('URL status (%s): %s %s', code_archive_url.publication.title[:25], code_archive_url.url, changes)
+        code_archive_url.save()
 
 
 def add_url_status_log_bad_request(code_archive_url: CodeArchiveUrl, category):
     url_status_log = URLStatusLog.objects.create(status_code=500,
                                                  publication=code_archive_url.publication,
                                                  url=code_archive_url.url)
-    code_archive_url.status = 'unavailable'
-    if code_archive_url.system_overridable_category:
+    changes = {}
+    status = 'unavailable'
+    if code_archive_url.status != status:
+        changes['status'] = {'old': code_archive_url.status, 'new': status}
+        code_archive_url.status = status
+    if code_archive_url.system_overridable_category and code_archive_url.category != category:
+        changes['category'] = {'old': code_archive_url.category, 'new': category}
         code_archive_url.category = category
-    code_archive_url.save()
+    if changes:
+        logger.info('URL status (%s): %s %s', code_archive_url.publication.title[:25], code_archive_url.url, changes)
+        code_archive_url.save()
