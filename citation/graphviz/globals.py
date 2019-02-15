@@ -15,24 +15,29 @@ class RelationClassifier(Enum):
 
 class CodePlatformIdentifier(Enum):
     CoMSES = 'CoMSES'
-    Zenodo = 'Zenodo'
     Dataverse = 'Dataverse'
     Figshare = 'Figshare'
+    Zenodo = 'Zenodo'
     OSF = 'OSF'
-    GitHub = 'GitHub'
-    SourceForge = 'SourceForge'
-    CCPForge = 'CCPForge'
+
     BitBucket = 'BitBucket'
+    CCPForge = 'CCPForge'
+    GitHub = 'GitHub'
     GoogleCode = 'GoogleCode'
-    Journal = 'Journal'
+    SourceForge = 'SourceForge'
+
     DropBox = 'Personal'
     ResearchGate = 'ResearchGate'
     PersonalWebsite = 'PersonalWebsite'
+
     CORMAS = 'CORMAS'
     NetLogo = 'NetLogo'
-    Invalid = 'Invalid'
-    Unknown = 'Unknown'
+
     Empty = ''
+    Invalid = 'Invalid'
+    Journal = 'Journal'
+    OrganizationWebsite = 'OrganizationWebsite'
+    Unknown = 'Unknown'
 
     @classmethod
     def archives(cls):
@@ -66,6 +71,8 @@ class CodePlatformIdentifier(Enum):
         return (*cls.archives(),
                 *cls.repositories(),
                 *cls.personal(),
+                (cls.Journal.value, cls.Journal.name),
+                (cls.OrganizationWebsite.value, cls.OrganizationWebsite.name),
                 (cls.Invalid.value, cls.Invalid.name),
                 (cls.Unknown.value, cls.Unknown.name),
                 (cls.Empty.value, cls.Empty.name),
