@@ -21,7 +21,7 @@ from django.utils.translation import ugettext_lazy as _
 from model_utils import Choices
 
 from . import fields
-from .graphviz.globals import CodePlatformIdentifier, CacheNames
+from .graphviz.globals import CacheNames
 
 
 def datetime_json_serialize(datetime_obj: Optional[datetime]):
@@ -644,8 +644,7 @@ class Publication(AbstractLogModel):
     @property
     def is_archived(self):
         return self.code_archive_urls \
-            .exclude(category__in=[CodePlatformIdentifier.Invalid.value,
-                                   CodePlatformIdentifier.Empty.value]) \
+            .exclude(category__in=CodeArchiveUrlCategory.objects.filter(category='Unknown')) \
             .exists()
 
     @property
@@ -726,9 +725,61 @@ class Publication(AbstractLogModel):
                                                              container=self.container)
 
 
-class CodeArchiveUrl(AbstractLogModel):
-    URL_CATEGORIES = Choices(*CodePlatformIdentifier.options())
+class CodeArchiveUrlCategory(models.Model):
+    category = models.CharField(max_length=150)
+    subcategory = models.CharField(max_length=150)
 
+    def __str__(self):
+        return f'category={self.category} subcategory={self.subcategory}'
+
+    def get_message(self):
+        return self.__str__()
+
+    class Meta:
+        unique_together = (('category', 'subcategory'),)
+
+
+class Match:
+    @classmethod
+    def always(cls):
+        return cls(True)
+
+    @classmethod
+    def never(cls):
+        return cls(False)
+
+    def __init__(self, value):
+        self.value = value
+
+    def match(self, string):
+        return self.value
+
+    def __bool__(self):
+        return self.value
+
+
+class CodeArchiveUrlPatternQuerySet(models.QuerySet):
+    def with_matchers(self):
+        qs = self.exclude(regex_host_matcher='', regex_path_matcher='')
+        patterns = list(qs)
+        for pattern in patterns:
+            pattern.host_matcher = re.compile(pattern.regex_host_matcher) if pattern.regex_host_matcher else Match.always()
+            pattern.path_matcher = re.compile(pattern.regex_path_matcher) if pattern.regex_path_matcher else Match.always()
+        return patterns
+
+
+class CodeArchiveUrlPattern(models.Model):
+    regex_host_matcher = models.CharField(max_length=800)
+    regex_path_matcher = models.CharField(max_length=800)
+    category = models.ForeignKey(CodeArchiveUrlCategory, on_delete=models.PROTECT)
+
+    objects = CodeArchiveUrlPatternQuerySet.as_manager()
+
+    def __str__(self):
+        return f'category={self.category_id} regex_host_matcher={repr(self.regex_host_matcher)} regex_path_matcher={repr(self.regex_path_matcher)}'
+
+
+class CodeArchiveUrl(AbstractLogModel):
     STATUS = Choices(
         ('available', _('Available')),
         ('restricted', _('Restricted')),
@@ -741,13 +792,17 @@ class CodeArchiveUrl(AbstractLogModel):
     last_modified = models.DateTimeField(auto_now=True)
 
     url = models.URLField(blank=True, max_length=2000)
-    category = models.CharField(choices=URL_CATEGORIES, default='', max_length=100)
+    category = models.ForeignKey(CodeArchiveUrlCategory, related_name='code_archive_urls', on_delete=models.PROTECT)
     status = models.CharField(choices=STATUS, max_length=100)
     system_overridable_category = models.BooleanField(default=True)
     creator = models.ForeignKey(User, on_delete=models.PROTECT)
 
+    @property
+    def category_name(self):
+        return f'{self.category.category} / {self.category.subcategory}' if self.category.subcategory else self.category.category
+
     def __str__(self):
-        return f'url={self.url} category={self.category} status={self.status} creator={self.creator}'
+        return f'url={self.url} {self.category} status={self.status} creator={self.creator}'
 
     def get_message(self):
         return self.__str__()

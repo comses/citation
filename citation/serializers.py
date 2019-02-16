@@ -18,7 +18,8 @@ from rest_framework.utils import model_meta
 
 from .models import (Tag, Sponsor, Platform, Author, Publication, Container, InvitationEmail,
                      ModelDocumentation, Note, AuditCommand, AuditLog,
-                     PublicationModelDocumentations, PublicationPlatforms, PublicationSponsors, CodeArchiveUrl)
+                     PublicationModelDocumentations, PublicationPlatforms, PublicationSponsors, CodeArchiveUrl,
+                     CodeArchiveUrlCategory)
 
 logger = logging.getLogger(__name__)
 
@@ -227,11 +228,12 @@ class CodeArchiveUrlSerializer(serializers.ModelSerializer):
     creator = serializers.PrimaryKeyRelatedField(allow_null=True, queryset=User.objects.all())
     publication = serializers.PrimaryKeyRelatedField(allow_null=True, queryset=Publication.api.primary(),
                                                      required=False)
+    category_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = CodeArchiveUrl
         fields = (
-            'id', 'category', 'system_overridable_category', 'url', 'status', 'creator', 'publication'
+            'id', 'category', 'category_name', 'system_overridable_category', 'url', 'status', 'creator', 'publication'
         )
 
 
@@ -275,7 +277,9 @@ class PublicationSerializer(serializers.ModelSerializer):
         return serialized_pacs
 
     def get_code_archive_category_options(self, obj):
-        return [{'value': choice[0], 'label': str(choice[1])} for choice in CodeArchiveUrl.URL_CATEGORIES]
+        return [{'value': choice.id,
+                 'label': f'{choice.category} / {choice.subcategory}' if choice.subcategory else choice.category}
+                for choice in CodeArchiveUrlCategory.objects.all()]
 
     def get_code_archive_status_options(self, obj):
         return [{'value': choice[0], 'label': str(choice[1])} for choice in CodeArchiveUrl.STATUS]
@@ -336,7 +340,8 @@ class PublicationSerializer(serializers.ModelSerializer):
             if pk is not None:
                 code_archive_url = CodeArchiveUrl.objects.get(pk=pk)
                 code_archive_url.log_update(audit_command=audit_command,
-                                            system_overridable_category=raw_code_archive_url['system_overridable_category'],
+                                            system_overridable_category=raw_code_archive_url[
+                                                'system_overridable_category'],
                                             category=raw_code_archive_url['category'],
                                             status=raw_code_archive_url['status'],
                                             url=raw_code_archive_url['url'])
@@ -345,7 +350,8 @@ class PublicationSerializer(serializers.ModelSerializer):
                                                                      creator=audit_command.creator,
                                                                      publication=publication,
                                                                      publication_id=publication.id,
-                                                                     system_overridable_category=raw_code_archive_url['system_overridable_category'],
+                                                                     system_overridable_category=raw_code_archive_url[
+                                                                         'system_overridable_category'],
                                                                      category=raw_code_archive_url['category'],
                                                                      status=raw_code_archive_url['status'],
                                                                      url=raw_code_archive_url['url'])

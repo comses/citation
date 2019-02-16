@@ -1,10 +1,9 @@
 import logging
 
 import requests
-from django.db.models import Q
+from urllib3.util import parse_url
 
-from .graphviz.globals import CodePlatformIdentifier
-from .models import Publication, URLStatusLog, CodeArchiveUrl
+from .models import Publication, URLStatusLog, CodeArchiveUrl, CodeArchiveUrlPattern
 
 logger = logging.getLogger(__name__)
 
@@ -19,15 +18,17 @@ logger = logging.getLogger(__name__)
 
 def verify_url_status():
     code_archive_urls = CodeArchiveUrl.objects.all()
+    patterns = CodeArchiveUrlPattern.objects.select_related('category').with_matchers()
 
     for code_archive_url in code_archive_urls:
         logger.info("Pinging: " + code_archive_url.url)
-        ping_url(code_archive_url)
+        ping_url(code_archive_url, patterns)
 
 
-def ping_url(code_archive_url):
+def ping_url(code_archive_url, patterns):
     url = code_archive_url.url
-    category = categorize_url(url)
+
+    category = categorize_url(url, patterns, CodeArchiveUrlPattern.objects.get(category='Unknown'))
     try:
         s = requests.Session()
         # HEAD requests hang on some URLs so using GET for now
@@ -49,57 +50,28 @@ def ping_url(code_archive_url):
 
 
 """
-    Categorize the url depending on the server name into following categories 
+    Categorize the url depending on the server name into following categories
     CoMSES, Open Source, Platforms, Journal, Personal, Others, and Invalid
 """
 
 
-# FIXME This may not be the best way to categorize url - in future categorization will be added manually while updating
-def categorize_url(url):
-    if 'sourceforge.net/' in url:
-        model_platform_type = CodePlatformIdentifier.SourceForge
-    elif 'ccpforge.cse.rl.ac.uk/' in url:
-        model_platform_type = CodePlatformIdentifier.CCPForge
-    elif 'bitbucket.org/' in url:
-        model_platform_type = CodePlatformIdentifier.BitBucket
-    elif 'code.google.com/' in url:
-        model_platform_type = CodePlatformIdentifier.GoogleCode
+def categorize_url(url, patterns, fallback_category):
+    parsed_url = parse_url(url)
+    host = parsed_url.host
+    path = parsed_url.path
+
+    for pattern in patterns:
+        host_matcher = pattern.host_matcher
+        path_matcher = pattern.path_matcher
+
+        if host_matcher.match(host) and path_matcher.match(path):
+            logger.info('Categorized url %s as %s', url, pattern.category)
+            return pattern.category
+    logger.info('Categorized url %s as %s', url, fallback_category)
+    return fallback_category
 
 
-    elif 'www.openabm.org/' in url \
-            or 'www.comses.net/' in url:
-        model_platform_type = CodePlatformIdentifier.CoMSES
-    elif 'zenodo.org/' in url:
-        model_platform_type = CodePlatformIdentifier.Zenodo
-    elif 'figshare.com/' in url:
-        model_platform_type = CodePlatformIdentifier.Figshare
-    elif 'dataverse.harvard.edu/' in url:
-        model_platform_type = CodePlatformIdentifier.Dataverse
-    elif 'osf.io/' in url:
-        model_platform_type = CodePlatformIdentifier.OSF
-
-    elif "modelingcommons.org/" in url \
-            or "ccl.northwestern.edu/netlogo/models/community" in url:
-        model_platform_type = CodePlatformIdentifier.NetLogo
-    elif "cormas.cirad.fr/" in url:
-        model_platform_type = CodePlatformIdentifier.CORMAS
-
-    elif 'sciencedirect.com' in url:
-        model_platform_type = CodePlatformIdentifier.Journal
-    elif "journals.plos.org" in url:
-        model_platform_type = CodePlatformIdentifier.Journal
-
-    elif "dropbox.com" in url:
-        model_platform_type = CodePlatformIdentifier.DropBox
-    elif "researchgate.net" in url:
-        model_platform_type = CodePlatformIdentifier.ResearchGate
-    else:
-        model_platform_type = CodePlatformIdentifier.Empty
-
-    return model_platform_type.value
-
-
-""" 
+"""
     ADDS the logs to the status log table
 """
 
