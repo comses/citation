@@ -644,7 +644,6 @@ class Publication(AbstractLogModel):
     @property
     def is_archived(self):
         return self.code_archive_urls \
-            .exclude(category__in=CodeArchiveUrlCategory.objects.filter(category='Unknown')) \
             .exists()
 
     @property
