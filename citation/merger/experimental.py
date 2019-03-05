@@ -1,8 +1,10 @@
 import logging
 import itertools
+from datetime import datetime
 from pprint import pformat
 from typing import Dict, List
 
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import transaction
 from django.db.models import Count, Func
@@ -11,14 +13,15 @@ from django_bulk_update.helper import bulk_update
 
 from citation.merger import MergeError
 from citation.models import Author, PublicationAuthors, AuthorAlias, RawAuthors, make_versioned_payload, AuditLog, \
-    make_payload, AuditCommand, Publication
+    make_payload, AuditCommand, Publication, SuggestedMerge, Submitter
+from rest_framework import serializers
 
 logger = logging.getLogger(__name__)
 
 
 class MergeList:
     """"""
-    def __init__(self, items):
+    def __init__(self, items, new_content=None):
         self.items: List = items
         self.item_set = set(items)
 
@@ -30,6 +33,7 @@ class MergeList:
 
     def update(self, other):
         items = self.items
+
         self.items = []
         self.item_set = set()
         for (fst, snd) in itertools.zip_longest(items, other.items):
@@ -96,6 +100,16 @@ class DisjointUnionList:
             merger.add(group)
         return merger
 
+    def to_suggested_merges(self, creator):
+        coalescer = AutomaticAuthorCoalescer(creator=creator)
+        all_author_pks = list(itertools.chain.from_iterable(self))
+        all_authors = Author.objects.filter(id__in=all_author_pks).in_bulk()
+        suggested_merges = []
+        for merge_list in self:
+            authors = [all_authors[pk] for pk in merge_list]
+            suggested_merges.append(coalescer.coalesce(authors))
+        return suggested_merges
+
     def __repr__(self):
         return "{}.from_items({})".format(self.__class__.__name__, [v for v in self.group_id_to_pks.values()])
 
@@ -116,7 +130,16 @@ class _Empty:
 empty = _Empty()
 
 
-class AuthorCoalescer:
+class AutomaticAuthorCoalescer:
+    def __init__(self, creator):
+        self.creator = creator
+        self.content_type = ContentType.objects.get_for_model(Author)
+
+    def coalesce(self, authors):
+        new_content = self.calculate_changes(authors)
+        return SuggestedMerge(duplicates=sorted([a.pk for a in authors]), new_content=new_content,
+                              content_type=self.content_type, creator=self.creator)
+
     def _max_str_len_agg(self, authors, attr):
         v = empty
         for author in authors:
@@ -155,9 +178,11 @@ class AuthorCoalescer:
         return changes
 
 
+class OverlappingSuggestedMerge(serializers.ValidationError): pass
+
+
 class AuthorMerges:
     def __init__(self):
-        self.coalescer = AuthorCoalescer()
         self.author_alias_creates = []
         self.author_updates = []
         self.author_deletes = []
@@ -167,30 +192,44 @@ class AuthorMerges:
         self.author_alias_deletes = []
         self.publication_author_updates = []
 
-    def coalesce(self, authors):
-        kept_author = authors[0]
-        discarded_authors = authors[1:]
-        changes = self.coalescer.calculate_changes(authors)
-        return kept_author, changes, discarded_authors
+    @staticmethod
+    def _create_kept_primary_key_resolver(suggested_merges):
+        suggested_merge_lookup = {}
+        content_pk_to_suggested_merge_pk = {}
+        content_pk_to_kept_content_pk = {}
+        for suggested_merge in suggested_merges:
+            suggested_merge_lookup[suggested_merge.id] = suggested_merge
+            for duplicate_pk in suggested_merge.duplicates:
+                if duplicate_pk not in content_pk_to_suggested_merge_pk:
+                    content_pk_to_suggested_merge_pk[duplicate_pk] = suggested_merge.id
+                    content_pk_to_kept_content_pk[duplicate_pk] = suggested_merge.kept_pk
+                else:
+                    overlapping_suggested_merge_pks = [suggested_merge.id,
+                                                       content_pk_to_suggested_merge_pk[duplicate_pk]]
+                    overlapping_suggested_merges = [suggested_merge_lookup[pk] for pk in
+                                                    overlapping_suggested_merge_pks]
+                    raise OverlappingSuggestedMerge(
+                        f'{overlapping_suggested_merges}. Please merge records before continuing')
 
-    def add(self, merges: DisjointUnionList):
-        all_author_ids = list(itertools.chain.from_iterable(merges))
-        all_authors = Author.objects.filter(id__in=all_author_ids).in_bulk()
+        return content_pk_to_kept_content_pk
+
+    def add(self, suggested_merges: List[SuggestedMerge]):
+        all_author_pks = list(itertools.chain.from_iterable(sm.duplicates for sm in suggested_merges))
+        all_authors = Author.objects.filter(id__in=all_author_pks).in_bulk()
         logger.debug('Author merges added : %s', pformat(all_authors))
-        all_publication_authors = PublicationAuthors.objects.filter(author_id__in=all_author_ids)
-        all_author_aliases = AuthorAlias.objects.filter(author_id__in=all_author_ids)
-        all_raw_authors = RawAuthors.objects.filter(author_id__in=all_author_ids)
+        all_publication_authors = PublicationAuthors.objects.filter(author_id__in=all_author_pks)
+        all_author_aliases = AuthorAlias.objects.filter(author_id__in=all_author_pks)
+        all_raw_authors = RawAuthors.objects.filter(author_id__in=all_author_pks)
+        kept_pk_resolver = self._create_kept_primary_key_resolver(suggested_merges)
 
-        for group in merges:
-            author_ids = list(group)
-            authors = [all_authors[author_id] for author_id in author_ids]
-            # move coalesce out - pass data in as an argument
-            kept_author, kept_author_updates, discarded_authors = self.coalesce(authors)
-            self.author_updates.append((kept_author, kept_author_updates))
+        for suggested_merge in suggested_merges:
+            kept_author = all_authors[suggested_merge.kept_pk]
+            discarded_authors = [all_authors[pk] for pk in suggested_merge.discarded_pks]
+            self.author_updates.append((kept_author, suggested_merge.new_content))
             self.author_deletes += discarded_authors
 
         for publication_author in all_publication_authors:
-            kept_pk = merges.get_kept_pk(publication_author.author_id)
+            kept_pk = kept_pk_resolver[publication_author.author_id]
             if kept_pk != publication_author.author_id:
                 self.publication_author_updates.append((publication_author, {'author_id': kept_pk}))
 
@@ -200,7 +239,7 @@ class AuthorMerges:
         kept_raw_authors = []
         raw_author_updates = []
         for raw_author in all_raw_authors:
-            kept_pk = merges.get_kept_pk(raw_author.author_id)
+            kept_pk = kept_pk_resolver[raw_author.author_id]
             if kept_pk != raw_author.author_id:
                 raw_author_updates.append((raw_author, {'author_id': kept_pk}))
             else:
@@ -220,7 +259,7 @@ class AuthorMerges:
         kept_author_aliases = []
         author_alias_updates = []
         for author_alias in all_author_aliases:
-            kept_pk = merges.get_kept_pk(author_alias.author_id)
+            kept_pk = kept_pk_resolver[author_alias.author_id]
             if kept_pk != author_alias.author_id:
                 author_alias_updates.append((author_alias, {'author_id': kept_pk}))
             else:
@@ -271,6 +310,8 @@ class AuthorMerges:
         return audit_logs
 
     def execute(self, creator):
+        "Execute bulk author merges. Will have to rebuild search indices afterward"
+
         audit_command = AuditCommand.objects.create(action='MERGE', creator=creator, message='Bulk Merging Authors')
         # Add update logs
         audit_logs = self.log_updates(audit_command, self.author_updates)
@@ -308,6 +349,21 @@ def grouper(n, iterable):
         yield chunk
 
 
+def merge_authors_from_suggestedmerges(creator, qs=None):
+    with transaction.atomic():
+        if not qs:
+            qs = SuggestedMerge.objects.all()
+        qs = qs.filter(content_type=ContentType.objects.get_for_model(Author)).filter(date_applied__isnull=True)
+        suggested_merges = list(qs)
+        for suggested_merge in suggested_merges:
+            logger.info('%s', suggested_merge)
+            suggested_merge.duplicates = sorted(suggested_merge.duplicates)
+            author_merges = AuthorMerges()
+            author_merges.add([suggested_merge])
+            author_merges.execute(creator)
+        qs.update(date_applied=datetime.now())
+
+
 def merge_authors_by_name(creator, only_primary=True):
     author_qs = Author.objects \
         .filter(
@@ -329,12 +385,13 @@ def merge_authors_by_name(creator, only_primary=True):
             author_ids = MergeList(sorted(match['author_ids']))
             author_disjoint_union_set.add(author_ids)
 
-        chunked_disjoint_set = grouper(1, author_disjoint_union_set)
+        submitter, created = Submitter.objects.get_or_create(user=creator)
+        suggested_merges = author_disjoint_union_set.to_suggested_merges(submitter)
+        SuggestedMerge.objects.bulk_create(suggested_merges)
         ind = 0
-        for chunk in chunked_disjoint_set:
+        for suggested_merge in suggested_merges:
             logger.info('Chunk # %i', ind)
-            chunk_author_disjoint_union_set = DisjointUnionList.from_items(chunk)
             author_merges = AuthorMerges()
-            author_merges.add(chunk_author_disjoint_union_set)
+            author_merges.add([suggested_merge])
             author_merges.execute(creator)
             ind += 1

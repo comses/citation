@@ -613,13 +613,42 @@ class SuggestMergeInstanceSerializer(serializers.Serializer):
     id = serializers.IntegerField()
 
 
+class SuggestAuthorMergeSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    family_name = serializers.CharField(allow_blank=False)
+    given_name = serializers.CharField(allow_blank=False)
+    orcid = serializers.CharField()
+
+
+class SuggestOtherMergeSerializer(serializers.Serializer):
+    name = serializers.CharField()
+
+
 class SuggestMergeSerializer(serializers.Serializer):
     model_name = serializers.CharField()
     instances = SuggestMergeInstanceSerializer(many=True)
-    name = serializers.CharField()
+    new_content = serializers.JSONField()
     email = serializers.EmailField(required=False, min_length=5)
 
     def validate_instances(self, value):
         if len(value) < 2:
             raise serializers.ValidationError('must have multiple instances to merge')
         return value
+
+    def validate_new_content(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('new_content must be a dict')
+        return value
+
+    def validate(self, data):
+        raw_content = data['new_content']
+        if data['model_name'] == 'author':
+            serializer = SuggestAuthorMergeSerializer(data=raw_content)
+            serializer.is_valid()
+        else:
+            serializer = SuggestOtherMergeSerializer(data=raw_content)
+            serializer.is_valid()
+        data['new_content'] = serializer.data
+        return data
+
+

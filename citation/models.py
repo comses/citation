@@ -1110,5 +1110,13 @@ class SuggestedMerge(models.Model):
                                                       if pk in pk_to_related_instances]
         return instances
 
+    @property
+    def kept_pk(self):
+        return self.duplicates[0]
+
+    @property
+    def discarded_pks(self):
+        return self.duplicates[1:]
+
     def __str__(self):
         return f'content_type={self.content_type} duplicates={self.duplicates} new_content={self.new_content} creator={self.creator}'
