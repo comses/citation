@@ -555,6 +555,16 @@ class PublicationQuerySet(models.QuerySet):
         except FieldError:
             return FieldError
 
+    def reviewed(self):
+        return self.filter(status='REVIEWED')
+
+    def has_no_archive_urls(self):
+        return self.annotate(code_archive_urls_count=models.Count('code_archive_urls')).filter(
+            code_archive_urls_count=0)
+
+    def has_unavailable_archive_urls(self):
+        return self.annotate(unavailable_archive_urls=models.Count('code_archive_urls', filter=models.Q(code_archive_urls__status='unavailable')))
+
 
 class Publication(AbstractLogModel):
     Status = Choices(
@@ -776,8 +786,10 @@ class CodeArchiveUrlPatternQuerySet(models.QuerySet):
         qs = self.exclude(regex_host_matcher='', regex_path_matcher='')
         patterns = list(qs)
         for pattern in patterns:
-            pattern.host_matcher = re.compile(pattern.regex_host_matcher) if pattern.regex_host_matcher else Match.always()
-            pattern.path_matcher = re.compile(pattern.regex_path_matcher) if pattern.regex_path_matcher else Match.always()
+            pattern.host_matcher = re.compile(
+                pattern.regex_host_matcher) if pattern.regex_host_matcher else Match.always()
+            pattern.path_matcher = re.compile(
+                pattern.regex_path_matcher) if pattern.regex_path_matcher else Match.always()
         return patterns
 
 
