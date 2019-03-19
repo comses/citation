@@ -501,11 +501,25 @@ class PublicationQuerySet(models.QuerySet):
     def primary(self, prefetch=False, **kwargs):
         if 'is_primary' in kwargs:
             kwargs.pop('is_primary')
-        primary_pub = Publication.objects.filter(is_primary=True, **kwargs)
+        primary_pub = self.filter(is_primary=True, **kwargs)
         if prefetch:
             return primary_pub.prefetch_related('sponsors', 'platforms', 'note_set')
 
         return primary_pub
+
+    def reviewed(self):
+        return self.filter(status='REVIEWED')
+
+    def annotate_code_availability(self):
+        """
+        A publication is considered to have its code available if has at least one CodeArchiveUrl and all its
+        CodeArchiveUrls are available
+        """
+        return self.prefetch_related('code_archive_urls').annotate(
+            n_available_code_archive_urls=models.Count(
+                'code_archive_urls',
+                filter=models.Q(code_archive_urls__status='available')))
+
 
     def aggregated_list(self, identifier=None, **kwargs):
         """
