@@ -3,7 +3,7 @@ import logging
 import requests
 from urllib3.util import parse_url
 
-from .models import Publication, URLStatusLog, CodeArchiveUrl, CodeArchiveUrlPattern
+from .models import Publication, URLStatusLog, CodeArchiveUrl, CodeArchiveUrlPattern, CodeArchiveUrlCategory
 
 logger = logging.getLogger(__name__)
 
@@ -18,17 +18,18 @@ logger = logging.getLogger(__name__)
 
 def verify_url_status():
     code_archive_urls = CodeArchiveUrl.objects.all()
+    fallback_category = CodeArchiveUrlCategory.objects.get(category='Unknown')
     patterns = CodeArchiveUrlPattern.objects.select_related('category').with_matchers()
 
     for code_archive_url in code_archive_urls:
         logger.info("Pinging: " + code_archive_url.url)
-        ping_url(code_archive_url, patterns)
+        ping_url(code_archive_url, patterns, fallback_category=fallback_category)
 
 
-def ping_url(code_archive_url, patterns):
+def ping_url(code_archive_url, patterns, fallback_category):
     url = code_archive_url.url
 
-    category = categorize_url(url, patterns, CodeArchiveUrlPattern.objects.get(category='Unknown'))
+    category = categorize_url(url, patterns, fallback_category=fallback_category)
     try:
         s = requests.Session()
         # HEAD requests hang on some URLs so using GET for now
