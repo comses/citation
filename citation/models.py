@@ -520,7 +520,6 @@ class PublicationQuerySet(models.QuerySet):
                 'code_archive_urls',
                 filter=models.Q(code_archive_urls__status='available')))
 
-
     def aggregated_list(self, identifier=None, **kwargs):
         """
         :param: identifier: String - relation identifier - should be Django Model that has name attribute (field)
@@ -555,15 +554,28 @@ class PublicationQuerySet(models.QuerySet):
         except FieldError:
             return FieldError
 
-    def reviewed(self):
-        return self.filter(status='REVIEWED')
-
     def has_no_archive_urls(self):
         return self.annotate(code_archive_urls_count=models.Count('code_archive_urls')).filter(
             code_archive_urls_count=0)
 
     def has_unavailable_archive_urls(self):
-        return self.annotate(unavailable_archive_urls=models.Count('code_archive_urls', filter=models.Q(code_archive_urls__status='unavailable')))
+        return self.annotate(unavailable_archive_urls=models.Count('code_archive_urls', filter=models.Q(
+            code_archive_urls__status='unavailable')))
+
+    def has_available_code(self):
+        return self \
+            .annotate(available_code_archive_urls_count=
+                      models.Count('code_archive_urls',
+                                   filter=models.Q(code_archive_urls__status='available') |
+                                          models.Q(code_archive_urls__status='restricted'))) \
+            .annotate(unavailable_code_archive_urls_count=
+                      models.Count('code_archive_urls',
+                                   filter=models.Q(code_archive_urls__status='unavailable'))) \
+            .annotate(has_available_code=models.Case(
+                      models.When(models.Q(available_code_archive_urls_count__gt=0) &
+                                  models.Q(unavailable_code_archive_urls_count=0), then=models.Value(True)),
+                      default=models.Value(False),
+                      output_field=models.BooleanField()))
 
 
 class Publication(AbstractLogModel):
