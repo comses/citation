@@ -228,6 +228,32 @@ class AbstractLogModel(models.Model):
     class Meta:
         abstract = True
 
+class SourceCodeRequestEmail(object):
+    def __init__(self, request):
+        self.request = request
+        self.plaintext_template = get_template('email/src-code-request-email.txt')
+
+    @property
+    def site(self):
+        return RequestSite(self.request)
+
+class InArchiveEmail(object):
+    def __init__(self, request):
+        self.request = request
+        self.plaintext_template = get_template('email/code-in-archive.txt')
+
+    @property
+    def site(self):
+        return RequestSite(self.request)
+
+class NoArchiveEmail(object):
+    def __init__(self, request):
+      self.request = request
+      self.plaintext_template = get_template('email/code-no-archive.txt')
+
+      @property
+      def site(self):
+          return RequestSite(self.request)
 
 class InvitationEmail(object):
     def __init__(self, request):
@@ -344,7 +370,7 @@ class AuthorAlias(AbstractLogModel):
 
     class Meta:
         unique_together = ('author', 'given_name', 'family_name')
-
+        
 
 class AuthorCorrespondenceTemplate(models.Model):
     text = models.TextField(max_length=6000)
