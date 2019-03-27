@@ -273,7 +273,7 @@ class NoArchiveEmail(object):
       def site(self):
           return RequestSite(self.request)
 
-        
+
 class InvitationEmailTemplate(models.Model):
     name = models.CharField(max_length=64)
     text = models.TextField()
@@ -374,17 +374,24 @@ class AuthorAlias(AbstractLogModel):
         unique_together = ('author', 'given_name', 'family_name')
         
 
-class AuthorCorrespondenceTemplate(models.Model):
-    text = models.TextField(max_length=6000)
-    label = models.TextField(max_length=50)
-
-
-class AuthorCorrespondence(models.Model):
+class AuthorCorrespondenceLog(models.Model):
+    purpose = Choices(
+        ('NOT_IN_ARCHIVE', _('Code available but not in archive')),
+        ('IN_ARCHIVE', _('Code available in archive')),
+        ('NOT_AVAILABLE', _('Code not available'))
+    )
     date_created = models.DateTimeField(auto_now=True)
-    date_responded = models.DateTimeField(blank=True, null=True)
-    template = models.ForeignKey(AuthorCorrespondenceTemplate, related_name='correspondences', on_delete=models.PROTECT)
-    author = models.ForeignKey(Author, on_delete=models.PROTECT, related_name='correspondences')
-    hash = models.CharField(max_length=255)
+    date_responded = models.DateTimeField(null=True)
+    contact_author_name = models.CharField(max_length=255, blank=True)
+    contact_email = models.EmailField(blank=True)
+    publication = models.ForeignKey('Publication', null=True, on_delete=models.SET_NULL)
+    purpose = models.CharField(max_length=64, choices=purpose)
+    content = models.TextField(max_length=6000)
+    def get_unavailable_publications(self):
+        return Publication.api.primary().reviewed()[:5]
+    @classmethod
+    def from_publication(cls, publication: 'Publication'):
+        return AuthorCorrespondenceLog(contact_author_name=publication.contact_author_name, contact_email=publication.contact_email, publication=publication, purpose='foo', content='foo')
 
 
 class Tag(AbstractLogModel):
