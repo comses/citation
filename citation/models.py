@@ -227,6 +227,24 @@ class AbstractLogModel(models.Model):
 
     class Meta:
         abstract = True
+        
+
+class InvitationEmail(object):
+    def __init__(self, request):
+        self.request = request
+        self.plaintext_template = get_template('email/invitation-email.txt')
+
+    @property
+    def site(self):
+        return RequestSite(self.request)
+
+    def get_plaintext_content(self, message, token):
+        return self.plaintext_template.render({
+            'invitation_text': message,
+            'domain': self.site.domain,
+            'token': token,
+        })
+
 
 class SourceCodeRequestEmail(object):
     def __init__(self, request):
@@ -255,23 +273,7 @@ class NoArchiveEmail(object):
       def site(self):
           return RequestSite(self.request)
 
-class InvitationEmail(object):
-    def __init__(self, request):
-        self.request = request
-        self.plaintext_template = get_template('email/invitation-email.txt')
-
-    @property
-    def site(self):
-        return RequestSite(self.request)
-
-    def get_plaintext_content(self, message, token):
-        return self.plaintext_template.render({
-            'invitation_text': message,
-            'domain': self.site.domain,
-            'token': token,
-        })
-
-
+        
 class InvitationEmailTemplate(models.Model):
     name = models.CharField(max_length=64)
     text = models.TextField()
