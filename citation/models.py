@@ -387,11 +387,20 @@ class AuthorCorrespondenceLog(models.Model):
     publication = models.ForeignKey('Publication', null=True, on_delete=models.SET_NULL)
     purpose = models.CharField(max_length=64, choices=purpose)
     content = models.TextField(max_length=6000)
+
     def get_unavailable_publications(self):
         return Publication.api.primary().reviewed()[:5]
+
+    def get_no_archive_url_publications(self):
+        return Publication.api.primary().has_no_archive_urls()[:5]
+
+    def get_unavailable_archive_urls_publications(self):
+        return Publication.api.primary().has_unavailable_archive_urls()[:5]
+
     @classmethod
     def from_publication(cls, publication: 'Publication'):
         return AuthorCorrespondenceLog(contact_author_name=publication.contact_author_name, contact_email=publication.contact_email, publication=publication, purpose='foo', content='foo')
+
 
 
 class Tag(AbstractLogModel):
