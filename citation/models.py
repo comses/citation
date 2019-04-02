@@ -372,7 +372,22 @@ class AuthorAlias(AbstractLogModel):
 
     class Meta:
         unique_together = ('author', 'given_name', 'family_name')
-        
+
+class AuthorCorrespondenceLogQuerySet(models.QuerySet):
+    def create_from_publications(self, count=10):
+        qs_none = Publication.api.primary().has_no_archive_urls()[:count]
+        qs_unavailable = Publication.api.primary().has_unavailable_archive_urls()[:count]
+        qs_in_archive = Publication.api.primary().has_available_code()[:count]
+
+        for publication in qs_none:
+            self.create(publication=publication, contact_author_name=publication.contact_author_name, contact_email=publication.contact_email, purpose='NOT_IN_ARCHIVE', content='foo')
+
+        for publication in qs_unavailable:
+            self.create(publication=publication, contact_author_name=publication.contact_author_name, contact_email=publication.contact_email, purpose="NOT_AVAILABLE", content='foo')
+
+        for publication in qs_in_archive:
+            self.create(publication=publication, contact_author_name=publication.contact_author_name, contact_email=publication.contact_email, purpose='IN_ARCHIVE', content='foo')
+
 
 class AuthorCorrespondenceLog(models.Model):
     purpose = Choices(
@@ -388,18 +403,21 @@ class AuthorCorrespondenceLog(models.Model):
     purpose = models.CharField(max_length=64, choices=purpose)
     content = models.TextField(max_length=6000)
 
+    objects = AuthorCorrespondenceLogQuerySet.as_manager()
+
     def get_unavailable_publications(self):
-        return Publication.api.primary().reviewed().values_list('id', flat=True)[:10]
+        return Publication.api.primary().reviewed()[:5]
 
     def get_no_archive_url_publications(self):
-        return Publication.api.primary().has_no_archive_urls().values_list('id', flat=True)[:10]
+        # return Publication.api.primary().has_no_archive_urls().values_list('id', flat=True)[:10]
+        return Publication.api.primary().has_no_archive_urls()[:10]
 
     def get_unavailable_archive_url_publications(self):
-        return Publication.api.primary().has_unavailable_archive_urls().values_list('id', flat=True)[:10]
+        return Publication.api.primary().has_unavailable_archive_urls()[:10]
 
-    @classmethod
-    def from_publication(cls, publication: 'Publication'):
-        return AuthorCorrespondenceLog(contact_author_name=publication.contact_author_name, contact_email=publication.contact_email, publication=publication, purpose='foo', content='foo')
+    # @classmethod
+    # def from_publication(cls, publication: 'Publication'):
+    #     return AuthorCorrespondenceLog(contact_author_name=publication.contact_author_name, contact_email=publication.contact_email, publication=publication, purpose='foo', content='foo')
 
 
 
