@@ -227,9 +227,9 @@ class AbstractLogModel(models.Model):
 
     class Meta:
         abstract = True
-        
 
-class InvitationEmail(object):
+
+class InvitationEmail:
     def __init__(self, request):
         self.request = request
         self.plaintext_template = get_template('email/invitation-email.txt')
@@ -244,34 +244,6 @@ class InvitationEmail(object):
             'domain': self.site.domain,
             'token': token,
         })
-
-
-class SourceCodeRequestEmail(object):
-    def __init__(self, request):
-        self.request = request
-        self.plaintext_template = get_template('email/src-code-request-email.txt')
-
-    @property
-    def site(self):
-        return RequestSite(self.request)
-
-class InArchiveEmail(object):
-    def __init__(self, request):
-        self.request = request
-        self.plaintext_template = get_template('email/code-in-archive.txt')
-
-    @property
-    def site(self):
-        return RequestSite(self.request)
-
-class NoArchiveEmail(object):
-    def __init__(self, request):
-      self.request = request
-      self.plaintext_template = get_template('email/code-no-archive.txt')
-
-      @property
-      def site(self):
-          return RequestSite(self.request)
 
 
 class InvitationEmailTemplate(models.Model):
@@ -373,24 +345,46 @@ class AuthorAlias(AbstractLogModel):
     class Meta:
         unique_together = ('author', 'given_name', 'family_name')
 
+
 class AuthorCorrespondenceLogQuerySet(models.QuerySet):
     def create_from_publications(self, count=10):
         qs_none = Publication.api.primary().has_no_archive_urls()[:count]
         qs_unavailable = Publication.api.primary().has_unavailable_archive_urls()[:count]
         qs_in_archive = Publication.api.primary().has_available_code()[:count]
+        not_in_archive_author_correspondence = []
+        unavailable_archive_author_correspondence = []
+        in_archive_author_correspondence = []
 
         for publication in qs_none:
-            self.create(publication=publication, contact_author_name=publication.contact_author_name, contact_email=publication.contact_email, purpose='NOT_IN_ARCHIVE', content='foo')
+            not_in_archive_author_correspondence.append(AuthorCorrespondenceLog(
+                publication=publication, url=publication.url, contact_author_name=publication.contact_author_name,
+                contact_email=publication.contact_email, purpose='NOT_IN_ARCHIVE', content='foo'
+            ))
+        self.bulk_create(not_in_archive_author_correspondence)
+
 
         for publication in qs_unavailable:
-            self.create(publication=publication, contact_author_name=publication.contact_author_name, contact_email=publication.contact_email, purpose="NOT_AVAILABLE", content='foo')
+            unavailable_archive_author_correspondence.append(AuthorCorrespondenceLog(
+                publication=publication, url=publication.url, contact_author_name=publication.contact_author_name,
+                contact_email=publication.contact_email, purpose='NOT_AVAILABLE', content='foo'
+            ))
+        self.bulk_create(unavailable_archive_author_correspondence)
+
 
         for publication in qs_in_archive:
-            self.create(publication=publication, contact_author_name=publication.contact_author_name, contact_email=publication.contact_email, purpose='IN_ARCHIVE', content='foo')
+            in_archive_author_correspondence.append(AuthorCorrespondenceLog(
+                publication=publication, url=publication.url,contact_author_name=publication.contact_author_name,
+                contact_email=publication.contact_email, purpose='IN_ARCHIVE', content='foo'
+            ))
+        self.bulk_create(in_archive_author_correspondence)
+
+        # for debugging purposes
+        for p in AuthorCorrespondenceLogQuerySet.all(self):
+            print(p.contact_author_name + ' : ' + p.contact_email)
 
 
 class AuthorCorrespondenceLog(models.Model):
-    purpose = Choices(
+    purpose_options = Choices(
         ('NOT_IN_ARCHIVE', _('Code available but not in archive')),
         ('IN_ARCHIVE', _('Code available in archive')),
         ('NOT_AVAILABLE', _('Code not available'))
@@ -400,25 +394,27 @@ class AuthorCorrespondenceLog(models.Model):
     contact_author_name = models.CharField(max_length=255, blank=True)
     contact_email = models.EmailField(blank=True)
     publication = models.ForeignKey('Publication', null=True, on_delete=models.SET_NULL)
-    purpose = models.CharField(max_length=64, choices=purpose)
+    url = models.URLField(blank=True)
+    purpose = models.CharField(max_length=64, choices=purpose_options)
     content = models.TextField(max_length=6000)
+    email_delivery_status = models.CharField(max_length=50)
 
     objects = AuthorCorrespondenceLogQuerySet.as_manager()
 
-    def get_unavailable_publications(self):
-        return Publication.api.primary().reviewed()[:5]
+    PURPOSE_TEMPLATE_MAP = {
+        'NOT_IN_ARCHIVE': 'email/src-code-request-email.txt',
+        'IN_ARCHIVE': 'email/code-in-archive.txt',
+        'NOT_IN_ARCHIVE': 'email/code-no-archive.txt'
+    }
 
-    def get_no_archive_url_publications(self):
-        # return Publication.api.primary().has_no_archive_urls().values_list('id', flat=True)[:10]
-        return Publication.api.primary().has_no_archive_urls()[:10]
-
-    def get_unavailable_archive_url_publications(self):
-        return Publication.api.primary().has_unavailable_archive_urls()[:10]
-
-    # @classmethod
-    # def from_publication(cls, publication: 'Publication'):
-    #     return AuthorCorrespondenceLog(contact_author_name=publication.contact_author_name, contact_email=publication.contact_email, publication=publication, purpose='foo', content='foo')
-
+    def create_email_text(self):
+        # pattern on purpose
+        template = get_template(self.PURPOSE_TEMPLATE_MAP[self.purpose])
+        return template.render(
+            author_name = self.contact_author_name,
+            publication_title = self.publication,
+            publication_link = self.url,
+        )
 
 
 class Tag(AbstractLogModel):
@@ -634,10 +630,10 @@ class PublicationQuerySet(models.QuerySet):
                       models.Count('code_archive_urls',
                                    filter=models.Q(code_archive_urls__status='unavailable'))) \
             .annotate(has_available_code=models.Case(
-                      models.When(models.Q(available_code_archive_urls_count__gt=0) &
-                                  models.Q(unavailable_code_archive_urls_count=0), then=models.Value(True)),
-                      default=models.Value(False),
-                      output_field=models.BooleanField()))
+            models.When(models.Q(available_code_archive_urls_count__gt=0) &
+                        models.Q(unavailable_code_archive_urls_count=0), then=models.Value(True)),
+            default=models.Value(False),
+            output_field=models.BooleanField()))
 
 
 class Publication(AbstractLogModel):
