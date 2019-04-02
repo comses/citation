@@ -72,6 +72,30 @@ MEDIA_ROOT = '/var/www/catalog/uploads'
 # Examples: "http://media.lawrence.com", "http://example.com/media/"
 MEDIA_URL = 'https://catalog.comses.net/uploads/'
 
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.static',
+                "django.template.context_processors.tz",
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'catalog.context_processors.debug',
+            ],
+        },
+    },
+]
+
+MIDDLEWARE = (
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+)
+
 # DJANGO REST Framework's Pagination settings
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
