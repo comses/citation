@@ -362,7 +362,6 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
             ))
         self.bulk_create(not_in_archive_author_correspondence)
 
-
         for publication in qs_unavailable:
             unavailable_archive_author_correspondence.append(AuthorCorrespondenceLog(
                 publication=publication, url=publication.url, contact_author_name=publication.contact_author_name,
@@ -370,10 +369,9 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
             ))
         self.bulk_create(unavailable_archive_author_correspondence)
 
-
         for publication in qs_in_archive:
             in_archive_author_correspondence.append(AuthorCorrespondenceLog(
-                publication=publication, url=publication.url,contact_author_name=publication.contact_author_name,
+                publication=publication, url=publication.url, contact_author_name=publication.contact_author_name,
                 contact_email=publication.contact_email, purpose='IN_ARCHIVE', content='foo'
             ))
         self.bulk_create(in_archive_author_correspondence)
@@ -411,9 +409,9 @@ class AuthorCorrespondenceLog(models.Model):
         # pattern on purpose
         template = get_template(self.PURPOSE_TEMPLATE_MAP[self.purpose])
         return template.render(
-            author_name = self.contact_author_name,
-            publication_title = self.publication,
-            publication_link = self.url,
+            author_name=self.contact_author_name,
+            publication_title=self.publication,
+            publication_link=self.url,
         )
 
 
@@ -871,7 +869,8 @@ class CodeArchiveUrlPattern(models.Model):
     objects = CodeArchiveUrlPatternQuerySet.as_manager()
 
     def __str__(self):
-        return f'category={self.category_id} regex_host_matcher={repr(self.regex_host_matcher)} regex_path_matcher={repr(self.regex_path_matcher)}'
+        return f'category={self.category_id} regex_host_matcher={repr(
+            self.regex_host_matcher)} regex_path_matcher={repr(self.regex_path_matcher)}'
 
 
 class CodeArchiveUrl(AbstractLogModel):
