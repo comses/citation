@@ -869,8 +869,7 @@ class CodeArchiveUrlPattern(models.Model):
     objects = CodeArchiveUrlPatternQuerySet.as_manager()
 
     def __str__(self):
-        return f'category={self.category_id} regex_host_matcher={repr(
-            self.regex_host_matcher)} regex_path_matcher={repr(self.regex_path_matcher)}'
+        return f'category={self.category_id} regex_host_matcher={repr(self.regex_host_matcher)} regex_path_matcher={repr(self.regex_path_matcher)}'
 
 
 class CodeArchiveUrl(AbstractLogModel):
