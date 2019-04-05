@@ -6,13 +6,13 @@ setup(name='citation',
       version='0.0.1',
       classifiers=[
           'Environment :: Web Environment',
-          'Framework :: Django :: 1.11',  # replace "X.Y" as appropriate
+          'Framework :: Django :: 2.1.x',  # replace "X.Y" as appropriate
           'Intended Audience :: Developers',
           'Development Status :: 3 - Alpha',
           'Intended Audience :: Developers',
           'License :: OSI Approved :: GPL V3 License'
           'Operating System :: OS Independent',
-          'Programming Language :: Python 3.5'
+          'Programming Language :: Python 3.6'
       ],
       description='Citation management and deduplication for Django',
       url='https://github.com/comses/citation',
@@ -21,16 +21,18 @@ setup(name='citation',
       install_requires=[
           'Django>=2.0,<3.0',
           'djangorestframework>=3.7,<4.0',
-          'django-bulk-update', # will be unnecessary in Django 2.2
+          'django-bulk-update',  # will be unnecessary in Django 2.2
           'python-dateutil',
+          'bleach',
           'fuzzywuzzy',
           'lxml',
+          'markdown',
           'bibtexparser',
           'pyzotero',
           'django-extensions',
           'django-model-utils',
           'pyparsing==2.3.0',
-          'psycopg2',
+          'psycopg2-binary',
           'requests',
           'Unidecode',
           'python-Levenshtein',
