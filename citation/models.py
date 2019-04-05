@@ -1,9 +1,12 @@
+import logging
 import re
+import uuid
 from collections import defaultdict
 from datetime import datetime, date
 from typing import Dict, Optional, List
 
 from dateutil.parser import parse as datetime_parse
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.fields import JSONField, ArrayField
@@ -22,7 +25,9 @@ from model_utils import Choices
 
 from . import fields
 from .graphviz.globals import CacheNames
+from .util import send_markdown_email
 
+logger = logging.getLogger(__name__)
 
 def datetime_json_serialize(datetime_obj: Optional[datetime]):
     return str(datetime_obj)
@@ -351,67 +356,90 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
         qs_none = Publication.api.primary().has_no_archive_urls()[:count]
         qs_unavailable = Publication.api.primary().has_unavailable_archive_urls()[:count]
         qs_in_archive = Publication.api.primary().has_available_code()[:count]
-        not_in_archive_author_correspondence = []
-        unavailable_archive_author_correspondence = []
-        in_archive_author_correspondence = []
+
+        author_correspondence = []
 
         for publication in qs_none:
-            not_in_archive_author_correspondence.append(AuthorCorrespondenceLog(
-                publication=publication, url=publication.url, contact_author_name=publication.contact_author_name,
-                contact_email=publication.contact_email, purpose='NOT_IN_ARCHIVE', content='foo'
+            author_correspondence.append(AuthorCorrespondenceLog(
+                publication=publication, status=AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_IN_ARCHIVE
             ))
-        self.bulk_create(not_in_archive_author_correspondence)
 
         for publication in qs_unavailable:
-            unavailable_archive_author_correspondence.append(AuthorCorrespondenceLog(
-                publication=publication, url=publication.url, contact_author_name=publication.contact_author_name,
-                contact_email=publication.contact_email, purpose='NOT_AVAILABLE', content='foo'
+            author_correspondence.append(AuthorCorrespondenceLog(
+                publication=publication, status=AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_AVAILABLE
             ))
-        self.bulk_create(unavailable_archive_author_correspondence)
 
         for publication in qs_in_archive:
-            in_archive_author_correspondence.append(AuthorCorrespondenceLog(
-                publication=publication, url=publication.url, contact_author_name=publication.contact_author_name,
-                contact_email=publication.contact_email, purpose='IN_ARCHIVE', content='foo'
+            author_correspondence.append(AuthorCorrespondenceLog(
+                publication=publication, status=AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.ARCHIVED
             ))
-        self.bulk_create(in_archive_author_correspondence)
-
-        # for debugging purposes
-        for p in AuthorCorrespondenceLogQuerySet.all(self):
-            print(p.contact_author_name + ' : ' + p.contact_email)
+        self.bulk_create(author_correspondence)
 
 
 class AuthorCorrespondenceLog(models.Model):
-    purpose_options = Choices(
-        ('NOT_IN_ARCHIVE', _('Code available but not in archive')),
-        ('IN_ARCHIVE', _('Code available in archive')),
-        ('NOT_AVAILABLE', _('Code not available'))
+    CODE_ARCHIVE_STATUS = Choices(
+        ('NOT_AVAILABLE', _('Code not available')),
+        ('NOT_IN_ARCHIVE', _('Code has a currently active URL but not in a trusted digital repository')),
+        ('ARCHIVED', _('Code available in archive')),
+    )
+    DELIVERY_STATUS = Choices(
+        ('sent', _('Author correspondence successfully sent')),
+        ('error', _('Unable to send email, see error log for details')),
+        ('not_sent', _('Correspondence has not been sent yet'))
     )
     date_created = models.DateTimeField(auto_now=True)
     date_responded = models.DateTimeField(null=True)
-    contact_author_name = models.CharField(max_length=255, blank=True)
-    contact_email = models.EmailField(blank=True)
     publication = models.ForeignKey('Publication', null=True, on_delete=models.SET_NULL)
-    url = models.URLField(blank=True)
-    purpose = models.CharField(max_length=64, choices=purpose_options)
-    content = models.TextField(max_length=6000)
+    status = models.CharField(max_length=64, choices=CODE_ARCHIVE_STATUS)
+    content = models.TextField(blank=True)
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     email_delivery_status = models.CharField(max_length=50)
 
     objects = AuthorCorrespondenceLogQuerySet.as_manager()
 
-    PURPOSE_TEMPLATE_MAP = {
-        'NOT_IN_ARCHIVE': 'email/src-code-request-email.txt',
-        'IN_ARCHIVE': 'email/code-in-archive.txt',
-        'NOT_IN_ARCHIVE': 'email/code-no-archive.txt'
+    STATUS_TEMPLATE_MAP = {
+        CODE_ARCHIVE_STATUS.NOT_AVAILABLE: ('email/src-code-request-email.txt',
+                                            '[comses.net] request for model source code'),
+        CODE_ARCHIVE_STATUS.NOT_IN_ARCHIVE: ('email/code-no-archive.txt',
+                                             '[comses.net] request for model source code'),
+        CODE_ARCHIVE_STATUS.ARCHIVED: ('email/code-in-archive.txt',
+                                       '[comses.net] request for publication metadata review'),
     }
 
+    @property
+    def contact_author_name(self):
+        return self.publication.contact_author_name
+
+    @property
+    def contact_email(self):
+        return self.publication.contact_email
+
+    @property
+    def correspondence_url(self):
+        return reverse('author_correspondence', uuid=self.uuid)
+
+    def get_email_template_path(self):
+       return self.STATUS_TEMPLATE_MAP[self.status[0]]
+
+    def get_email_subject(self):
+        return self.STATUS_TEMPLATE_MAP[self.status[1]]
+
     def create_email_text(self):
-        # pattern on purpose
-        template = get_template(self.PURPOSE_TEMPLATE_MAP[self.purpose])
-        return template.render(
-            author_name=self.contact_author_name,
-            publication_title=self.publication,
-            publication_link=self.url,
+        # pattern on status
+        template = get_template(self.get_email_template_path())
+        return template.render(dict(
+            publication=self.publication,
+            content=self.content
+        ))
+
+    def send_email(self):
+        markdown_content = self.create_email_text()
+        send_markdown_email(
+            subject=self.get_email_subject(),
+            body=markdown_content,
+            to=[self.contact_email],
+            from_email=settings.CATALOG_FROM_EMAIL,
+            bcc=[settings.AUTHOR_CORRESPONDENCE_LOG_EMAIL]
         )
 
 

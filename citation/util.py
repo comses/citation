@@ -3,12 +3,77 @@ import re
 from hashlib import sha1
 from typing import Tuple
 
+import bleach
+import markdown
+
+from django.core.mail import EmailMultiAlternatives
 from django.db.models.aggregates import Aggregate
+from django.template import TemplateDoesNotExist, TemplateSyntaxError
+from django.template.loader import get_template
 from unidecode import unidecode
 
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+
+ALLOWED_TAGS = bleach.ALLOWED_TAGS + [
+    'p', 'h1', 'h2', 'h3', 'h4', 'pre', 'br', 'hr', 'div', 'span', 'footer',
+    'img', 'table', 'thead', 'tbody', 'tfoot', 'col', 'colgroup', 'th', 'tr', 'td'
+]
+
+ALLOWED_ATTRIBUTES = dict(bleach.ALLOWED_ATTRIBUTES,
+                          **{'*': ['name', 'id', 'class'], 'img': ['alt', 'src']})
+
+DEFAULT_MARKDOWN_EXTENSIONS = [
+    'markdown.extensions.extra',
+    'markdown.extensions.codehilite',
+    'markdown.extensions.nl2br',
+    'markdown.extensions.sane_lists',
+    'markdown.extensions.smarty',
+    'markdown.extensions.toc',
+    #    'markdown.extensions.wikilinks',
+]
+
+
+def render_sanitized_markdown(md_text: str, extensions=None):
+    if extensions is None:
+        extensions = DEFAULT_MARKDOWN_EXTENSIONS
+    html = markdown.markdown(
+        md_text,
+        extensions=extensions
+    )
+    return sanitize_html(html)
+
+
+def sanitize_html(html: str):
+    return bleach.clean(bleach.linkify(html), tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
+
+
+def create_markdown_email(subject: str=None, to=None, template_name: str=None, context: dict=None, body: str=None, from_email: str=settings.DEFAULT_FROM_EMAIL,
+                          **kwargs):
+    if all([template_name, context]):
+        # override body if a template name and context were given to us
+        try:
+            template = get_template(template_name)
+            body = template.render(context=context)
+        except TemplateDoesNotExist:
+            logger.error("couldn't find template %s", template_name)
+        except TemplateSyntaxError:
+            logger.error("invalid template %s", template_name)
+    required_fields = [subject, to, body, from_email]
+    if all(required_fields):
+        email = EmailMultiAlternatives(subject=subject, body=body, to=to, from_email=from_email, **kwargs)
+        email.attach_alternative(render_sanitized_markdown(body), 'text/html')
+        return email
+    else:
+        raise ValueError("Ignoring request to create a markdown email with missing required content {}".format(required_fields))
+
+
+def send_markdown_email(**kwargs):
+    # convenience method for create_markdown_email, so we just keep the same signature
+    # use kwargs only, positional args for email parameters can be fraught
+    create_markdown_email(**kwargs).send()
 
 
 def sanitize_doi(s):
