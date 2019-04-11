@@ -352,7 +352,7 @@ class AuthorAlias(AbstractLogModel):
 
 
 class AuthorCorrespondenceLogQuerySet(models.QuerySet):
-    def create_from_publications(self, count=10):
+    def create_from_random_publications(self, count=10):
         qs_none = Publication.api.primary().has_no_archive_urls()[:count]
         qs_unavailable = Publication.api.primary().has_unavailable_archive_urls()[:count]
         qs_in_archive = Publication.api.primary().has_available_code()[:count]
@@ -374,6 +374,21 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
                 publication=publication, status=AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.ARCHIVED
             ))
         self.bulk_create(author_correspondence)
+        return author_correspondence
+
+    def create_from_publications(self, publication_qs, custom_content=None):
+        author_correspondence = []
+        for publication in publication_qs:
+            # FIXME: we should generate the AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS based on the
+            # state of the Publication.code_archive_url queryset
+            if not publication.is_archived:
+                author_correspondence.append(
+                    AuthorCorrespondenceLog(publication=publication,
+                                            content=custom_content,
+                                            status=AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_AVAILABLE)
+                )
+        self.bulk_create(author_correspondence)
+        return author_correspondence
 
 
 class AuthorCorrespondenceLog(models.Model):
@@ -394,6 +409,8 @@ class AuthorCorrespondenceLog(models.Model):
     content = models.TextField(blank=True)
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     email_delivery_status = models.CharField(max_length=50)
+    author_submitted_url = models.URLField(help_text=_('Code archive URL'), blank=True)
+    author_feedback = models.TextField(help_text=_("Correspondence / feedback for comses.net"))
 
     objects = AuthorCorrespondenceLogQuerySet.as_manager()
 
@@ -405,6 +422,10 @@ class AuthorCorrespondenceLog(models.Model):
         CODE_ARCHIVE_STATUS.ARCHIVED: ('email/code-in-archive.txt',
                                        '[comses.net] request for publication metadata review'),
     }
+
+    @property
+    def has_author_responded(self):
+        return all([self.date_responded, self.author_submitted_url])
 
     @property
     def contact_author_name(self):
@@ -646,6 +667,9 @@ class PublicationQuerySet(models.QuerySet):
         return self.annotate(unavailable_archive_urls=models.Count('code_archive_urls', filter=models.Q(
             code_archive_urls__status='unavailable')))
 
+    def no_code_available(self):
+        return self.primary().reviewed().exclude(pk__in=self.has_available_code().values_list('pk', flat=True))
+
     def has_available_code(self):
         return self \
             .annotate(available_code_archive_urls_count=
@@ -691,7 +715,6 @@ class Publication(AbstractLogModel):
 
     # custom incoming tags set by zotero data entry to mark the code archive url, contact author's email, the ABM platform
     # used, research sponsors (funding agencies, etc.), documentation, and other research keyword tags
-    code_archive_url = models.URLField(max_length=255, blank=True)
     contact_author_name = models.CharField(max_length=255, blank=True)
     contact_email = models.EmailField(blank=True)
     platforms = models.ManyToManyField(Platform, blank=True, through='PublicationPlatforms',
@@ -763,8 +786,7 @@ class Publication(AbstractLogModel):
 
     @property
     def is_archived(self):
-        return self.code_archive_urls \
-            .exists()
+        return self.code_archive_urls.exclude(status=CodeArchiveUrl.STATUS.unavailable).exists()
 
     @property
     def contributor_data_cache_key(self):
