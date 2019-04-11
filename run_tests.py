@@ -16,6 +16,10 @@ django.setup()
 def run_tests():
     from django.test.utils import get_runner
     from django.conf import settings
+    from django.core.management import call_command
+
+    call_command('makemigrations')
+    call_command('migrate')
 
     TestRunner = get_runner(settings)
     test_runner = TestRunner(verbosity=1, interactive=True)
