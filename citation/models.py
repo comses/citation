@@ -376,7 +376,7 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
         self.bulk_create(author_correspondence)
         return author_correspondence
 
-    def create_from_publications(self, publication_qs, custom_content=None):
+    def create_from_publications(self, publication_qs, custom_content=None, curator=None):
         author_correspondence = []
         for publication in publication_qs:
             # FIXME: we should generate the AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS based on the
@@ -385,6 +385,7 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
                 author_correspondence.append(
                     AuthorCorrespondenceLog(publication=publication,
                                             content=custom_content,
+                                            curator=curator,
                                             status=AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_AVAILABLE)
                 )
         self.bulk_create(author_correspondence)
@@ -404,7 +405,8 @@ class AuthorCorrespondenceLog(models.Model):
     )
     date_created = models.DateTimeField(auto_now=True)
     date_responded = models.DateTimeField(null=True)
-    publication = models.ForeignKey('Publication', null=True, on_delete=models.SET_NULL)
+    curator = models.ForeignKey(User, on_delete=models.PROTECT)
+    publication = models.ForeignKey('Publication', on_delete=models.PROTECT)
     status = models.CharField(max_length=64, choices=CODE_ARCHIVE_STATUS)
     content = models.TextField(blank=True)
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -440,18 +442,21 @@ class AuthorCorrespondenceLog(models.Model):
         return reverse('author_correspondence', uuid=self.uuid)
 
     def get_email_template_path(self):
-        return self.STATUS_TEMPLATE_MAP[self.status[0]]
+        return self.STATUS_TEMPLATE_MAP[self.status][0]
 
     def get_email_subject(self):
-        return self.STATUS_TEMPLATE_MAP[self.status[1]]
+        return self.STATUS_TEMPLATE_MAP[self.status][1]
 
-    def create_email_text(self):
+    def create_preview_email_text(self):
+        return self.create_email_text(preview=True)
+
+    def create_email_text(self, preview=False):
+        context = dict(content=self.content)
+        if not preview:
+            context.update(publication=self.publication)
         # pattern on status
         template = get_template(self.get_email_template_path())
-        return template.render(dict(
-            publication=self.publication,
-            content=self.content
-        ))
+        return template.render(context)
 
     def send_email(self):
         markdown_content = self.create_email_text()
@@ -668,20 +673,32 @@ class PublicationQuerySet(models.QuerySet):
             code_archive_urls__status='unavailable')))
 
     def no_code_available(self, **kwargs):
-        return self.primary(**kwargs).reviewed().with_code_availability_counts().filter(
-            models.Q(available_code_archive_urls_count=0) |
-            models.Q(unavailable_code_archive_urls_count__gte=0)
-        )
+        return self.primary(**kwargs).reviewed().with_code_availability_counts().filter(has_available_code=False)
+
+    def by_code_archive_url_status(self, status, count=10, **kwargs):
+        """ status is assumed to be one of the AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS Choices """
+        qs = self.primary(**kwargs).reviewed()
+        if status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_AVAILABLE:
+            qs = qs.with_code_available_counts().filter(has_available_code=False)[:count]
+        elif status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_IN_ARCHIVE:
+            # FIXME: @cpritcha can you take a look at this to aggregate CodeArchiveUrls properly based on the category
+            qs = qs.has_unavailable_archive_urls()[:count]
+        elif status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.ARCHIVED:
+            qs = qs.with_code_available_counts().filter(has_available_code=True)[:count]
+        else:
+            raise ValueError("invalid status: " + status)
+        qs = qs.exclude(pk__in=list(AuthorCorrespondenceLog.objects.values_list('publication', flat=True)))
+        return qs
 
     def with_code_availability_counts(self):
         return self \
-            .annotate(available_code_archive_urls_count=
-                      models.Count('code_archive_urls',
-                                   filter=models.Q(code_archive_urls__status='available') |
-                                          models.Q(code_archive_urls__status='restricted'))) \
-            .annotate(unavailable_code_archive_urls_count=
-                      models.Count('code_archive_urls',
-                                   filter=models.Q(code_archive_urls__status='unavailable'))) \
+            .annotate(available_code_archive_urls_count=models.Count(
+                'code_archive_urls',
+                filter=models.Q(code_archive_urls__status='available') |
+                models.Q(code_archive_urls__status='restricted'))) \
+            .annotate(unavailable_code_archive_urls_count=models.Count(
+                'code_archive_urls',
+                filter=models.Q(code_archive_urls__status='unavailable'))) \
             .annotate(has_available_code=models.Case(
                 models.When(models.Q(available_code_archive_urls_count__gt=0) &
                             models.Q(unavailable_code_archive_urls_count=0),
