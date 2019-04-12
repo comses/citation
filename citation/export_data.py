@@ -1,12 +1,11 @@
 import csv
-import io
 
 from citation.models import Publication, Platform, Sponsor
 
 CSV_DEFAULT_HEADER = ["id", "title", "abstract", "short_title", "zotero_key", "url",
                       "date_published_text", "date_accessed", "archive", "archive_location",
                       "library_catalog", "call_number", "rights", "extra", "published_language", "date_added",
-                      "date_modified", "zotero_date_added", "zotero_date_modified", "status", "code_archive_url",
+                      "date_modified", "zotero_date_added", "zotero_date_modified", "status", "code_archive_urls",
                       "contact_email", "author_comments", "email_sent_count", "added_by", "assigned_curator",
                       "contact_author_name", "is_primary", "doi", "series_text", "series_title", "series", "issue",
                       "volume", "issn", "pages", "container", "platforms", "sponsors"]
