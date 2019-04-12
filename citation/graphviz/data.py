@@ -7,7 +7,6 @@ from haystack.query import SearchQuerySet
 
 from .globals import NetworkGroupByType
 from ..models import Publication, URLStatusLog
-from ..ping_urls import categorize_url
 
 logger = logging.getLogger(__name__)
 
@@ -191,9 +190,12 @@ def generate_aggregated_code_archived_platform_data(filter_criteria=None):
         for platform_name in URLStatusLog.PLATFORM_TYPES:
             platform_dct.update({platform_name[0]: 0})
         for pub in pubs:
+            # FIXME: this needs to be updated to work with CodeArchiveUrls (or thrown away)
+            """
             if pub.code_archive_url is not '':
                 platform_type = categorize_url(pub.code_archive_url)
                 platform_dct.update({platform_type: platform_dct[platform_type] + 1})
+            """
         return platform_dct
 
 
