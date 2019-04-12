@@ -437,10 +437,10 @@ class PublicationSerializer(serializers.ModelSerializer):
                                                     action=AuditCommand.Action.MANUAL)
 
         assert not hasattr(self, 'save_object'), (
-                'Serializer `%s.%s` has old-style version 2 `.save_object()` '
-                'that is no longer compatible with REST framework 3. '
-                'Use the new-style `.create()` and `.update()` methods instead.' %
-                (self.__class__.__module__, self.__class__.__name__)
+            'Serializer `%s.%s` has old-style version 2 `.save_object()` '
+            'that is no longer compatible with REST framework 3. '
+            'Use the new-style `.create()` and `.update()` methods instead.' %
+            (self.__class__.__module__, self.__class__.__name__)
         )
 
         assert hasattr(self, '_errors'), (
@@ -498,7 +498,7 @@ class PublicationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Publication
         fields = (
-            'id', 'apa_citation_string', 'activity_logs', 'assigned_curator', 'code_archive_url', 'contact_author_name',
+            'id', 'apa_citation_string', 'activity_logs', 'assigned_curator', 'contact_author_name',
             'contact_email', 'container', 'creators', 'date_modified', 'detail_url', 'flagged', 'model_documentation',
             'notes', 'pages', 'platforms', 'sponsors', 'status', 'status_options', 'tags', 'title', 'volume',
             'year_published', 'doi', 'code_archive_urls', 'code_archive_status_options', 'code_archive_category_options'
@@ -650,5 +650,3 @@ class SuggestMergeSerializer(serializers.Serializer):
             serializer.is_valid()
         data['new_content'] = serializer.data
         return data
-
-
