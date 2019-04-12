@@ -355,7 +355,7 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
     def create_from_random_publications(self, count=10):
         qs_none = Publication.api.primary().has_no_archive_urls()[:count]
         qs_unavailable = Publication.api.primary().has_unavailable_archive_urls()[:count]
-        qs_in_archive = Publication.api.primary().has_available_code()[:count]
+        qs_in_archive = Publication.api.primary().with_code_availability_counts()[:count]
 
         author_correspondence = []
 
@@ -667,16 +667,21 @@ class PublicationQuerySet(models.QuerySet):
         return self.annotate(unavailable_archive_urls=models.Count('code_archive_urls', filter=models.Q(
             code_archive_urls__status='unavailable')))
 
-    def no_code_available(self):
-        return self.primary().reviewed().exclude(pk__in=self.has_available_code().values_list('pk', flat=True))
+    def no_code_available(self, **kwargs):
+        return self.primary(**kwargs).reviewed().with_code_availability_counts().filter(
+            models.Q(available_code_archive_urls_count=0) |
+            models.Q(unavailable_code_archive_urls_count__gte=0)
+        )
 
-    def has_available_code(self):
-        return self.annotate(available_code_archive_urls_count=models.Count(
-            'code_archive_urls',
-            filter=models.Q(code_archive_urls__status='available') | models.Q(code_archive_urls__status='restricted'))) \
-            .annotate(unavailable_code_archive_urls_count=models.Count(
-                'code_archive_urls',
-                filter=models.Q(code_archive_urls__status='unavailable'))) \
+    def with_code_availability_counts(self):
+        return self \
+            .annotate(available_code_archive_urls_count=
+                      models.Count('code_archive_urls',
+                                   filter=models.Q(code_archive_urls__status='available') |
+                                          models.Q(code_archive_urls__status='restricted'))) \
+            .annotate(unavailable_code_archive_urls_count=
+                      models.Count('code_archive_urls',
+                                   filter=models.Q(code_archive_urls__status='unavailable'))) \
             .annotate(has_available_code=models.Case(
                 models.When(models.Q(available_code_archive_urls_count__gt=0) &
                             models.Q(unavailable_code_archive_urls_count=0),
