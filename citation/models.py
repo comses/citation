@@ -440,7 +440,7 @@ class AuthorCorrespondenceLog(models.Model):
         return reverse('author_correspondence', uuid=self.uuid)
 
     def get_email_template_path(self):
-       return self.STATUS_TEMPLATE_MAP[self.status[0]]
+        return self.STATUS_TEMPLATE_MAP[self.status[0]]
 
     def get_email_subject(self):
         return self.STATUS_TEMPLATE_MAP[self.status[1]]
@@ -671,19 +671,18 @@ class PublicationQuerySet(models.QuerySet):
         return self.primary().reviewed().exclude(pk__in=self.has_available_code().values_list('pk', flat=True))
 
     def has_available_code(self):
-        return self \
-            .annotate(available_code_archive_urls_count=
-                      models.Count('code_archive_urls',
-                                   filter=models.Q(code_archive_urls__status='available') |
-                                          models.Q(code_archive_urls__status='restricted'))) \
-            .annotate(unavailable_code_archive_urls_count=
-                      models.Count('code_archive_urls',
-                                   filter=models.Q(code_archive_urls__status='unavailable'))) \
+        return self.annotate(available_code_archive_urls_count=models.Count(
+            'code_archive_urls',
+            filter=models.Q(code_archive_urls__status='available') | models.Q(code_archive_urls__status='restricted'))) \
+            .annotate(unavailable_code_archive_urls_count=models.Count(
+                'code_archive_urls',
+                filter=models.Q(code_archive_urls__status='unavailable'))) \
             .annotate(has_available_code=models.Case(
-            models.When(models.Q(available_code_archive_urls_count__gt=0) &
-                        models.Q(unavailable_code_archive_urls_count=0), then=models.Value(True)),
-            default=models.Value(False),
-            output_field=models.BooleanField()))
+                models.When(models.Q(available_code_archive_urls_count__gt=0) &
+                            models.Q(unavailable_code_archive_urls_count=0),
+                            then=models.Value(True)),
+                default=models.Value(False),
+                output_field=models.BooleanField()))
 
 
 class Publication(AbstractLogModel):
@@ -787,6 +786,12 @@ class Publication(AbstractLogModel):
     @property
     def is_archived(self):
         return self.code_archive_urls.exclude(status=CodeArchiveUrl.STATUS.unavailable).exists()
+
+    @transaction.atomic
+    def flag(self, message: str, submitter: User):
+        self.flagged = True
+        self.note_set.add(text=message, added_by=submitter)
+        self.save()
 
     @property
     def contributor_data_cache_key(self):
@@ -939,6 +944,10 @@ class CodeArchiveUrl(AbstractLogModel):
     status = models.CharField(choices=STATUS, max_length=100)
     system_overridable_category = models.BooleanField(default=True)
     creator = models.ForeignKey(User, on_delete=models.PROTECT)
+
+    @property
+    def is_available(self):
+        return self.status in (self.STATUS.available, self.STATUS.restricted)
 
     @property
     def category_name(self):
@@ -1226,8 +1235,7 @@ class SuggestedPublication(models.Model):
 class SuggestedMerge(models.Model):
     content_type = models.ForeignKey(
         ContentType, related_name='suggested_merge_set', on_delete=models.PROTECT,
-        limit_choices_to=
-        models.Q(model__in=[m._meta.model_name for m in (Author, Container, Platform, Publication, Sponsor)]) &
+        limit_choices_to=models.Q(model__in=[m._meta.model_name for m in (Author, Container, Platform, Publication, Sponsor)]) &
         models.Q(app_label='citation'))
     duplicates = ArrayField(models.IntegerField())
     new_content = JSONField()
