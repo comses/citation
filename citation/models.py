@@ -679,12 +679,12 @@ class PublicationQuerySet(models.QuerySet):
         """ status is assumed to be one of the AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS Choices """
         qs = self.primary(**kwargs).reviewed()
         if status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_AVAILABLE:
-            qs = qs.with_code_available_counts().filter(has_available_code=False, contact_email=contact_email)[:count]
+            qs = qs.with_code_availability_counts().filter(has_available_code=False, contact_email=contact_email)[:count]
         elif status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_IN_ARCHIVE:
             # FIXME: @cpritcha can you take a look at this to aggregate CodeArchiveUrls properly based on the category
             qs = qs.has_unavailable_archive_urls()[:count]
         elif status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.ARCHIVED:
-            qs = qs.with_code_available_counts().filter(has_available_code=True, contact_email=contact_email)[:count]
+            qs = qs.with_code_availability_counts().filter(has_available_code=True, contact_email=contact_email)[:count]
         else:
             raise ValueError("invalid status: " + status)
         qs = qs.exclude(pk__in=list(AuthorCorrespondenceLog.objects.values_list('publication', flat=True)))
