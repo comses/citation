@@ -29,6 +29,7 @@ from .util import send_markdown_email
 
 logger = logging.getLogger(__name__)
 
+
 def datetime_json_serialize(datetime_obj: Optional[datetime]):
     return str(datetime_obj)
 
@@ -679,33 +680,34 @@ class PublicationQuerySet(models.QuerySet):
         """ status is assumed to be one of the AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS Choices """
         qs = self.primary(**kwargs).reviewed()
         if status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_AVAILABLE:
-            qs = qs.with_code_availability_counts().filter(has_available_code=False, contact_email=contact_email)[:count]
+            qs = qs.with_code_availability_counts().filter(has_available_code=False, contact_email=contact_email).all()[
+                 :count]
         elif status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_IN_ARCHIVE:
             # FIXME: @cpritcha can you take a look at this to aggregate CodeArchiveUrls properly based on the category
             qs = qs.has_unavailable_archive_urls()[:count]
         elif status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.ARCHIVED:
-            qs = qs.with_code_availability_counts().filter(has_available_code=True, contact_email=contact_email)[:count]
+            qs = qs.with_code_availability_counts().filter(has_available_code=True, contact_email=contact_email).all()[
+                 :count]
         else:
             raise ValueError("invalid status: " + status)
         qs = qs.exclude(pk__in=list(AuthorCorrespondenceLog.objects.values_list('publication', flat=True)))
         return qs
 
-
     def with_code_availability_counts(self):
         return self \
             .annotate(available_code_archive_urls_count=models.Count(
-                'code_archive_urls',
-                filter=models.Q(code_archive_urls__status='available') |
-                models.Q(code_archive_urls__status='restricted'))) \
+            'code_archive_urls',
+            filter=models.Q(code_archive_urls__status='available') |
+                   models.Q(code_archive_urls__status='restricted'))) \
             .annotate(unavailable_code_archive_urls_count=models.Count(
-                'code_archive_urls',
-                filter=models.Q(code_archive_urls__status='unavailable'))) \
+            'code_archive_urls',
+            filter=models.Q(code_archive_urls__status='unavailable'))) \
             .annotate(has_available_code=models.Case(
-                models.When(models.Q(available_code_archive_urls_count__gt=0) &
-                            models.Q(unavailable_code_archive_urls_count=0),
-                            then=models.Value(True)),
-                default=models.Value(False),
-                output_field=models.BooleanField()))
+            models.When(models.Q(available_code_archive_urls_count__gt=0) &
+                        models.Q(unavailable_code_archive_urls_count=0),
+                        then=models.Value(True)),
+            default=models.Value(False),
+            output_field=models.BooleanField()))
 
 
 class Publication(AbstractLogModel):
@@ -1258,8 +1260,9 @@ class SuggestedPublication(models.Model):
 class SuggestedMerge(models.Model):
     content_type = models.ForeignKey(
         ContentType, related_name='suggested_merge_set', on_delete=models.PROTECT,
-        limit_choices_to=models.Q(model__in=[m._meta.model_name for m in (Author, Container, Platform, Publication, Sponsor)]) &
-        models.Q(app_label='citation'))
+        limit_choices_to=models.Q(
+            model__in=[m._meta.model_name for m in (Author, Container, Platform, Publication, Sponsor)]) &
+                         models.Q(app_label='citation'))
     duplicates = ArrayField(models.IntegerField())
     new_content = JSONField()
     creator = models.ForeignKey(Submitter, related_name='suggested_merge_set', on_delete=models.PROTECT)
