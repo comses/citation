@@ -3,19 +3,52 @@ from datetime import datetime
 from json import dumps
 
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib import messages
 from django.http import HttpResponseRedirect
-from django.shortcuts import get_object_or_404
-from rest_framework import status, renderers, generics
+from django.shortcuts import get_object_or_404, redirect
+from rest_framework import status, renderers, generics, views
 from rest_framework.response import Response
 
-from .models import Publication, ModelDocumentation, Note
+from .models import Publication, ModelDocumentation, Note, AuthorCorrespondenceLog
 from .serializers import (CatalogPagination, ModelDocumentationSerializer, NoteSerializer,
-                          PublicationSerializer, PublicationListSerializer, )
+                          PublicationSerializer, PublicationListSerializer, AuthorCorrespondenceLogSerializer)
 
 logger = logging.getLogger(__name__)
 
-
 # Rest Framework Views
+
+
+class AuthorUpdateView(views.APIView):
+
+    renderer_classes = (renderers.TemplateHTMLRenderer,)
+    template_name = 'publication/author-update.html'
+
+    def get_object(self, uuid):
+        return get_object_or_404(AuthorCorrespondenceLog, uuid=uuid)
+
+    def get(self, request, uuid):
+        acl = self.get_object(uuid)
+        serializer = AuthorCorrespondenceLogSerializer(instance=acl)
+        return Response({
+            'serializer': serializer,
+            'author_correspondence': acl
+        })
+
+    def post(self, request, uuid):
+        acl = self.get_object(uuid)
+        serializer = AuthorCorrespondenceLogSerializer(acl, data=request.data)
+        if not serializer.is_valid():
+            logger.debug("serializer failed validation: %s", serializer)
+            return Response({
+                'serializer': serializer,
+                'author_correspondence': acl
+            })
+        serializer.save()
+        messages.success(request,
+                         'Your submission has been received. Thank you for updating your publication metadata!')
+        return redirect('/')
+
+
 class PublicationList(LoginRequiredMixin, generics.GenericAPIView):
     """
     List all publications, or create a new publication

@@ -411,7 +411,7 @@ class AuthorCorrespondenceLog(models.Model):
     status = models.CharField(max_length=64, choices=CODE_ARCHIVE_STATUS)
     content = models.TextField(blank=True)
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    email_delivery_status = models.CharField(max_length=50)
+    email_delivery_status = models.CharField(max_length=50, choices=DELIVERY_STATUS, default=DELIVERY_STATUS.not_sent)
     author_submitted_url = models.URLField(help_text=_('Code archive URL'), blank=True)
     author_feedback = models.TextField(help_text=_("Correspondence / feedback for comses.net"))
 
@@ -426,6 +426,10 @@ class AuthorCorrespondenceLog(models.Model):
                                        '[comses.net] request for publication metadata review'),
     }
 
+    def __str__(self):
+        return 'Correspondence on {0} created on {1}: {2} (author responded? {3})'.format(
+            self.publication, self.date_created, self.status, self.has_author_responded)
+
     @property
     def has_author_responded(self):
         return all([self.date_responded, self.author_submitted_url])
@@ -438,9 +442,8 @@ class AuthorCorrespondenceLog(models.Model):
     def contact_email(self):
         return self.publication.contact_email
 
-    @property
-    def correspondence_url(self):
-        return reverse('author_correspondence', uuid=self.uuid)
+    def get_absolute_url(self):
+        return reverse('citation:author_correspondence', kwargs=dict(uuid=self.uuid))
 
     def get_email_template_path(self):
         return self.STATUS_TEMPLATE_MAP[self.status][0]
@@ -452,7 +455,7 @@ class AuthorCorrespondenceLog(models.Model):
         return self.create_email_text(preview=True)
 
     def create_email_text(self, preview=False):
-        context = dict(content=self.content)
+        context = dict(content=self.content, correspondence_url=self.get_absolute_url())
         if not preview:
             context.update(publication=self.publication)
         # pattern on status
@@ -694,20 +697,18 @@ class PublicationQuerySet(models.QuerySet):
         return qs[:count]
 
     def with_code_availability_counts(self):
-        return self \
-            .annotate(available_code_archive_urls_count=models.Count(
+        return self.annotate(available_code_archive_urls_count=models.Count(
             'code_archive_urls',
-            filter=models.Q(code_archive_urls__status='available') |
-                   models.Q(code_archive_urls__status='restricted'))) \
+            filter=models.Q(code_archive_urls__status='available') | models.Q(code_archive_urls__status='restricted'))) \
             .annotate(unavailable_code_archive_urls_count=models.Count(
-            'code_archive_urls',
-            filter=models.Q(code_archive_urls__status='unavailable'))) \
+                'code_archive_urls',
+                filter=models.Q(code_archive_urls__status='unavailable'))) \
             .annotate(has_available_code=models.Case(
-            models.When(models.Q(available_code_archive_urls_count__gt=0) &
-                        models.Q(unavailable_code_archive_urls_count=0),
-                        then=models.Value(True)),
-            default=models.Value(False),
-            output_field=models.BooleanField()))
+                models.When(models.Q(available_code_archive_urls_count__gt=0) &
+                            models.Q(unavailable_code_archive_urls_count=0),
+                            then=models.Value(True)),
+                default=models.Value(False),
+                output_field=models.BooleanField()))
 
 
 class Publication(AbstractLogModel):
@@ -889,6 +890,7 @@ class Publication(AbstractLogModel):
         )
 
     def get_public_detail_url(self):
+        # FIXME: this refers to catalog urls...
         return reverse('core:public-publication-detail', kwargs={'pk': self.pk})
 
     def __str__(self):
@@ -1260,9 +1262,8 @@ class SuggestedPublication(models.Model):
 class SuggestedMerge(models.Model):
     content_type = models.ForeignKey(
         ContentType, related_name='suggested_merge_set', on_delete=models.PROTECT,
-        limit_choices_to=models.Q(
-            model__in=[m._meta.model_name for m in (Author, Container, Platform, Publication, Sponsor)]) &
-                         models.Q(app_label='citation'))
+        limit_choices_to=models.Q(app_label='citation') & models.Q(
+            model__in=[m._meta.model_name for m in (Author, Container, Platform, Publication, Sponsor)]))
     duplicates = ArrayField(models.IntegerField())
     new_content = JSONField()
     creator = models.ForeignKey(Submitter, related_name='suggested_merge_set', on_delete=models.PROTECT)

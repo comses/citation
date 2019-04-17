@@ -19,7 +19,7 @@ from rest_framework.utils import model_meta
 from .models import (Tag, Sponsor, Platform, Author, Publication, Container, InvitationEmail,
                      ModelDocumentation, Note, AuditCommand, AuditLog,
                      PublicationModelDocumentations, PublicationPlatforms, PublicationSponsors, CodeArchiveUrl,
-                     CodeArchiveUrlCategory)
+                     CodeArchiveUrlCategory, AuthorCorrespondenceLog)
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,16 @@ class CatalogPagination(pagination.PageNumberPagination):
 ###########################
 #    Model Serializers    #
 ###########################
+
+
+class AuthorCorrespondenceLogSerializer(serializers.ModelSerializer):
+
+    publication_title = serializers.ReadOnlyField(source='publication.title')
+    contact_author_name = serializers.ReadOnlyField(source='publication.contact_author')
+
+    class Meta:
+        model = AuthorCorrespondenceLog
+        fields = ('id', 'author_submitted_url', 'author_feedback', 'publication_title', 'contact_author_name')
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
