@@ -17,7 +17,7 @@ def sync_model_documentation(sender, instance: Publication, **kwargs):
     has_source_code_model_documentation = PublicationModelDocumentations.objects.filter(
         publication=instance.id, model_documentation=model_documentation).exists()
 
-    default_submitter = User.objects.get(username='alee14')
+    default_submitter = User.objects.filter(is_active=True).first()
     for code_archive_url in instance.code_archive_urls.all():
         if code_archive_url.is_available and not has_source_code_model_documentation:
             audit_command = AuditCommand.objects.create(creator=default_submitter,
