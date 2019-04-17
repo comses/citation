@@ -565,39 +565,6 @@ class ContactFormSerializer(serializers.Serializer):
                   recipient_list=[settings.DEFAULT_FROM_EMAIL])
 
 
-class InvitationSerializer(serializers.Serializer):
-    invitation_subject = serializers.CharField()
-    invitation_text = serializers.CharField()
-
-    def save(self, request, pk_list):
-        subject = self.validated_data['invitation_subject']
-        message = self.validated_data['invitation_text']
-
-        pub_list = Publication.objects.filter(pk__in=pk_list).exclude(contact_email__exact='')
-        messages = []
-
-        for pub in pub_list:
-            token = signing.dumps(pub.pk, salt=settings.SALT)
-            ie = InvitationEmail(request)
-            body = ie.get_plaintext_content(message, token)
-            messages.append((subject, body, settings.DEFAULT_FROM_EMAIL, [pub.contact_email]))
-        send_mass_mail(messages, fail_silently=False)
-        pub_list.update(email_sent_count=F('email_sent_count') + 1)
-
-
-class UpdateModelUrlSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Publication
-        fields = ('title', 'code_archive_url', 'author_comments')
-        read_only_fields = ('title',)
-
-    def validate(self, data):
-        url = data['code_archive_url']
-        validator = URLValidator(message=_("Please enter a valid URL for this computational model."))
-        validator(url)
-        return data
-
-
 class PublicationAggregationSerializer(serializers.Serializer):
     """
     Serializes the aggregated data for Journal, Platform, and Sponsors relation.

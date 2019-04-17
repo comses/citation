@@ -235,24 +235,8 @@ class AbstractLogModel(models.Model):
         abstract = True
 
 
-class InvitationEmail:
-    def __init__(self, request):
-        self.request = request
-        self.plaintext_template = get_template('email/invitation-email.txt')
-
-    @property
-    def site(self):
-        return RequestSite(self.request)
-
-    def get_plaintext_content(self, message, token):
-        return self.plaintext_template.render({
-            'invitation_text': message,
-            'domain': self.site.domain,
-            'token': token,
-        })
-
-
 class InvitationEmailTemplate(models.Model):
+    """ This can probably be removed """
     name = models.CharField(max_length=64)
     text = models.TextField()
     date_added = models.DateTimeField(auto_now_add=True)
@@ -454,16 +438,17 @@ class AuthorCorrespondenceLog(models.Model):
     def create_preview_email_text(self):
         return self.create_email_text(preview=True)
 
-    def create_email_text(self, preview=False):
-        context = dict(content=self.content, correspondence_url=self.get_absolute_url())
+    def create_email_text(self, request=None, preview=False):
+        correspondence_url = request.build_absolute_uri(self.get_absolute_url()) if request else self.get_absolute_url()
+        context = dict(content=self.content, correspondence_url=correspondence_url)
         if not preview:
             context.update(publication=self.publication)
         # pattern on status
         template = get_template(self.get_email_template_path())
         return template.render(context)
 
-    def send_email(self):
-        markdown_content = self.create_email_text()
+    def send_email(self, request=None):
+        markdown_content = self.create_email_text(request=request)
         send_markdown_email(
             subject=self.get_email_subject(),
             body=markdown_content,
