@@ -1,25 +1,20 @@
 import logging
 import time
-from collections import OrderedDict
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from hashlib import sha1
 from pprint import pformat
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.core import signing
-from django.core.mail import send_mass_mail, send_mail
-from django.core.validators import URLValidator
-from django.db.models import F, Q
-from django.utils.translation import ugettext as _
+from django.core.mail import send_mail
+from django.db.models import Q
 from rest_framework import serializers, pagination
 from rest_framework.exceptions import ValidationError
 from rest_framework.utils import model_meta
 
-from .models import (Tag, Sponsor, Platform, Author, Publication, Container, InvitationEmail,
-                     ModelDocumentation, Note, AuditCommand, AuditLog,
-                     PublicationModelDocumentations, PublicationPlatforms, PublicationSponsors, CodeArchiveUrl,
-                     CodeArchiveUrlCategory, AuthorCorrespondenceLog)
+from .models import (Tag, Sponsor, Platform, Author, Publication, Container, ModelDocumentation, Note, AuditCommand,
+                     AuditLog, PublicationModelDocumentations, PublicationPlatforms, PublicationSponsors,
+                     CodeArchiveUrl, CodeArchiveUrlCategory, AuthorCorrespondenceLog)
 
 logger = logging.getLogger(__name__)
 
