@@ -85,7 +85,7 @@ class CuratorPublicationDetail(LoginRequiredMixin, generics.GenericAPIView):
     def get_object(self, pk):
         return get_object_or_404(Publication, pk=pk)
 
-    def get(self, request, pk, slug, format=None):
+    def get(self, request, pk, slug=None, format=None):
         publication = self.get_object(pk)
         obj_url = publication.get_absolute_url()
 
