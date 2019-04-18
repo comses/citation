@@ -3,6 +3,7 @@ import re
 import uuid
 from collections import defaultdict
 from datetime import datetime, date
+from enum import Enum
 from typing import Dict, Optional, List
 
 from dateutil.parser import parse as datetime_parse
@@ -364,24 +365,50 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
     def create_from_publications(self, publication_qs, custom_content=None, curator=None):
         author_correspondence = []
         for publication in publication_qs:
-            # FIXME: we should generate the AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS based on the
-            # state of the Publication.code_archive_url queryset
             if not publication.is_archived:
                 author_correspondence.append(
-                    AuthorCorrespondenceLog(publication=publication,
-                                            content=custom_content,
-                                            curator=curator,
-                                            status=AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_AVAILABLE)
+                    AuthorCorrespondenceLog.from_publication(publication=publication,
+                                                             content=custom_content,
+                                                             curator=curator)
                 )
         self.bulk_create(author_correspondence)
         return author_correspondence
 
 
+class CodeArchiveStatus(Enum):
+    NOT_AVAILABLE = (1, 'Code not available',
+                     'email/src-code-request-email.txt',
+                     '[comses.net] request for model source code')
+    NOT_IN_ARCHIVE = (2, 'Code has a currently active URL but not in a trusted digital repository',
+                      'email/code-no-archive.txt',
+                      '[comses.net] request for model source code')
+    ARCHIVED = (3, 'Code available in archive',
+               'email/code-in-archive.txt',
+                '[comses.net] request for publication metadata review')
+
+    @property
+    def ordinal(self):
+        return self.value[0]
+
+    @property
+    def message(self):
+        return self.value[1]
+
+    @property
+    def email_template(self):
+        return self.value[2]
+
+    @property
+    def email_subject(self):
+        return self.value[3]
+
+    def __str__(self):
+        return self.message
+
+
 class AuthorCorrespondenceLog(models.Model):
     CODE_ARCHIVE_STATUS = Choices(
-        ('NOT_AVAILABLE', _('Code not available')),
-        ('NOT_IN_ARCHIVE', _('Code has a currently active URL but not in a trusted digital repository')),
-        ('ARCHIVED', _('Code available in archive')),
+        *[(s.name, s.message) for s in CodeArchiveStatus]
     )
     DELIVERY_STATUS = Choices(
         ('sent', _('Author correspondence successfully sent')),
@@ -401,14 +428,13 @@ class AuthorCorrespondenceLog(models.Model):
 
     objects = AuthorCorrespondenceLogQuerySet.as_manager()
 
-    STATUS_TEMPLATE_MAP = {
-        CODE_ARCHIVE_STATUS.NOT_AVAILABLE: ('email/src-code-request-email.txt',
-                                            '[comses.net] request for model source code'),
-        CODE_ARCHIVE_STATUS.NOT_IN_ARCHIVE: ('email/code-no-archive.txt',
-                                             '[comses.net] request for model source code'),
-        CODE_ARCHIVE_STATUS.ARCHIVED: ('email/code-in-archive.txt',
-                                       '[comses.net] request for publication metadata review'),
-    }
+    @classmethod
+    def from_publication(cls, publication, content=None, curator=None):
+        return AuthorCorrespondenceLog(publication=publication,
+                                       content=content,
+                                       curator=curator,
+                                       status=publication.code_archival_status
+                                       )
 
     def __str__(self):
         return 'Correspondence on {0} created on {1}: {2} (author responded? {3})'.format(
@@ -426,14 +452,17 @@ class AuthorCorrespondenceLog(models.Model):
     def contact_email(self):
         return self.publication.contact_email
 
+    def get_status(self):
+        return CodeArchiveStatus[self.status]
+
     def get_absolute_url(self):
         return reverse('citation:author_correspondence', kwargs=dict(uuid=self.uuid))
 
     def get_email_template_path(self):
-        return self.STATUS_TEMPLATE_MAP[self.status][0]
+        return self.get_status().email_template
 
     def get_email_subject(self):
-        return self.STATUS_TEMPLATE_MAP[self.status][1]
+        return self.get_status().email_subject
 
     def create_preview_email_text(self):
         return self.create_email_text(preview=True)
@@ -443,7 +472,7 @@ class AuthorCorrespondenceLog(models.Model):
         context = dict(content=self.content, correspondence_url=correspondence_url)
         if not preview:
             context.update(publication=self.publication)
-        # pattern on status
+        # based on CodeArchivalStatus
         template = get_template(self.get_email_template_path())
         return template.render(context)
 
@@ -798,6 +827,10 @@ class Publication(AbstractLogModel):
     def is_archived(self):
         return self.code_archive_urls.exclude(status=CodeArchiveUrl.STATUS.unavailable).exists()
 
+    @property
+    def code_archival_status(self):
+        return self.code_archive_urls.code_archive_status()
+
     @transaction.atomic
     def flag(self, message: str, submitter: User):
         self.flagged = True
@@ -939,10 +972,23 @@ class CodeArchiveUrlPattern(models.Model):
         return f'category={self.category_id} regex_host_matcher={repr(self.regex_host_matcher)} regex_path_matcher={repr(self.regex_path_matcher)}'
 
 
+class CodeArchiveUrlQuerySet(models.QuerySet):
+
+    def code_archive_status(self):
+        if self.exists():
+            return CodeArchiveStatus.NOT_AVAILABLE
+        # a miracle happens
+        for code_archive_url in self:
+            # inspect each code archive url and come up with a final answer
+            if code_archive_url.status == CodeArchiveUrl.STATUS.available:
+                # check the category
+                pass
+
+
 class CodeArchiveUrl(AbstractLogModel):
     STATUS = Choices(
         ('available', _('Available')),
-        ('restricted', _('Restricted')),
+        ('restricted', _('Restricted: URL is present but behind an authentication / paywall')),
         ('unavailable', _('Unavailable'))
     )
 
@@ -956,6 +1002,8 @@ class CodeArchiveUrl(AbstractLogModel):
     status = models.CharField(choices=STATUS, max_length=100)
     system_overridable_category = models.BooleanField(default=True)
     creator = models.ForeignKey(User, on_delete=models.PROTECT)
+
+    objects = CodeArchiveUrlQuerySet.as_manager()
 
     @property
     def is_available(self):
