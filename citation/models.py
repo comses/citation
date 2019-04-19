@@ -11,7 +11,6 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.fields import JSONField, ArrayField
-from django.contrib.sites.requests import RequestSite
 from django.core.cache import cache
 from django.core.exceptions import FieldError
 from django.db import models, transaction
@@ -230,7 +229,7 @@ class AbstractLogModel(models.Model):
                 self.save()
             return self
 
-    objects = LogManager.from_queryset(LogQuerySet)()
+    objects = LogQuerySet.as_manager()
 
     class Meta:
         abstract = True
@@ -383,7 +382,7 @@ class CodeArchiveStatus(Enum):
                       'email/code-no-archive.txt',
                       '[comses.net] request for model source code')
     ARCHIVED = (3, 'Code available in archive',
-               'email/code-in-archive.txt',
+                'email/code-in-archive.txt',
                 '[comses.net] request for publication metadata review')
 
     @property
@@ -972,7 +971,7 @@ class CodeArchiveUrlPattern(models.Model):
         return f'category={self.category_id} regex_host_matcher={repr(self.regex_host_matcher)} regex_path_matcher={repr(self.regex_path_matcher)}'
 
 
-class CodeArchiveUrlQuerySet(models.QuerySet):
+class CodeArchiveUrlQuerySet(LogQuerySet):
 
     def code_archive_status(self):
         if self.exists():
@@ -987,9 +986,9 @@ class CodeArchiveUrlQuerySet(models.QuerySet):
 
 class CodeArchiveUrl(AbstractLogModel):
     STATUS = Choices(
-        ('available', _('Available')),
-        ('restricted', _('Restricted: URL is present but behind an authentication / paywall')),
-        ('unavailable', _('Unavailable'))
+        ('available', _('Available: Codebase is currently openly accessible at the specified URL')),
+        ('restricted', _('Restricted: Specified URL is locked behind authentication or paywall')),
+        ('unavailable', _('Unavailable: No URL available or URL does not resolve'))
     )
 
     publication = models.ForeignKey(Publication, on_delete=models.PROTECT, related_name='code_archive_urls')
@@ -1003,7 +1002,7 @@ class CodeArchiveUrl(AbstractLogModel):
     system_overridable_category = models.BooleanField(default=True)
     creator = models.ForeignKey(User, on_delete=models.PROTECT)
 
-    objects = CodeArchiveUrlQuerySet.as_manager()
+    api = CodeArchiveUrlQuerySet.as_manager()
 
     @property
     def is_available(self):
