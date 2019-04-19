@@ -229,7 +229,7 @@ class AbstractLogModel(models.Model):
                 self.save()
             return self
 
-    objects = LogQuerySet.as_manager()
+    objects = LogManager.from_queryset(LogQuerySet)()
 
     class Meta:
         abstract = True
