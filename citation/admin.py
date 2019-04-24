@@ -2,9 +2,13 @@ from django import forms
 from django.contrib import admin
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.auth.models import User
+from django.db.models import OuterRef, Exists
 from django.utils.translation import ugettext_lazy as _
 
-from .models import AuditCommand, Publication, Note, Tag, Author, Sponsor, Platform, Container, ModelDocumentation
+from .models import (Author, AuditCommand, CodeArchiveUrl, Container,
+                     ModelDocumentation, Note,
+                     Platform, Publication,
+                     Sponsor, SuggestedMerge, Tag)
 
 
 class PublicationStatusListFilter(admin.SimpleListFilter):
@@ -56,11 +60,55 @@ class PublicationAdmin(admin.ModelAdmin):
     actions = [assign_curator]
 
 
-admin.site.register(Publication, PublicationAdmin)
-admin.site.register(Note)
-admin.site.register(Tag)
-admin.site.register(Author)
-admin.site.register(Sponsor)
-admin.site.register(Platform)
+class ManyRelatedFilterMixin:
+    publication_related_field = None
+
+    def get_queryset(self, request=None):
+        publications = Publication.api \
+            .primary() \
+            .reviewed() \
+            .filter(**{self.publication_related_field: OuterRef('pk')})
+        return self.model.objects.annotate(has_pubs=Exists(publications)).filter(has_pubs=True)
+
+
+class AuthorAdmin(ManyRelatedFilterMixin, admin.ModelAdmin):
+    publication_related_field = 'creators'
+
+
+class PlatformAdmin(ManyRelatedFilterMixin, admin.ModelAdmin):
+    publication_related_field = 'platforms'
+
+
+class SponsorAdmin(ManyRelatedFilterMixin, admin.ModelAdmin):
+    publication_related_field = 'sponsors'
+
+
+class TagAdmin(ManyRelatedFilterMixin, admin.ModelAdmin):
+    publication_related_field = 'tags'
+
+
+def apply_suggested_merges(modeladmin, request, queryset):
+    creator = request.user
+    for suggested_merge in queryset:
+        suggested_merge.merge(creator)
+
+
+apply_suggested_merges.short_description = "Apply suggested merges"
+
+
+class SuggestedMergeAdmin(admin.ModelAdmin):
+    list_display = ['duplicate_text', 'content_type', 'new_content', 'creator', 'date_applied']
+    list_filter = ['content_type', 'date_applied']
+    actions = [apply_suggested_merges]
+
+
+admin.site.register(Author, AuthorAdmin)
 admin.site.register(Container)
+admin.site.register(CodeArchiveUrl)
 admin.site.register(ModelDocumentation)
+admin.site.register(Note)
+admin.site.register(Platform, PlatformAdmin)
+admin.site.register(Publication)
+admin.site.register(Sponsor, SponsorAdmin)
+admin.site.register(SuggestedMerge, SuggestedMergeAdmin)
+admin.site.register(Tag, TagAdmin)

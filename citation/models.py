@@ -20,6 +20,7 @@ from django.db.models.functions import Cast
 from django.template.defaultfilters import slugify
 from django.template.loader import get_template
 from django.urls import reverse
+from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
 from model_utils import Choices
 
@@ -1059,6 +1060,10 @@ class AuditCommand(models.Model):
     def has_been_saved(self):
         return not self._state.adding
 
+    @classmethod
+    def init_merge(cls, creator, message=''):
+        return AuditCommand(action='MERGE', creator=creator, message=message)
+
     class Meta:
         ordering = ['-date_added']
 
@@ -1291,7 +1296,7 @@ class SuggestedPublication(models.Model):
         return ' '.join(name)
 
 
-class SuggestedMerge(models.Model):
+class SuggestedMerge(AbstractLogModel):
     content_type = models.ForeignKey(
         ContentType, related_name='suggested_merge_set', on_delete=models.PROTECT,
         limit_choices_to=models.Q(app_label='citation') & models.Q(
@@ -1302,6 +1307,8 @@ class SuggestedMerge(models.Model):
     comment = models.CharField(max_length=1000, blank=True)
     date_added = models.DateTimeField(auto_now_add=True)
     date_applied = models.DateTimeField(null=True)
+
+    objects = LogQuerySet.as_manager()
 
     @classmethod
     def annotate_names(cls, instances: List['SuggestedMerge']):
@@ -1328,6 +1335,37 @@ class SuggestedMerge(models.Model):
     @property
     def discarded_pks(self):
         return self.duplicates[1:]
+
+    def duplicate_text(self):
+        model_class = self.content_type.model_class()
+        bulk_instances = model_class.objects.filter(pk__in=self.duplicates).in_bulk()
+        instances = bulk_instances.values()
+        missing_pks = set(self.duplicates).difference(bulk_instances.keys())
+        template = get_template('includes/duplicate_text.html')
+        return template.render(context={'instances': instances, 'missing_pks': missing_pks})
+    duplicate_text.short_description = 'Duplicates'
+
+    def get_message(self):
+        model_class = self.content_type.model_class()
+        instances = model_class.objects.filter(pk__in=self.duplicates)
+        return '{} with duplicates {}'.format(self.content_type, [instance.get_message() for instance in instances])
+
+    def merge(self, creator: User):
+        assert self.date_applied is None
+        assert len(self.duplicates) > 1
+
+        model_class = self.content_type.model_class()
+        merge_pks = sorted(self.duplicates)
+        kept_pk = merge_pks[0]
+        discarded_pks = merge_pks[1:]
+        with transaction.atomic():
+            audit_command = AuditCommand.init_merge(creator)
+            self.log_update(audit_command, date_applied=datetime.now())
+            model_class.objects.filter(pk__in=discarded_pks).log_delete(audit_command)
+            instance = model_class.objects.get(pk=kept_pk)
+            instance.log_update(audit_command, **self.new_content)
+        logger.info('Merged %s with pks %s and changed content to %s', self.content_type, self.duplicates, self.new_content)
+        return instance
 
     def __str__(self):
         return f'content_type={self.content_type} duplicates={self.duplicates} new_content={self.new_content} creator={self.creator}'
