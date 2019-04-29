@@ -1,3 +1,4 @@
+import copy
 import logging
 import re
 import uuid
@@ -716,14 +717,14 @@ class PublicationQuerySet(models.QuerySet):
             'code_archive_urls',
             filter=models.Q(code_archive_urls__status='available') | models.Q(code_archive_urls__status='restricted'))) \
             .annotate(unavailable_code_archive_urls_count=models.Count(
-                'code_archive_urls',
-                filter=models.Q(code_archive_urls__status='unavailable'))) \
+            'code_archive_urls',
+            filter=models.Q(code_archive_urls__status='unavailable'))) \
             .annotate(has_available_code=models.Case(
-                models.When(models.Q(available_code_archive_urls_count__gt=0) &
-                            models.Q(unavailable_code_archive_urls_count=0),
-                            then=models.Value(True)),
-                default=models.Value(False),
-                output_field=models.BooleanField()))
+            models.When(models.Q(available_code_archive_urls_count__gt=0) &
+                        models.Q(unavailable_code_archive_urls_count=0),
+                        then=models.Value(True)),
+            default=models.Value(False),
+            output_field=models.BooleanField()))
 
 
 class Publication(AbstractLogModel):
@@ -1324,7 +1325,7 @@ class SuggestedMerge(AbstractLogModel):
     creator = models.ForeignKey(Submitter, related_name='suggested_merge_set', on_delete=models.PROTECT)
     comment = models.CharField(max_length=1000, blank=True)
     date_added = models.DateTimeField(auto_now_add=True)
-    date_applied = models.DateTimeField(null=True)
+    date_applied = models.DateTimeField(null=True, blank=True)
 
     objects = LogQuerySet.as_manager()
 
@@ -1361,6 +1362,7 @@ class SuggestedMerge(AbstractLogModel):
         missing_pks = set(self.duplicates).difference(bulk_instances.keys())
         template = get_template('includes/duplicate_text.html')
         return template.render(context={'instances': instances, 'missing_pks': missing_pks})
+
     duplicate_text.short_description = 'Duplicates'
 
     def get_message(self):
@@ -1368,22 +1370,150 @@ class SuggestedMerge(AbstractLogModel):
         instances = model_class.objects.filter(pk__in=self.duplicates)
         return '{} with duplicates {}'.format(self.content_type, [instance.get_message() for instance in instances])
 
-    def merge(self, creator: User):
+    @staticmethod
+    def _move_author_aliases(kept_pk, discarded_pks, audit_command):
+        kept_author_aliases = set(AuthorAlias.objects.filter(author_id=kept_pk).values('family_name', 'given_name'))
+        author_aliases = AuthorAlias.objects.filter(author_id__in=discarded_pks)
+        for author_alias in author_aliases:
+            if (author_alias.family_name, author_alias.given_name) in kept_author_aliases:
+                author_alias.log_delete(audit_command)
+            else:
+                author_alias.log_update(audit_command, author_id=kept_pk)
+
+    @staticmethod
+    def _move_raw_authors(kept_pk, discarded_pks, audit_command):
+        kept_raw_ids = set(ra.raw_id for ra in RawAuthors.objects.filter(author_id=kept_pk))
+        raw_authors = RawAuthors.objects.filter(author_id__in=discarded_pks)
+        for raw_author in raw_authors:
+            if raw_author.raw_id in kept_raw_ids:
+                raw_author.log_delete(audit_command)
+            else:
+                raw_author.log_update(audit_command, author_id=kept_pk)
+
+    @staticmethod
+    def _move_publication_authors(kept_pk, discarded_pks, audit_command):
+        kept_publication_ids = set(pa.publication_id for pa in PublicationAuthors.objects.filter(author_id=kept_pk))
+        pub_authors = PublicationAuthors.objects.filter(author_id__in=discarded_pks)
+        for pub_author in pub_authors:
+            if pub_author.publication_id in kept_publication_ids:
+                pub_author.log_delete(audit_command)
+            else:
+                pub_author.log_update(audit_command, author_id=kept_pk)
+
+    @classmethod
+    def merge_authors(cls, pks, content, audit_command):
+        kept_author_pk = min(pks)
+        discarded_author_pks = copy.deepcopy(pks)
+        discarded_author_pks.remove(kept_author_pk)
+        Author.objects.get(pk=kept_author_pk).log_update(audit_command, **content)
+        cls._move_author_aliases(kept_author_pk, discarded_author_pks, audit_command)
+        cls._move_raw_authors(kept_author_pk, discarded_author_pks, audit_command)
+        cls._move_publication_authors(kept_author_pk, discarded_author_pks, audit_command)
+        for da in Author.objects.filter(pk__in=discarded_author_pks):
+            da.log_delete(audit_command)
+
+    @staticmethod
+    def merge_containers(pks, content, audit_command):
+        kept_container_pk = min(pks)
+        discarded_container_pks = copy.deepcopy(pks)
+        discarded_container_pks.remove(kept_container_pk)
+        Container.objects.get(pk=kept_container_pk).log_update(audit_command, **content)
+        Publication.objects.filter(container__in=discarded_container_pks).log_update(audit_command,
+                                                                                     container_id=kept_container_pk)
+        Container.objects.filter(container__in=discarded_container_pks).log_delete(audit_command)
+
+    @staticmethod
+    def _move_publication_platforms(kept_platform_pk, discarded_platform_pks, audit_command):
+        kept_publication_pks = set(PublicationPlatforms.objects
+                                   .filter(platform_id=kept_platform_pk)
+                                   .values_list('publication_id', flat=True))
+        publication_platforms = PublicationPlatforms.objects.filter(platform_id__in=discarded_platform_pks)
+        for publication_platform in publication_platforms:
+            if publication_platform.publication_id in kept_publication_pks:
+                publication_platform.log_delete(audit_command)
+            else:
+                publication_platform.log_update(audit_command, platform_id=kept_platform_pk)
+
+    @classmethod
+    def merge_platforms(cls, pks, content, audit_command):
+        kept_platform_pk = min(pks)
+        discarded_platform_pks = copy.deepcopy(pks)
+        discarded_platform_pks.remove(kept_platform_pk)
+        Platform.objects.get(pk=kept_platform_pk).log_update(audit_command, **content)
+        cls._move_publication_platforms(kept_platform_pk=kept_platform_pk,
+                                        discarded_platform_pks=discarded_platform_pks,
+                                        audit_command=audit_command)
+        Platform.objects.filter(pk__in=discarded_platform_pks).log_delete(audit_command)
+
+    @staticmethod
+    def _move_publication_sponsors(kept_pk, discarded_pks, audit_command):
+        kept_publication_pks = set(PublicationSponsors.objects
+                                   .filter(sponsor_id=kept_pk)
+                                   .values_list('publication_id', flat=True))
+        publication_sponsors = PublicationSponsors.objects.filter(sponsor_id__in=discarded_pks)
+        for publication_sponsors in publication_sponsors:
+            if publication_sponsors.publication_id in kept_publication_pks:
+                publication_sponsors.log_delete(audit_command)
+            else:
+                publication_sponsors.log_update(audit_command, sponsor_id=kept_pk)
+
+    @classmethod
+    def merge_sponsors(cls, pks, content, audit_command, message=''):
+        kept_sponsor_pk = min(pks)
+        discarded_sponsor_pks = copy.deepcopy(pks)
+        discarded_sponsor_pks.remove(kept_sponsor_pk)
+        Sponsor.objects.get(pk=kept_sponsor_pk).log_update(audit_command, **content)
+        cls._move_publication_sponsors(kept_pk=kept_sponsor_pk,
+                                       discarded_pks=discarded_sponsor_pks,
+                                       audit_command=audit_command)
+        Sponsor.objects.filter(pk__in=discarded_sponsor_pks).log_delete(audit_command)
+
+    @staticmethod
+    def _move_publication_tags(kept_pk, discarded_pks, audit_command):
+        kept_publication_pks = set(PublicationTags.objects
+                                   .filter(tag_id=kept_pk)
+                                   .values_list('publication_id', flat=True))
+        publication_tags = PublicationTags.objects.filter(tag_id__in=discarded_pks)
+        for publication_tag in publication_tags:
+            if publication_tag.publication_id in kept_publication_pks:
+                publication_tag.log_delete(audit_command)
+            else:
+                publication_tag.log_update(audit_command, sponsor_id=kept_pk)
+
+    @classmethod
+    def merge_tags(cls, pks, content, audit_command):
+        kept_tag_pk = min(pks)
+        discarded_tag_pks = copy.deepcopy(pks)
+        discarded_tag_pks.remove(kept_tag_pk)
+        Tag.objects.get(pk=kept_tag_pk).log_update(audit_command, **content)
+        cls._move_publication_tags(kept_pk=kept_tag_pk,
+                                   discarded_pks=discarded_tag_pks,
+                                   audit_command=audit_command)
+        Tag.objects.filter(pk__in=discarded_tag_pks).log_delete(audit_command)
+
+    def merge(self, creator):
         assert self.date_applied is None
         assert len(self.duplicates) > 1
 
-        model_class = self.content_type.model_class()
-        merge_pks = sorted(self.duplicates)
-        kept_pk = merge_pks[0]
-        discarded_pks = merge_pks[1:]
+        model = self.content_type.model_class()
+        pks = self.duplicates
+        content = self.new_content
+        model_merger = _MERGE_LOOKUP[model]
         with transaction.atomic():
-            audit_command = AuditCommand.init_merge(creator)
-            self.log_update(audit_command, date_applied=datetime.now())
-            model_class.objects.filter(pk__in=discarded_pks).log_delete(audit_command)
-            instance = model_class.objects.get(pk=kept_pk)
-            instance.log_update(audit_command, **self.new_content)
-        logger.info('Merged %s with pks %s and changed content to %s', self.content_type, self.duplicates, self.new_content)
-        return instance
+            audit_command = AuditCommand.init_merge(creator=creator)
+            model_merger(pks=pks, content=content, audit_command=audit_command)
+            self.log_update(audit_command, date_applied=datetime.utcnow())
+        logger.info('Merged %s with pks %s and changed content to %s', self.content_type, self.duplicates,
+                    self.new_content)
 
     def __str__(self):
         return f'content_type={self.content_type} duplicates={self.duplicates} new_content={self.new_content} creator={self.creator}'
+
+
+_MERGE_LOOKUP = {
+    Author: SuggestedMerge.merge_authors,
+    Container: SuggestedMerge.merge_containers,
+    Platform: SuggestedMerge.merge_platforms,
+    Sponsor: SuggestedMerge.merge_sponsors,
+    Tag: SuggestedMerge.merge_tags
+}
