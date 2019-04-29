@@ -1011,7 +1011,7 @@ class CodeArchiveUrl(AbstractLogModel):
 
     def check_status(self, patterns, fallback_category):
         url = self.url
-        category = self.categorize_url(patterns, fallback_category=fallback_category)
+        category = CodeArchiveUrl.categorize_url(url, patterns, fallback_category=fallback_category)
         try:
             # HEAD requests hang on some URLs so using GET for now
             response = requests.get(url, timeout=3)
@@ -1048,12 +1048,12 @@ class CodeArchiveUrl(AbstractLogModel):
         else:
             return CodeArchiveUrl.STATUS.unavailable
 
-    def categorize_url(self, patterns, fallback_category):
+    @classmethod
+    def categorize_url(cls, url, patterns, fallback_category):
         """
         Categorize the url depending on the server name into following categories
         CoMSES, Open Source, Platforms, Journal, Personal, Others, and Invalid
         """
-        url = self.url
         parsed_url = parse_url(url)
         host = parsed_url.host
         path = parsed_url.path
