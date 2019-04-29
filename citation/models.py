@@ -22,6 +22,7 @@ from django.template.loader import get_template
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
+from urllib.parse import urlparse
 from model_utils import Choices
 
 from . import fields
@@ -974,15 +975,32 @@ class CodeArchiveUrlPattern(models.Model):
 
 class CodeArchiveUrlQuerySet(LogQuerySet):
 
+    # validate url
+    # True if url has correct scheme, else False
+    def validate_url(self, url):
+        parsed_url = urlparse.urlparse(url)
+        return bool(parsed_url.scheme)
+
+
     def code_archive_status(self):
         if self.exists():
-            return CodeArchiveStatus.NOT_AVAILABLE
+            # check code archive status
+            if Publication.api.primary().has_unavailable_archive_urls():
+                return CodeArchiveStatus.NOT_AVAILABLE
+            if Publication.api.primary().has_no_archive_urls():
+                return CodeArchiveStatus.NOT_IN_ARCHIVE
+            if Publication.api.primary().with_code_availability_counts():
+                return CodeArchiveStatus.ARCHIVED
         # a miracle happens
         for code_archive_url in self:
             # inspect each code archive url and come up with a final answer
             if code_archive_url.status == CodeArchiveUrl.STATUS.available:
                 # check the category
-                pass
+                continue
+            elif code_archive_url.status == CodeArchiveUrl.STATUS.restricted:
+                continue
+            elif code_archive_url.status == CodeArchiveUrl.STATUS.unavailable:
+                continue
 
 
 class CodeArchiveUrl(AbstractLogModel):
