@@ -6,7 +6,9 @@ from collections import defaultdict
 from datetime import datetime, date
 from enum import Enum
 from typing import Dict, Optional, List
+from urllib3.util import parse_url
 
+import requests
 from dateutil.parser import parse as datetime_parse
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -21,9 +23,7 @@ from django.db.models.functions import Cast
 from django.template.defaultfilters import slugify
 from django.template.loader import get_template
 from django.urls import reverse
-from django.utils.html import format_html
 from django.utils.translation import ugettext_lazy as _
-from urllib.parse import urlparse
 from model_utils import Choices
 
 from . import fields
@@ -364,7 +364,7 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
         self.bulk_create(author_correspondence)
         return author_correspondence
 
-    def create_from_publications(self, publication_qs, custom_content=None, curator=None):
+    def create_from_publications(self, publication_qs, custom_content=None, curator=None, create=True):
         author_correspondence = []
         for publication in publication_qs:
             if not publication.is_archived:
@@ -373,7 +373,8 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
                                                              content=custom_content,
                                                              curator=curator)
                 )
-        self.bulk_create(author_correspondence)
+        if create:
+            self.bulk_create(author_correspondence)
         return author_correspondence
 
 
@@ -703,7 +704,6 @@ class PublicationQuerySet(models.QuerySet):
         if status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_AVAILABLE:
             qs = qs.with_code_availability_counts().filter(has_available_code=False)
         elif status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_IN_ARCHIVE:
-            # FIXME: @cpritcha can you take a look at this to aggregate CodeArchiveUrls properly based on the category
             qs = qs.has_unavailable_archive_urls()
         elif status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.ARCHIVED:
             qs = qs.with_code_availability_counts().filter(has_available_code=True)
@@ -743,6 +743,7 @@ class Publication(AbstractLogModel):
     url = models.URLField(blank=True)
     date_published_text = models.CharField(max_length=64, blank=True)
     date_accessed = models.DateField(null=True, blank=True)
+    # FIXME: remove unused Zotero metadata at some point since we are no longer importing from Zotero
     archive = models.CharField(max_length=255, blank=True)
     archive_location = models.CharField(max_length=255, blank=True)
     library_catalog = models.CharField(max_length=255, blank=True)
@@ -922,6 +923,10 @@ class CodeArchiveUrlCategory(models.Model):
     category = models.CharField(max_length=150)
     subcategory = models.CharField(max_length=150)
 
+    @property
+    def trusted(self):
+        return self.category == 'Archive'
+
     def __str__(self):
         return f'category={self.category} subcategory={self.subcategory}'
 
@@ -974,36 +979,6 @@ class CodeArchiveUrlPattern(models.Model):
         return f'category={self.category_id} regex_host_matcher={repr(self.regex_host_matcher)} regex_path_matcher={repr(self.regex_path_matcher)}'
 
 
-class CodeArchiveUrlQuerySet(LogQuerySet):
-
-    # validate url
-    # True if url has correct scheme, else False
-    def validate_url(self, url):
-        parsed_url = urlparse.urlparse(url)
-        return bool(parsed_url.scheme)
-
-
-    def code_archive_status(self):
-        if self.exists():
-            # check code archive status
-            if Publication.api.primary().has_unavailable_archive_urls():
-                return CodeArchiveStatus.NOT_AVAILABLE
-            if Publication.api.primary().has_no_archive_urls():
-                return CodeArchiveStatus.NOT_IN_ARCHIVE
-            if Publication.api.primary().with_code_availability_counts():
-                return CodeArchiveStatus.ARCHIVED
-        # a miracle happens
-        for code_archive_url in self:
-            # inspect each code archive url and come up with a final answer
-            if code_archive_url.status == CodeArchiveUrl.STATUS.available:
-                # check the category
-                continue
-            elif code_archive_url.status == CodeArchiveUrl.STATUS.restricted:
-                continue
-            elif code_archive_url.status == CodeArchiveUrl.STATUS.unavailable:
-                continue
-
-
 class CodeArchiveUrl(AbstractLogModel):
     STATUS = Choices(
         ('available', _('Available: Codebase is currently openly accessible at the specified URL')),
@@ -1019,10 +994,79 @@ class CodeArchiveUrl(AbstractLogModel):
     url = models.URLField(blank=True, max_length=2000)
     category = models.ForeignKey(CodeArchiveUrlCategory, related_name='code_archive_urls', on_delete=models.PROTECT)
     status = models.CharField(choices=STATUS, max_length=100)
-    system_overridable_category = models.BooleanField(default=True)
+    system_overridable_category = models.BooleanField(
+        default=True,
+        help_text=_("Signifies that this URL's category can be overridden (i.e., not user entered).")
+    )
     creator = models.ForeignKey(User, on_delete=models.PROTECT)
 
-    api = CodeArchiveUrlQuerySet.as_manager()
+    @property
+    def code_archive_status(self):
+        if self.status == CodeArchiveUrl.STATUS.available and self.category.trusted:
+            return CodeArchiveStatus.ARCHIVED
+        elif self.status == CodeArchiveUrl.STATUS.restricted:
+            return CodeArchiveStatus.NOT_IN_ARCHIVE
+        else:
+            return CodeArchiveStatus.NOT_AVAILABLE
+
+    def check_status(self, patterns, fallback_category):
+        url = self.url
+        category = self.categorize_url(patterns, fallback_category=fallback_category)
+        try:
+            # HEAD requests hang on some URLs so using GET for now
+            response = requests.get(url, timeout=3)
+            response.raise_for_status()
+            self.add_url_status_log(category, response)
+        except requests.exceptions.RequestException as err:
+            self.add_url_status_log(category, err.response)
+
+    def add_url_status_log(self, category, response):
+        response_status = CodeArchiveUrl.get_status_choice(response) # corresponds to the status Choices
+
+        URLStatusLog.objects.create(status_code=response.status_code,
+                                    publication=self.publication,
+                                    status_reason=response.reason, headers=response.headers,
+                                    url=self.url)
+        changes = {}
+        if self.status != response_status:
+            changes['status'] = {'old': self.status, 'new': response_status}
+            self.status = response_status
+        if self.system_overridable_category and self.category != category:
+            changes['category'] = {'old': self.category, 'new': category}
+            self.category = category
+        if changes:
+            logger.info('URL status (%s): %s %s', self.publication.title[:25], self.url, changes)
+            self.save()
+
+    @classmethod
+    def get_status_choice(cls, response):
+        # FIXME: consider doing more fine-grained checking on the response
+        if response:
+            return CodeArchiveUrl.STATUS.available
+        elif response.status_code == 403:
+            return CodeArchiveUrl.STATUS.restricted
+        else:
+            return CodeArchiveUrl.STATUS.unavailable
+
+    def categorize_url(self, patterns, fallback_category):
+        """
+        Categorize the url depending on the server name into following categories
+        CoMSES, Open Source, Platforms, Journal, Personal, Others, and Invalid
+        """
+        url = self.url
+        parsed_url = parse_url(url)
+        host = parsed_url.host
+        path = parsed_url.path
+
+        for pattern in patterns:
+            host_matcher = pattern.host_matcher
+            path_matcher = pattern.path_matcher
+
+            if host_matcher.match(host) and path_matcher.match(path):
+                logger.info('Categorized url %s as %s', url, pattern.category)
+                return pattern.category
+        logger.info('Categorized url %s as %s', url, fallback_category)
+        return fallback_category
 
     @property
     def is_available(self):
