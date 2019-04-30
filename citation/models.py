@@ -364,7 +364,7 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
         self.bulk_create(author_correspondence)
         return author_correspondence
 
-    def create_from_publications(self, publication_qs, custom_content=None, curator=None, create=True):
+    def create_from_publications(self, publication_qs, custom_content='', curator=None, create=True):
         author_correspondence = []
         for publication in publication_qs:
             if not publication.is_archived:
@@ -405,6 +405,12 @@ class CodeArchiveStatus(Enum):
     def email_subject(self):
         return self.value[3]
 
+    def __lt__(self, other):
+        return self.ordinal < other.ordinal
+
+    def __gt__(self, other):
+        return self.ordinal > other.ordinal
+
     def __str__(self):
         return self.message
 
@@ -436,7 +442,7 @@ class AuthorCorrespondenceLog(models.Model):
         return AuthorCorrespondenceLog(publication=publication,
                                        content=content,
                                        curator=curator,
-                                       status=publication.code_archival_status
+                                       status=publication.code_archival_status.name
                                        )
 
     def __str__(self):
@@ -449,11 +455,11 @@ class AuthorCorrespondenceLog(models.Model):
 
     @property
     def contact_author_name(self):
-        return self.publication.contact_author_name
+        return self.publication.contact_author_name.title()
 
     @property
     def contact_email(self):
-        return self.publication.contact_email
+        return self.publication.contact_email.lower()
 
     def get_status(self):
         return CodeArchiveStatus[self.status]
@@ -979,6 +985,24 @@ class CodeArchiveUrlPattern(models.Model):
         return f'category={self.category_id} regex_host_matcher={repr(self.regex_host_matcher)} regex_path_matcher={repr(self.regex_path_matcher)}'
 
 
+class CodeArchiveUrlQuerySet(LogQuerySet):
+
+    def active(self, **kwargs):
+        return self.filter(is_active=True, **kwargs)
+
+    def code_archive_status(self, **kwargs):
+        aggregate_status = None
+        qs = self.active(**kwargs)
+        if qs.exists():
+            for code_archive_url in self.active(**kwargs):
+                url_status = code_archive_url.code_archive_status
+                if aggregate_status is None or aggregate_status < url_status:
+                    aggregate_status = url_status
+            return aggregate_status
+
+        return CodeArchiveStatus.NOT_AVAILABLE
+
+
 class CodeArchiveUrl(AbstractLogModel):
     STATUS = Choices(
         ('available', _('Available: Codebase is currently openly accessible at the specified URL')),
@@ -990,6 +1014,9 @@ class CodeArchiveUrl(AbstractLogModel):
 
     date_created = models.DateTimeField(auto_now_add=True)
     last_modified = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True,
+                                    help_text=_("True if this Archive URL is not defunct, i.e., has been replaced."))
+    notes = models.TextField(blank=True, help_text=_("Remarks on this URL from the author or curator"))
 
     url = models.URLField(blank=True, max_length=2000)
     category = models.ForeignKey(CodeArchiveUrlCategory, related_name='code_archive_urls', on_delete=models.PROTECT)
@@ -999,6 +1026,8 @@ class CodeArchiveUrl(AbstractLogModel):
         help_text=_("Signifies that this URL's category can be overridden (i.e., not user entered).")
     )
     creator = models.ForeignKey(User, on_delete=models.PROTECT)
+
+    api = CodeArchiveUrlQuerySet.as_manager()
 
     @property
     def code_archive_status(self):
