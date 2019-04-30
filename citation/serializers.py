@@ -8,6 +8,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import serializers, pagination
 from rest_framework.exceptions import ValidationError
 from rest_framework.utils import model_meta
@@ -43,6 +44,10 @@ class AuthorCorrespondenceLogSerializer(serializers.ModelSerializer):
 
     publication_title = serializers.ReadOnlyField(source='publication.title')
     contact_author_name = serializers.ReadOnlyField(source='publication.contact_author')
+
+    def update(self, instance, validated_data):
+        instance.date_responded = timezone.now()
+        return super().update(instance, validated_data)
 
     class Meta:
         model = AuthorCorrespondenceLog
