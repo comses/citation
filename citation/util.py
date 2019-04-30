@@ -5,14 +5,12 @@ from typing import Tuple
 
 import bleach
 import markdown
-
+from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.db.models.aggregates import Aggregate
 from django.template import TemplateDoesNotExist, TemplateSyntaxError
 from django.template.loader import get_template
 from unidecode import unidecode
-
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 

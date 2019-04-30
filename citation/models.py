@@ -340,29 +340,6 @@ class AuthorAlias(AbstractLogModel):
 
 
 class AuthorCorrespondenceLogQuerySet(models.QuerySet):
-    def create_from_random_publications(self, count=10):
-        qs_none = Publication.api.primary().has_no_archive_urls()[:count]
-        qs_unavailable = Publication.api.primary().has_unavailable_archive_urls()[:count]
-        qs_in_archive = Publication.api.primary().with_code_availability_counts()[:count]
-
-        author_correspondence = []
-
-        for publication in qs_none:
-            author_correspondence.append(AuthorCorrespondenceLog(
-                publication=publication, status=AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_IN_ARCHIVE
-            ))
-
-        for publication in qs_unavailable:
-            author_correspondence.append(AuthorCorrespondenceLog(
-                publication=publication, status=AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_AVAILABLE
-            ))
-
-        for publication in qs_in_archive:
-            author_correspondence.append(AuthorCorrespondenceLog(
-                publication=publication, status=AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.ARCHIVED
-            ))
-        self.bulk_create(author_correspondence)
-        return author_correspondence
 
     def create_from_publications(self, publication_qs, custom_content='', curator=None, create=True):
         author_correspondence = []
@@ -476,11 +453,9 @@ class AuthorCorrespondenceLog(models.Model):
     def create_preview_email_text(self):
         return self.create_email_text(preview=True)
 
-    def create_email_text(self, request=None, preview=False):
+    def create_email_text(self, request=None):
         correspondence_url = request.build_absolute_uri(self.get_absolute_url()) if request else self.get_absolute_url()
-        context = dict(content=self.content, correspondence_url=correspondence_url)
-        if not preview:
-            context.update(publication=self.publication)
+        context = dict(correspondence_url=correspondence_url, author_correspondence_log=self)
         # based on CodeArchivalStatus
         template = get_template(self.get_email_template_path())
         return template.render(context)
@@ -491,8 +466,7 @@ class AuthorCorrespondenceLog(models.Model):
             subject=self.get_email_subject(),
             body=markdown_content,
             to=[self.contact_email],
-            from_email=settings.CATALOG_FROM_EMAIL,
-            bcc=[settings.AUTHOR_CORRESPONDENCE_LOG_EMAIL]
+            bcc=[settings.DEFAULT_FROM_EMAIL]
         )
 
 
