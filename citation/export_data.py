@@ -2,13 +2,6 @@ import csv
 
 from citation.models import Publication, Platform, Sponsor
 
-CSV_DEFAULT_HEADER = ["id", "title", "abstract", "short_title", "zotero_key", "url",
-                      "date_published_text", "date_accessed", "archive", "archive_location",
-                      "library_catalog", "call_number", "rights", "extra", "published_language", "date_added",
-                      "date_modified", "zotero_date_added", "zotero_date_modified", "status", "code_archive_urls",
-                      "contact_email", "author_comments", "email_sent_count", "added_by", "assigned_curator",
-                      "contact_author_name", "is_primary", "doi", "series_text", "series_title", "series", "issue",
-                      "volume", "issn", "pages", "container", "platforms", "sponsors"]
 
 # Streaming CSV taken from
 # https://docs.djangoproject.com/en/2.1/howto/outputting-csv/
@@ -17,6 +10,7 @@ class Echo:
     """An object that implements just the write method of the file-like
     interface.
     """
+
     def write(self, value):
         """Write the value by returning it, instead of storing in a buffer."""
         return value
@@ -95,3 +89,183 @@ class PublicationCSVExporter:
         publications = Publication.api.primary()
         for pub in publications:
             yield writer.writerow(self.get_row(pub))
+
+
+import numpy as np
+import pandas as pd
+import pathlib
+
+from django.contrib.postgres.aggregates import ArrayAgg
+from django.db.models import F, Count, Q, Value
+from django.db.models.functions import Concat
+
+from citation.models import Publication, Platform, Sponsor, PublicationCitations, PublicationAuthors, Author, \
+    CodeArchiveUrl, PublicationPlatforms, PublicationSponsors, PublicationModelDocumentations, ModelDocumentation
+
+CSV_DEFAULT_HEADER = ["id", "title", "abstract", "short_title", "contact_email", "email_sent_count",
+                      "contact_author_name", "is_primary", "doi",
+                      "series_text", "series_title", "series", "issue", "volume", "pages", "author_names",
+                      "container__issn", "container__name"]
+
+
+def get_queryset():
+    return Publication.api.primary().reviewed()
+
+
+def get_publication_network(publications):
+    data = PublicationCitations.objects \
+        .filter(publication__in=publications, citation__in=publications) \
+        .values('publication_id', 'citation_id')
+    return pd.DataFrame.from_records(data)
+
+
+def get_code_archive_urls(publications):
+    codearchiveurls = CodeArchiveUrl.objects \
+        .filter(publication__in=publications) \
+        .values('id', 'status', 'category__category', 'category__subcategory', 'url', 'publication_id')
+    codearchiveurl_df = pd.DataFrame.from_records(codearchiveurls, index='id').rename(
+        columns={'category__category': 'category', 'category__subcategory': 'subcategory'})
+
+    return codearchiveurl_df
+
+
+def get_model_documentation(publications):
+    publication_modeldocumentation = PublicationModelDocumentations.objects \
+        .filter(publication__in=publications) \
+        .values('publication_id', 'model_documentation_id')
+    publication_modeldocumentation_df = pd.DataFrame.from_records(publication_modeldocumentation)
+
+    modeldocumentation = ModelDocumentation.objects \
+        .filter(publications__in=publications) \
+        .values('id', 'name') \
+        .distinct()
+    modeldocumentation_df = pd.DataFrame.from_records(modeldocumentation, index='id').rename(
+        columns={'name': 'raw_name'})
+    modeldocumentation_df['name'] = 'Documentation (' + modeldocumentation_df['raw_name'].map(str) + ')'
+    return publication_modeldocumentation_df, modeldocumentation_df
+
+
+def get_platforms(publications):
+    publication_platforms = PublicationPlatforms.objects \
+        .filter(publication__in=publications) \
+        .values('publication_id', 'platform_id')
+    publication_platform_df = pd.DataFrame.from_records(publication_platforms)
+
+    platforms = Platform.objects \
+        .annotate(count=Count('publications', Q(publications__is_primary=True) & Q(publications__status='REVIEWED'))) \
+        .filter(count__gt=0).values('id', 'name', 'count')
+    platform_df = pd.DataFrame.from_records(platforms, index='id').sort_values('count', ascending=False).rename(
+        columns={'name': 'raw_name'})
+    platform_df['name'] = "Platform (" + platform_df['raw_name'].map(str) + ")"
+    platform_df['name'][50:] = 'Platform Other'
+
+    return publication_platform_df, platform_df
+
+
+def get_sponsors(publications):
+    publication_sponsors = PublicationSponsors.objects \
+        .filter(publication__in=publications) \
+        .values('publication_id', 'sponsor_id')
+    publication_sponsor_df = pd.DataFrame.from_records(publication_sponsors)
+
+    sponsors = Sponsor.objects \
+        .annotate(count=Count('publications', Q(publications__is_primary=True) & Q(publications__status='REVIEWED'))) \
+        .filter(count__gt=0).values('id', 'name', 'count')
+    sponsor_df = pd.DataFrame.from_records(sponsors, index='id').sort_values('count', ascending=False).rename(
+        columns={'name': 'raw_name'})
+    sponsor_df['name'] = sponsor_df['raw_name']
+    sponsor_df['name'] = "Sponsor (" + sponsor_df['name'].map(str) + ")"
+    sponsor_df['name'][50:] = 'Sponsor Other'
+
+    return publication_sponsor_df, sponsor_df
+
+
+def _create_publication_dummies(publication_related_df: pd.DataFrame, related_df: pd.DataFrame, index_name):
+    df = publication_related_df.set_index(index_name).join(related_df)
+    df = pd.get_dummies(df['name'], dtype=np.bool8).set_index(df['publication_id']).groupby(
+        'publication_id').any().astype(np.uint8)
+    return df
+
+
+def create_publication_modeldocumentation_dummies(publication_modeldocumentation_df, modeldocumentation_df):
+    return _create_publication_dummies(publication_related_df=publication_modeldocumentation_df,
+                                       related_df=modeldocumentation_df, index_name='model_documentation_id')
+
+
+def create_publication_platform_dummies(publication_platform_df, platform_df):
+    return _create_publication_dummies(publication_related_df=publication_platform_df,
+                                       related_df=platform_df, index_name='platform_id')
+
+
+def create_publication_sponsor_dummies(publication_sponsor_df, sponsor_df):
+    return _create_publication_dummies(publication_related_df=publication_sponsor_df,
+                                       related_df=sponsor_df, index_name='sponsor_id')
+
+
+def determine_code_archival_status(row):
+    has_urls = row['count'] > 0
+    has_unavailable = row['count_unavailable'] > 0
+    has_archive = row['count_archived'] > 0
+    if has_unavailable or not has_urls:
+        return 'NOT_AVAILABLE'
+    elif not has_archive:
+        return 'NOT_IN_ARCHIVE'
+    else:
+        return 'ARCHIVED'
+
+
+def get_publications(publications, modeldocumentation_dummies, platform_dummies, sponsor_dummies, codearchiveurls):
+    df = pd.DataFrame.from_records(
+        publications.annotate(
+            author_names=ArrayAgg(Concat(F('creators__given_name'), Value(' '), F('creators__family_name')),
+                                  ordering=('creators__family_name', 'creators__given_name'))) \
+            .values(*CSV_DEFAULT_HEADER), index='id')
+    codearchiveurls['count_archived'] = codearchiveurls.category == 'Archive'
+    codearchiveurls['count_unavailable'] = codearchiveurls.status != 'available'
+    codearchiveurls['count'] = 1
+    codearchiveurls = codearchiveurls[['count_archived', 'count_unavailable', 'count', 'publication_id']] \
+        .groupby('publication_id').sum().reindex(df.index, fill_value=0.0)
+    codearchiveurls['code_archival_status'] = codearchiveurls.apply(determine_code_archival_status, axis=1)
+
+    df = df \
+        .join(codearchiveurls[['code_archival_status']]) \
+        .join(modeldocumentation_dummies) \
+        .join(platform_dummies) \
+        .join(sponsor_dummies)
+    df.loc[:, df.dtypes == np.float] = df.loc[:, df.dtypes == np.float].fillna(0.0)
+    return df
+
+
+def export(path):
+    remove_recoded = lambda df: df[['raw_name']].rename(columns={'raw_name': 'name'})
+
+    path = pathlib.Path(path)
+    publications = get_queryset()
+
+    codearchiveurl_df = get_code_archive_urls(publications)
+    codearchiveurl_df.to_csv(path.joinpath('codearchiveurl.csv'))
+
+    publication_modeldocumentation_df, modeldocumentation_df = get_model_documentation(publications)
+    publication_modeldocumentation_df.to_csv(path.joinpath('publication_modeldocumentation.csv'))
+    remove_recoded(modeldocumentation_df).to_csv(path.joinpath('modeldocumentation.csv'))
+    modeldocumentation_dummies_df = create_publication_modeldocumentation_dummies(publication_modeldocumentation_df,
+                                                                                  modeldocumentation_df)
+
+    publication_platform_df, platform_df = get_platforms(publications)
+    publication_platform_df.to_csv(path.joinpath('publication_platform.csv'))
+    remove_recoded(platform_df).to_csv(path.joinpath('platform.csv'))
+    platform_dummies_df = create_publication_platform_dummies(publication_platform_df, platform_df)
+
+    publication_sponsor_df, sponsor_df = get_sponsors(publications)
+    publication_sponsor_df.to_csv(path.joinpath('publication_sponsor.csv'))
+    remove_recoded(sponsor_df).to_csv(path.joinpath('sponsor.csv'))
+    sponsor_dummies_df = create_publication_sponsor_dummies(publication_sponsor_df, sponsor_df)
+
+    publication_df = get_publications(publications,
+                                      modeldocumentation_dummies=modeldocumentation_dummies_df,
+                                      platform_dummies=platform_dummies_df,
+                                      sponsor_dummies=sponsor_dummies_df,
+                                      codearchiveurls=codearchiveurl_df)
+    publication_df.to_csv(path.joinpath('publication.csv'))
+
+    get_publication_network(publications).to_csv(path.joinpath('publication_network.csv'))

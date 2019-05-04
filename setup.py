@@ -38,6 +38,7 @@ setup(name='citation',
           'python-Levenshtein',
           'numpy',
           'scipy',
+          'pandas'
       ],
       test_requires=[
           'django-autofixture',
