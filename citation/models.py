@@ -9,7 +9,7 @@ from typing import Dict, Optional, List
 from urllib3.util import parse_url
 
 import requests
-from dateutil.parser import parse as datetime_parse
+from dateutil.parser import parser as datetime_parser, parse as datetime_parse
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
@@ -860,6 +860,20 @@ class Publication(AbstractLogModel):
 
     def get_absolute_url(self):
         return self._pk_url('citation:publication_detail')
+
+    @property
+    def incomplete_date_published(self):
+        r = datetime_parser()._parse(self.date_published_text)[0]
+        has_year = r is not None and r.year is not None
+        if has_year:
+            has_month = r.month is not None
+            if has_month:
+                has_day = r.day is not None
+                if has_day:
+                    return f'{r.year}-{r.month:02d}-{r.day:02d}'
+                return f'{r.year}-{r.month:02d}'
+            return f'{r.year}'
+        return ''
 
     @property
     def date_published(self):
