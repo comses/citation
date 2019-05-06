@@ -119,6 +119,19 @@ def get_publication_network(publications):
     return pd.DataFrame.from_records(data)
 
 
+def get_authors(publications):
+    publication_authors = PublicationAuthors.objects \
+        .filter(publication__in=publications) \
+        .values('publication_id', 'author_id')
+    authors = Author.objects \
+        .filter(publications__in=publications) \
+        .values('id', 'given_name', 'family_name', 'orcid', 'researcherid', 'email')
+
+    publication_author_df = pd.DataFrame.from_records(publication_authors)
+    author_df = pd.DataFrame.from_records(authors)
+    return publication_author_df, author_df
+
+
 def get_code_archive_urls(publications):
     codearchiveurls = CodeArchiveUrl.objects \
         .filter(publication__in=publications) \
@@ -241,6 +254,10 @@ def export(path):
 
     path = pathlib.Path(path)
     publications = get_queryset()
+
+    publication_author_df, author_df = get_authors(publications)
+    publication_author_df.to_csv(path.joinpath('publication_author.csv'))
+    author_df.to_csv(path.joinpath('author.csv'))
 
     codearchiveurl_df = get_code_archive_urls(publications)
     codearchiveurl_df.to_csv(path.joinpath('codearchiveurl.csv'))
