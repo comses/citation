@@ -94,6 +94,7 @@ TEMPLATES = [
 MIDDLEWARE = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
 )
 
 # DJANGO REST Framework's Pagination settings

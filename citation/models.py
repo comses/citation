@@ -547,6 +547,9 @@ class Platform(AbstractLogModel):
     def get_message(self):
         return "{} ({})".format(self.name, self.id)
 
+    def __str__(self):
+        return self.get_message()
+
 
 class Sponsor(AbstractLogModel):
     """ funding agency sponsoring this research """
@@ -560,6 +563,9 @@ class Sponsor(AbstractLogModel):
 
     def get_message(self):
         return "{} ({})".format(self.name, self.id)
+
+    def __str__(self):
+        return self.get_message()
 
 
 class Container(AbstractLogModel):
@@ -1466,22 +1472,21 @@ class SuggestedMerge(AbstractLogModel):
         kept_author_pk = min(pks)
         discarded_author_pks = copy.deepcopy(pks)
         discarded_author_pks.remove(kept_author_pk)
-        Author.objects.get(pk=kept_author_pk).log_update(audit_command, **content)
         cls._move_author_aliases(kept_author_pk, discarded_author_pks, audit_command)
         cls._move_raw_authors(kept_author_pk, discarded_author_pks, audit_command)
         cls._move_publication_authors(kept_author_pk, discarded_author_pks, audit_command)
-        for da in Author.objects.filter(pk__in=discarded_author_pks):
-            da.log_delete(audit_command)
+        Author.objects.filter(pk__in=discarded_author_pks).log_delete(audit_command)
+        Author.objects.get(pk=kept_author_pk).log_update(audit_command, **content)
 
     @staticmethod
     def merge_containers(pks, content, audit_command):
         kept_container_pk = min(pks)
         discarded_container_pks = copy.deepcopy(pks)
         discarded_container_pks.remove(kept_container_pk)
-        Container.objects.get(pk=kept_container_pk).log_update(audit_command, **content)
         Publication.objects.filter(container__in=discarded_container_pks).log_update(audit_command,
                                                                                      container_id=kept_container_pk)
         Container.objects.filter(container__in=discarded_container_pks).log_delete(audit_command)
+        Container.objects.get(pk=kept_container_pk).log_update(audit_command, **content)
 
     @staticmethod
     def _move_publication_platforms(kept_platform_pk, discarded_platform_pks, audit_command):
@@ -1500,11 +1505,11 @@ class SuggestedMerge(AbstractLogModel):
         kept_platform_pk = min(pks)
         discarded_platform_pks = copy.deepcopy(pks)
         discarded_platform_pks.remove(kept_platform_pk)
-        Platform.objects.get(pk=kept_platform_pk).log_update(audit_command, **content)
         cls._move_publication_platforms(kept_platform_pk=kept_platform_pk,
                                         discarded_platform_pks=discarded_platform_pks,
                                         audit_command=audit_command)
         Platform.objects.filter(pk__in=discarded_platform_pks).log_delete(audit_command)
+        Platform.objects.get(pk=kept_platform_pk).log_update(audit_command, **content)
 
     @staticmethod
     def _move_publication_sponsors(kept_pk, discarded_pks, audit_command):
@@ -1523,11 +1528,14 @@ class SuggestedMerge(AbstractLogModel):
         kept_sponsor_pk = min(pks)
         discarded_sponsor_pks = copy.deepcopy(pks)
         discarded_sponsor_pks.remove(kept_sponsor_pk)
-        Sponsor.objects.get(pk=kept_sponsor_pk).log_update(audit_command, **content)
+        logger.info('Moving discarded %s to %s sponsor', discarded_sponsor_pks, kept_sponsor_pk)
         cls._move_publication_sponsors(kept_pk=kept_sponsor_pk,
                                        discarded_pks=discarded_sponsor_pks,
                                        audit_command=audit_command)
+        logger.info('Deleting discarded sponsors')
         Sponsor.objects.filter(pk__in=discarded_sponsor_pks).log_delete(audit_command)
+        logger.info('Modifying kept sponsor')
+        Sponsor.objects.get(pk=kept_sponsor_pk).log_update(audit_command, **content)
 
     @staticmethod
     def _move_publication_tags(kept_pk, discarded_pks, audit_command):
@@ -1546,11 +1554,11 @@ class SuggestedMerge(AbstractLogModel):
         kept_tag_pk = min(pks)
         discarded_tag_pks = copy.deepcopy(pks)
         discarded_tag_pks.remove(kept_tag_pk)
-        Tag.objects.get(pk=kept_tag_pk).log_update(audit_command, **content)
         cls._move_publication_tags(kept_pk=kept_tag_pk,
                                    discarded_pks=discarded_tag_pks,
                                    audit_command=audit_command)
         Tag.objects.filter(pk__in=discarded_tag_pks).log_delete(audit_command)
+        Tag.objects.get(pk=kept_tag_pk).log_update(audit_command, **content)
 
     def merge(self, creator):
         assert self.date_applied is None
