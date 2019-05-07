@@ -21,7 +21,6 @@ setup(name='citation',
       install_requires=[
           'Django>=2.0,<3.0',
           'djangorestframework>=3.7,<4.0',
-          'django-bulk-update',  # will be unnecessary in Django 2.2
           'python-dateutil',
           'bleach',
           'fuzzywuzzy',
