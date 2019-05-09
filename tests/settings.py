@@ -133,3 +133,5 @@ LOGGING = {
 }
 
 SECRET_KEY = get_secret('SECRET_KEY')
+
+AUDIT_ACCOUNT_USERNAME = 'superuser'

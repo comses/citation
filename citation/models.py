@@ -495,8 +495,7 @@ class ModelDocumentation(AbstractLogModel):
                                     {'category': 'Visual Relationships', 'name': 'Ontologies'},
                                     {'category': 'Visual Relationships', 'name': 'AORML'}]},
         {'category': 'Code and formal descriptions',
-         'modelDocumentationList': [{'category': 'Code and formal descriptions', 'name': 'Source code'},
-                                    {'category': 'Code and formal descriptions', 'name': 'Pseudocode'},
+         'modelDocumentationList': [{'category': 'Code and formal descriptions', 'name': 'Pseudocode'},
                                     {'category': 'Code and formal descriptions', 'name': 'Mathematical description'}]},
     ]
     ''' common choices: UML, ODD, Word / PDF doc '''
