@@ -1438,7 +1438,7 @@ class SuggestedMerge(AbstractLogModel):
 
     @staticmethod
     def _move_author_aliases(kept_pk, discarded_pks, audit_command):
-        kept_author_aliases = set(AuthorAlias.objects.filter(author_id=kept_pk).values('family_name', 'given_name'))
+        kept_author_aliases = set(AuthorAlias.objects.filter(author_id=kept_pk).values_list('family_name', 'given_name'))
         author_aliases = AuthorAlias.objects.filter(author_id__in=discarded_pks)
         for author_alias in author_aliases:
             if (author_alias.family_name, author_alias.given_name) in kept_author_aliases:
