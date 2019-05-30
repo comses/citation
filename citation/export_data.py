@@ -105,7 +105,7 @@ from citation.models import Publication, Platform, Sponsor, PublicationCitations
 CSV_DEFAULT_HEADER = ["id", "title", "abstract", "short_title", "contact_email", "email_sent_count",
                       "contact_author_name", "is_primary", "doi",
                       "series_text", "series_title", "series", "issue", "volume", "pages", "author_names",
-                      "container__issn", "container__name"]
+                      "container__issn", "container__name", "year_published"]
 
 
 def get_queryset():
@@ -228,11 +228,25 @@ def determine_code_archival_status(row):
 
 
 def get_publications(publications, modeldocumentation_dummies, platform_dummies, sponsor_dummies, codearchiveurls):
+    def get_publication_row(publication):
+        attrs = [
+            "id", "title", "abstract", "short_title", "contact_email", "email_sent_count",
+            "contact_author_name", "is_primary", "doi",
+            "series_text", "series_title", "series", "issue", "volume", "pages", "author_names",
+            "year_published"
+        ]
+        d = {}
+        for attr in attrs:
+            d[attr] = getattr(publication, attr)
+
+        d["container__issn"] = publication.container.issn
+        d["container__name"] = publication.container.name
+        return d
+    
     df = pd.DataFrame.from_records(
-        publications.annotate(
+        (get_publication_row(p) for p in publications.annotate(
             author_names=ArrayAgg(Concat(F('creators__given_name'), Value(' '), F('creators__family_name')),
-                                  ordering=('creators__family_name', 'creators__given_name'))) \
-            .values(*CSV_DEFAULT_HEADER), index='id')
+                                  ordering=('creators__family_name', 'creators__given_name')))), index='id')
     codearchiveurls['count_archived'] = codearchiveurls.category == 'Archive'
     codearchiveurls['count_unavailable'] = codearchiveurls.status != 'available'
     codearchiveurls['count'] = 1
