@@ -125,7 +125,8 @@ def get_authors(publications):
         .values('publication_id', 'author_id')
     authors = Author.objects \
         .filter(publications__in=publications) \
-        .values('id', 'given_name', 'family_name', 'orcid', 'researcherid', 'email')
+        .values('id', 'given_name', 'family_name', 'orcid', 'researcherid', 'email') \
+        .distinct()
 
     publication_author_df = pd.DataFrame.from_records(publication_authors)
     author_df = pd.DataFrame.from_records(authors)
@@ -242,7 +243,7 @@ def get_publications(publications, modeldocumentation_dummies, platform_dummies,
         d["container__issn"] = publication.container.issn
         d["container__name"] = publication.container.name
         return d
-    
+
     df = pd.DataFrame.from_records(
         (get_publication_row(p) for p in publications.annotate(
             author_names=ArrayAgg(Concat(F('creators__given_name'), Value(' '), F('creators__family_name')),
