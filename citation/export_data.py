@@ -260,7 +260,8 @@ def get_publications(publications, modeldocumentation_dummies, platform_dummies,
         .join(modeldocumentation_dummies) \
         .join(platform_dummies) \
         .join(sponsor_dummies)
-    df.loc[:, df.dtypes == np.float] = df.loc[:, df.dtypes == np.float].fillna(0.0)
+    criteria = (df.dtypes == np.float) & pd.Series(df.columns != 'year_published', df.columns)
+    df.loc[:, criteria] = df.loc[:, criteria].fillna(0.0)
     return df
 
 
