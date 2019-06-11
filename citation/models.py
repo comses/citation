@@ -887,12 +887,12 @@ class Publication(AbstractLogModel):
         except ValueError:
             return None
 
+    YEAR_PUBLISHED_REGEX = re.compile(r'(?<!\d)\d{4}(?!\d)')
+
     @property
     def year_published(self):
-        try:
-            return int(datetime_parse(self.date_published_text).year)
-        except ValueError:
-            return None
+        r = self.YEAR_PUBLISHED_REGEX.search(self.date_published_text)
+        return r.group(0) if r else None
 
     @property
     def container_title(self):
