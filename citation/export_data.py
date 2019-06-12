@@ -96,7 +96,8 @@ import pandas as pd
 import pathlib
 
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models import F, Count, Q, Value
+from django.db import models
+from django.db.models import F, Count, Q, Value, Sum, OuterRef
 from django.db.models.functions import Concat
 
 from citation.models import Publication, Platform, Sponsor, PublicationCitations, PublicationAuthors, Author, \
@@ -119,13 +120,21 @@ def get_publication_network(publications):
     return pd.DataFrame.from_records(data)
 
 
+class SumSubquery(models.Subquery):
+    template = "(SELECT sum(citation_count) from (%(subquery)s) _sum)"
+    output_field = models.IntegerField()
+
+
 def get_authors(publications):
     publication_authors = PublicationAuthors.objects \
         .filter(publication__in=publications) \
         .values('publication_id', 'author_id')
-    authors = Author.objects \
-        .filter(publications__in=publications) \
-        .values('id', 'given_name', 'family_name', 'orcid', 'researcherid', 'email') \
+    p = Publication.api.primary().reviewed() \
+        .annotate(citation_count=Count('referenced_by', filter=Q(is_primary=True) & Q(status='REVIEWED'))) \
+        .filter(creators=OuterRef('pk')).values('citation_count')
+    authors = Author.objects.annotate(citation_count=SumSubquery(p)) \
+        .filter(citation_count__isnull=False) \
+        .values('id', 'given_name', 'family_name', 'orcid', 'researcherid', 'email', 'citation_count') \
         .distinct()
 
     publication_author_df = pd.DataFrame.from_records(publication_authors)
