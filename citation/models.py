@@ -623,8 +623,8 @@ class PublicationQuerySet(models.QuerySet):
 
         return primary_pub
 
-    def reviewed(self):
-        return self.filter(status='REVIEWED')
+    def reviewed(self, **kwargs):
+        return self.filter(status=Publication.Status.REVIEWED, **kwargs)
 
     def annotate_code_availability(self):
         """
@@ -681,11 +681,18 @@ class PublicationQuerySet(models.QuerySet):
     def no_code_available(self, **kwargs):
         return self.primary(**kwargs).reviewed().with_code_availability_counts().filter(has_available_code=False)
 
-    def by_code_archive_url_status(self, status, count=10, contact_email=None, **kwargs):
-        """ status is assumed to be one of the AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS Choices """
-        qs = self.primary(**kwargs).reviewed().exclude(contact_email__exact='')
+    def by_code_archive_url_status(self, status=None, number_of_authors=10, contact_email=None, **kwargs):
+        """
+        status may be one of the AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS Choices
+        any value other than those Choices includes any code archive status
+        """
+        # first retrieve number_of_authors who haven't already been contacted
+        qs = self.reviewed(**kwargs).exclude(contact_email__exact='')
         if contact_email:
             qs = qs.filter(contact_email=contact_email)
+        else:
+            eligible_authors = self.eligible_authors()[:number_of_authors]
+            qs = qs.filter(contact_email__in=[ea[0] for ea in eligible_authors])
         if status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_AVAILABLE:
             qs = qs.with_code_availability_counts().filter(has_available_code=False)
         elif status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_IN_ARCHIVE:
@@ -693,23 +700,35 @@ class PublicationQuerySet(models.QuerySet):
         elif status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.ARCHIVED:
             qs = qs.with_code_availability_counts().filter(has_available_code=True)
         else:
-            raise ValueError("invalid status: " + status)
+            # include all publications and partition by status
+            qs = qs.with_code_availability_counts()
         qs = qs.exclude(pk__in=list(AuthorCorrespondenceLog.objects.values_list('publication', flat=True)))
-        return qs[:count]
+        return qs
+
+    def eligible_authors(self, order_by='-author_count', **kwargs):
+        already_contacted_authors = AuthorCorrespondenceLog.objects.values_list('publication__contact_email').distinct()
+        return self.reviewed(**kwargs).exclude(contact_email='').exclude(contact_email__in=already_contacted_authors).values_list(
+            'contact_email').distinct().annotate(
+            author_count=Count('contact_email')
+        ).order_by(order_by)
 
     def with_code_availability_counts(self):
-        return self.annotate(available_code_archive_urls_count=models.Count(
-            'code_archive_urls',
-            filter=models.Q(code_archive_urls__status='available') | models.Q(code_archive_urls__status='restricted'))) \
-            .annotate(unavailable_code_archive_urls_count=models.Count(
-            'code_archive_urls',
-            filter=models.Q(code_archive_urls__status='unavailable'))) \
-            .annotate(has_available_code=models.Case(
-            models.When(models.Q(available_code_archive_urls_count__gt=0) &
-                        models.Q(unavailable_code_archive_urls_count=0),
-                        then=models.Value(True)),
-            default=models.Value(False),
-            output_field=models.BooleanField()))
+        return self.annotate(
+            available_code_archive_urls_count=models.Count(
+                'code_archive_urls',
+                filter=models.Q(code_archive_urls__status__in=('available', 'restricted')))
+        ).annotate(
+            unavailable_code_archive_urls_count=models.Count(
+                'code_archive_urls',
+                filter=models.Q(code_archive_urls__status='unavailable'))
+        ).annotate(
+            has_available_code=models.Case(
+                models.When(models.Q(available_code_archive_urls_count__gt=0) &
+                            models.Q(unavailable_code_archive_urls_count=0),
+                            then=models.Value(True)),
+                default=models.Value(False),
+                output_field=models.BooleanField())
+        )
 
 
 class Publication(AbstractLogModel):
