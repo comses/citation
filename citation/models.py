@@ -358,13 +358,13 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
 class CodeArchiveStatus(Enum):
     NOT_AVAILABLE = (1, 'Code not available',
                      'email/src-code-request-email.txt',
-                     '[comses.net] request for model source code')
-    NOT_IN_ARCHIVE = (2, 'Code has a currently active URL but not in a trusted digital repository',
+                     '[comses.net] Request for model source code')
+    NOT_IN_ARCHIVE = (2, 'Code has an accessible URL but not in a trusted digital repository',
                       'email/code-no-archive.txt',
-                      '[comses.net] request for model source code')
-    ARCHIVED = (3, 'Code available in archive',
+                      '[comses.net] Request to archive model source code')
+    ARCHIVED = (3, 'Code is archived in a trusted digital repository',
                 'email/code-in-archive.txt',
-                '[comses.net] request for publication metadata review')
+                '[comses.net] Review publication metadata')
 
     @property
     def ordinal(self):
@@ -1062,7 +1062,7 @@ class CodeArchiveUrl(AbstractLogModel):
             self.add_url_status_log(category, err.response)
 
     def add_url_status_log(self, category, response):
-        response_status = CodeArchiveUrl.get_status_choice(response) # corresponds to the status Choices
+        response_status = CodeArchiveUrl.get_status_choice(response)  # corresponds to the status Choices
 
         URLStatusLog.objects.create(status_code=response.status_code,
                                     publication=self.publication,
