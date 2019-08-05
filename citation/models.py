@@ -951,6 +951,23 @@ class CodeArchiveUrlCategory(models.Model):
     def get_message(self):
         return self.__str__()
 
+    def _get_criteria(self):
+        patterns = self.patterns.all()
+        criteria = models.Q()
+        for pattern in patterns:
+            c = models.Q()
+            if pattern.regex_host_matcher:
+                c &= models.Q(url__regex=pattern.regex_host_matcher)
+            if pattern.regex_path_matcher:
+                c &= models.Q(url__regex=pattern.regex_path_matcher)
+            criteria |= c
+
+        return criteria
+
+    def get_matching_publications(self):
+        criteria = self._get_criteria()
+        return Publication.objects.filter(code_archive_urls__in=CodeArchiveUrl.objects.filter(criteria)).distinct()
+
     class Meta:
         unique_together = (('category', 'subcategory'),)
 
@@ -989,7 +1006,7 @@ class CodeArchiveUrlPatternQuerySet(models.QuerySet):
 class CodeArchiveUrlPattern(models.Model):
     regex_host_matcher = models.CharField(max_length=800)
     regex_path_matcher = models.CharField(max_length=800)
-    category = models.ForeignKey(CodeArchiveUrlCategory, on_delete=models.PROTECT)
+    category = models.ForeignKey(CodeArchiveUrlCategory, on_delete=models.PROTECT, related_name='patterns')
 
     objects = CodeArchiveUrlPatternQuerySet.as_manager()
 
