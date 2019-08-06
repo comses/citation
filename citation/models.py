@@ -357,13 +357,13 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
 
 class CodeArchiveStatus(Enum):
     NOT_AVAILABLE = (1, 'Code not available',
-                     'email/src-code-request-email.txt',
+                     'email/code-not-available.txt',
                      '[comses.net] Request for model source code')
     NOT_IN_ARCHIVE = (2, 'Code has an accessible URL but not in a trusted digital repository',
-                      'email/code-no-archive.txt',
+                      'email/code-not-in-archive.txt',
                       '[comses.net] Request to archive model source code')
     ARCHIVED = (3, 'Code is archived in a trusted digital repository',
-                'email/code-in-archive.txt',
+                'email/code-archived.txt',
                 '[comses.net] Review publication metadata')
 
     @property
@@ -381,6 +381,14 @@ class CodeArchiveStatus(Enum):
     @property
     def email_subject(self):
         return self.value[3]
+
+    @property
+    def is_archived(self):
+        return self == CodeArchiveStatus.ARCHIVED
+
+    @property
+    def is_unavailable(self):
+        return not self.is_archived
 
     def __lt__(self, other):
         return self.ordinal < other.ordinal
