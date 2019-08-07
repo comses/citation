@@ -344,12 +344,11 @@ class AuthorCorrespondenceLogQuerySet(models.QuerySet):
     def create_from_publications(self, publication_qs, custom_content='', curator=None, create=True):
         author_correspondence = []
         for publication in publication_qs:
-            if not publication.is_archived:
-                author_correspondence.append(
-                    AuthorCorrespondenceLog.from_publication(publication=publication,
-                                                             content=custom_content,
-                                                             curator=curator)
-                )
+            author_correspondence.append(
+                AuthorCorrespondenceLog.from_publication(publication=publication,
+                                                         content=custom_content,
+                                                         curator=curator)
+            )
         if create:
             self.bulk_create(author_correspondence)
         return author_correspondence
@@ -431,8 +430,7 @@ class AuthorCorrespondenceLog(models.Model):
                                        )
 
     def __str__(self):
-        return 'Correspondence on {0} created on {1}: {2} (author responded? {3})'.format(
-            self.publication, self.date_created, self.status, self.has_author_responded)
+        return f'{self.publication.title} {self.status} {self.date_created}'
 
     @property
     def has_author_responded(self):
