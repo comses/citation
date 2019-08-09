@@ -34,6 +34,31 @@ class AuthoritativeAuthorValidationMessage:
                                self._str_items(self.all))
 
 
+class AuthoritativeCodeArchiveUrlMergeGroupSet:
+    def __init__(self, final, others):
+        """
+        :param final: final authoritative publication
+        :type final: models.Publication
+        :param others: Other publications
+        :type others: Set[models.Publication]
+        """
+        self.final = final
+        self.others = others
+
+    def merge(self, audit_command: models.AuditCommand):
+        urls = self.final.code_archive_urls.values_list('url', flat=True)
+        logger.debug('original urls %s', list(urls))
+
+        other_urls = models.CodeArchiveUrl.objects.filter(publication__in=self.others)
+        urls_to_move = other_urls.exclude(url__in=urls)
+        logger.debug('moving urls %s', [cau.url for cau in urls_to_move])
+        urls_to_move.log_update(audit_command=audit_command, publication_id=self.final.id)
+
+        urls_to_discard = other_urls.filter(url__in=urls)
+        logger.debug('discarding_duplicate urls %s', [cau.url for cau in urls_to_discard])
+        urls_to_discard.log_delete(audit_command=audit_command)
+
+
 class AuthoritativeAuthorMergeGroupSet:
     """
     Merge authors assuming no final publication author set is authoritative
@@ -459,6 +484,8 @@ class PublicationMergeGroup:
 
         self.container_merge_group = self.create_container_merge_group()
         self.author_merge_group_set = self.create_authoritive_author_merge_group_set()
+        self.code_archive_url_merge_group_set = AuthoritativeCodeArchiveUrlMergeGroupSet(final=self.final,
+                                                                                         others=self.others)
 
     def __len__(self):
         return len(self.others) + 1
@@ -619,6 +646,7 @@ class PublicationMergeGroup:
 
         self.author_merge_group_set.merge(audit_command=audit_command, force=force)
         self.container_merge_group.merge(audit_command=audit_command, force=force)
+        self.code_archive_url_merge_group_set.merge(audit_command=audit_command)
 
         models.Raw.objects \
             .filter(publication__in=self.others) \
