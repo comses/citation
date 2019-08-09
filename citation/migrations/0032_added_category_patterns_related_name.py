@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('citation', '0030_remove_model_documentation_source_code_tag'),
+        ('citation', '0031_update_author_correspondence_help_text'),
     ]
 
     operations = [
