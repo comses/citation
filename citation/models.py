@@ -970,9 +970,9 @@ class CodeArchiveUrlCategory(models.Model):
 
         return criteria
 
-    def get_matching_publications(self):
+    def get_matching_archive_urls(self):
         criteria = self._get_criteria()
-        return Publication.objects.filter(code_archive_urls__in=CodeArchiveUrl.objects.filter(criteria)).distinct()
+        return CodeArchiveUrl.objects.filter(criteria)
 
     class Meta:
         unique_together = (('category', 'subcategory'),)
