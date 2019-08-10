@@ -121,7 +121,7 @@ def get_publication_network(publications):
 
 
 class SumSubquery(models.Subquery):
-    template = "(SELECT sum(citation_count) from (%(subquery)s) _sum)"
+    template = "(SELECT sum(subcount) from (%(subquery)s) _sum)"
     output_field = models.IntegerField()
 
 
@@ -129,16 +129,28 @@ def get_authors(publications):
     publication_authors = PublicationAuthors.objects \
         .filter(publication__in=publications) \
         .values('publication_id', 'author_id')
-    p = Publication.api.primary().reviewed() \
-        .annotate(citation_count=Count('referenced_by', filter=Q(is_primary=True) & Q(status='REVIEWED'))) \
-        .filter(creators=OuterRef('pk')).values('citation_count')
-    authors = Author.objects.annotate(citation_count=SumSubquery(p)) \
+    cite = Publication.api.primary().reviewed() \
+        .annotate(subcount=Count('referenced_by', filter=Q(is_primary=True) & Q(status='REVIEWED'))) \
+        .filter(creators=OuterRef('pk')).values('subcount')
+    p_tot = Publication.api.primary().reviewed() \
+        .filter(creators=OuterRef('pk')) \
+        .annotate(subcount=models.Value(1, output_field=models.IntegerField())).values('subcount')
+    p_avail = Publication.api.primary().reviewed() \
+        .with_code_availability_counts().filter(has_available_code=True) \
+        .filter(creators=OuterRef('pk')) \
+        .annotate(subcount=models.Value(1, output_field=models.IntegerField())).values('subcount')
+    authors = Author.objects \
+        .annotate(citation_count=SumSubquery(cite)) \
+        .annotate(publication_count=SumSubquery(p_tot)) \
+        .annotate(publication_avail_code_count=SumSubquery(p_avail)) \
         .filter(citation_count__isnull=False) \
-        .values('id', 'given_name', 'family_name', 'orcid', 'researcherid', 'email', 'citation_count') \
+        .values('id', 'given_name', 'family_name', 'orcid', 'researcherid', 'email',
+                'citation_count', 'publication_count', 'publication_avail_code_count') \
         .distinct()
 
     publication_author_df = pd.DataFrame.from_records(publication_authors)
     author_df = pd.DataFrame.from_records(authors)
+    author_df.publication_avail_code_count = author_df.publication_avail_code_count.fillna(0).astype('int')
     return publication_author_df, author_df
 
 
