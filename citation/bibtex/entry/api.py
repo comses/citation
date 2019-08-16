@@ -258,7 +258,7 @@ def attach_keywords(publication, keywords):
             logger.debug("publication %s already had tag %s", publication, tag)
 
 
-def process(entry: Dict, creator: User):
+def process(entry: Dict, creator: User, duplicate_pk=None):
     detached_publication = create_detached_publication(entry, creator)
     detached_container = create_detached_container(entry)
     detached_authors, unassigned_emails = create_detached_authors(entry)
@@ -311,3 +311,40 @@ def process(entry: Dict, creator: User):
     return common.PublicationLoadErrors(raw=detached_raw, audit_command=audit_command,
                                         unaugmented_authors=unaugmented_authors,
                                         unassigned_emails=unassigned_emails)
+
+def _regen_from_raw(raw: models.Raw, creator: User, publication: models.Publication):
+    entry = raw.value
+    detached_publication = create_detached_publication(entry, creator)
+    detached_container = create_detached_container(entry)
+    detached_authors, unassigned_emails = create_detached_authors(entry)
+
+    duplicate_publications = detached_publication.duplicates()
+    assert len(duplicate_publications) > 0
+    assert publication.id in [dup.id for dup in duplicate_publications]
+
+    audit_command = models.AuditCommand(creator=creator, action=models.AuditCommand.Action.MERGE)
+
+    publication = duplicate_publications[0]
+    unaugmented_authors = augment_authors(audit_command, publication, detached_authors)
+    logger.debug('augmenting publication')
+    merger.augment_publication(publication, detached_publication, audit_command)
+    logger.debug('augmenting container')
+    merger.augment_container(publication.container, detached_container, audit_command)
+
+    logger.debug('augmenting citations')
+    augment_citations(audit_command, publication, entry, creator)
+
+    attach_keywords(publication, get_keywords(entry))
+    return common.PublicationLoadErrors(raw=raw, audit_command=audit_command,
+                                        unaugmented_authors=unaugmented_authors,
+                                        unassigned_emails=unassigned_emails)
+
+
+def regen_from_raws(publication: models.Publication, creator: User):
+    raws = publication.raw.filter(key=models.Raw.BIBTEX_ENTRY)
+    load_warnings = []
+    for raw in raws:
+        warnings = _regen_from_raw(raw, creator, publication)
+        if warnings:
+            load_warnings.append(warnings)
+    return load_warnings
