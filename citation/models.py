@@ -1532,7 +1532,7 @@ class SuggestedMerge(AbstractLogModel):
         discarded_container_pks.remove(kept_container_pk)
         Publication.objects.filter(container__in=discarded_container_pks).log_update(audit_command,
                                                                                      container_id=kept_container_pk)
-        Container.objects.filter(container__in=discarded_container_pks).log_delete(audit_command)
+        Container.objects.filter(pk__in=discarded_container_pks).log_delete(audit_command)
         Container.objects.get(pk=kept_container_pk).log_update(audit_command, **content)
 
     @staticmethod
@@ -1606,126 +1606,6 @@ class SuggestedMerge(AbstractLogModel):
                                    audit_command=audit_command)
         Tag.objects.filter(pk__in=discarded_tag_pks).log_delete(audit_command)
         Tag.objects.get(pk=kept_tag_pk).log_update(audit_command, **content)
-
-    class MergePublication:
-        @staticmethod
-        def _get_unique(xs, field):
-            values = set(getattr(x, field) for x in xs)
-            assert len(values) <= 1
-            return values or None
-
-        @staticmethod
-        def _get_longest(xs, field):
-            return max(sorted(xs, key=operator.attrgetter(field)), key=operator.attrgetter(field))
-
-        @classmethod
-        def final_citations(cls, final: Publication, others):
-            if final.citations.exists():
-                return None
-            else:
-                for other in others:
-                    if other.citations.exists():
-                        return list(other.citations.all())
-                return None
-
-        @classmethod
-        def final_authors(cls, final, others):
-            final_creator_count = final.creators.count()
-            others_creator_count = [p.creators.count() for p in others]
-            others_max_ind, others_max = max(enumerate(others_creator_count), key=operator.itemgetter(1))
-            if others_max > final_creator_count:
-                authors = list(others[others_max_ind].creators.all())
-                return authors
-            else:
-                return None
-
-        @classmethod
-        def final_container_changes(cls, final: Publication, others):
-            containers = [final, *others]
-            content = {
-                'issn': cls._get_unique(containers, 'issn'),
-                'eissn': cls._get_unique(containers, 'eissn'),
-                'type': cls._get_unique(containers, 'type'),
-                'name': cls._get_longest(containers, 'name')
-            }
-
-            return [c.pk for c in containers], content
-
-        @classmethod
-        def final_sponsors(cls, final, others):
-            sponsors = set(s.pk for s in final.sponsors.all())
-            for other in others:
-                sponsors.update(s.pk for s in other.sponsors.all())
-            return sponsors
-
-        @classmethod
-        def final_platforms(cls, final, others):
-            platforms = set(p.pk for p in final.sponsors.all())
-            for other in others:
-                platforms.update(p.pk for p in other.sponsors.all())
-            return platforms
-
-        @classmethod
-        def final_raws(cls, final: Publication, others):
-            raws = set(r.pk for r in final.raw.all())
-            for other in others:
-                raws.update(r.pk for r in other.raw.all())
-            return raws
-
-        @classmethod
-        def final_tags(cls, final, others):
-            tags = set(t.pk for t in final.sponsors.all())
-            for other in others:
-                tags.update(t.pk for t in other.sponsors.all())
-            return tags
-
-        @classmethod
-        def get_concrete_publication_content(cls, publication: Publication):
-            field_names = [f.attname for f in Publication._meta.concrete_fields]
-            content = {f: getattr(publication, f) for f in field_names}
-
-        @classmethod
-        def patch_publication_fields(cls, publications: Sequence[Publication]):
-            pubs = sorted(publications, key=operator.attrgetter('id'))
-            final_pub = pubs.pop()
-            other_pubs = pubs
-
-            patch = {}
-            for publication in other_pubs:
-                for field in ['date_published_text', 'title', 'doi', 'abstract', 'isi']:
-                    if not getattr(final_pub, field):
-                        patch[field] = getattr(publication, field)
-
-            return final_pub, patch
-
-    @classmethod
-    def diff_ids(cls, original, new):
-        deletes = set(original).difference(new)
-        inserts = set(new).difference(original)
-        return inserts, deletes
-
-    @classmethod
-    def merge_publications(cls, publications, content, audit_command):
-        kept_pub = min(publications, key=operator.attrgetter('pk'))
-        discarded_pubs = copy.copy(publications)
-        discarded_pubs.pop()
-        discarded_pubs.remove(kept_pub)
-
-        cls.merge_containers(**content['container'], audit_command=audit_command)
-        p = Publication(**content['base'])
-
-        for field, model in [('authors', PublicationAuthors),
-                             ('citations', PublicationCitations),
-                             ('platforms', PublicationPlatforms),
-                             ('sponsors', PublicationSponsors),
-                             ('tags', PublicationTags)]:
-            related_field = f'{field}_id'
-            related_expr = f'{related_field}__in'
-            inserts, deletes = cls.diff_ids([p.pk for p in getattr(kept_pub, field).all()], content[field])
-            model.objects.filter(publication=kept_pub).filter(**{related_expr: deletes}).log_delete(audit_command)
-            objs = [model(publication_id=kept_pub.id, **{related_field: rid}) for rid in inserts]
-            for obj in objs:
-                obj.log_create(audit_command)
 
     def merge(self, creator):
         assert self.date_applied is None

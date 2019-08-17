@@ -1,8 +1,9 @@
 import datetime
 import logging
+import operator
 import re
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Sequence
 
 import numpy as np
 from django.contrib.auth.models import User
@@ -312,19 +313,59 @@ def process(entry: Dict, creator: User, duplicate_pk=None):
                                         unaugmented_authors=unaugmented_authors,
                                         unassigned_emails=unassigned_emails)
 
-def _regen_from_raw(raw: models.Raw, creator: User, publication: models.Publication):
+class MergePublication:
+    @staticmethod
+    def _get_unique(xs, field):
+        values = set(getattr(x, field) for x in xs if getattr(x, field))
+        assert len(values) <= 1, f'{field} has more than one value {values}'
+        return values.pop() if values else None
+
+    @staticmethod
+    def _get_longest(xs, field):
+        return getattr(max(sorted(xs, key=operator.attrgetter(field)), key=operator.attrgetter(field)), field)
+
+    @classmethod
+    def final_container_changes(cls, final: models.Container, others: Sequence[models.Container]):
+        containers = [final, *others]
+        content = {
+            'issn': cls._get_unique(containers, 'issn'),
+            'eissn': cls._get_unique(containers, 'eissn'),
+            'type': cls._get_unique(containers, 'type'),
+            'name': cls._get_longest(containers, 'name')
+        }
+        for key in list(content.keys()):
+            if content[key] == getattr(final, key):
+                content.pop(key)
+
+        return set(c.pk for c in containers), content
+
+    @classmethod
+    def final_raws(cls, final: Sequence[models.Raw], others: Sequence[Sequence[models.Raw]]):
+        raws = set(r.pk for r in final)
+        for other in others:
+            raws.update(r.pk for r in other)
+        return raws
+
+    @classmethod
+    def merge_publications(cls, publications, audit_command):
+        kept_pub = min(publications, key=operator.attrgetter('id'))
+        other_pubs = [p for p in publications if p.id != kept_pub.id]
+        if other_pubs:
+            container_pks, content = cls.final_container_changes(kept_pub.container, [p.container for p in other_pubs])
+            models.SuggestedMerge.merge_containers(pks=container_pks, content=content, audit_command=audit_command)
+            models.Raw.objects.filter(publication__in=other_pubs).log_update(audit_command, publication_id=kept_pub.id)
+            models.CodeArchiveUrl.objects.filter(publication__in=other_pubs).log_update(audit_command, publication_id=kept_pub.id)
+            discarded_pks = [p.pk for p in other_pubs]
+            models.Publication.objects.filter(pk__in=discarded_pks).log_delete(audit_command)
+        return kept_pub
+
+
+def _regen_from_raw(raw: models.Raw, creator: User, publication: models.Publication, audit_command):
     entry = raw.value
     detached_publication = create_detached_publication(entry, creator)
     detached_container = create_detached_container(entry)
     detached_authors, unassigned_emails = create_detached_authors(entry)
 
-    duplicate_publications = detached_publication.duplicates()
-    assert len(duplicate_publications) > 0
-    assert publication.id in [dup.id for dup in duplicate_publications]
-
-    audit_command = models.AuditCommand(creator=creator, action=models.AuditCommand.Action.MERGE)
-
-    publication = duplicate_publications[0]
     unaugmented_authors = augment_authors(audit_command, publication, detached_authors)
     logger.debug('augmenting publication')
     merger.augment_publication(publication, detached_publication, audit_command)
@@ -340,11 +381,18 @@ def _regen_from_raw(raw: models.Raw, creator: User, publication: models.Publicat
                                         unassigned_emails=unassigned_emails)
 
 
-def regen_from_raws(publication: models.Publication, creator: User):
+def regen_from_raws(publications: Sequence[models.Publication], creator: User):
+    audit_command = models.AuditCommand(creator=creator, action=models.AuditCommand.Action.MERGE)
+    if len(publications) > 1:
+        publication = MergePublication.merge_publications(publications, audit_command)
+    elif publications:
+        publication = publications[0]
+    else:
+        raise ValueError('Must have at least one publication to find raw values from')
     raws = publication.raw.filter(key=models.Raw.BIBTEX_ENTRY)
     load_warnings = []
     for raw in raws:
-        warnings = _regen_from_raw(raw, creator, publication)
+        warnings = _regen_from_raw(raw, creator, publication, audit_command=audit_command)
         if warnings:
             load_warnings.append(warnings)
     return load_warnings
