@@ -304,11 +304,17 @@ class Author(AbstractLogModel):
         return '{} {} ({})'.format(self.given_name, self.family_name, self.id)
 
     def duplicates(self, **kwargs):
-        query = Author.objects \
-            .filter((Q(orcid=self.orcid) & Q(orcid__isnull=False)) |
-                    (Q(researcherid=self.researcherid) & Q(researcherid__isnull=False))) \
-            .filter(**kwargs) \
-            .exclude(id=self.id)
+        criteria = Q()
+        if self.email and self.family_name:
+            criteria |= (Q(email=self.email) & Q(family_name__iexact=self.family_name))
+        if self.orcid:
+            criteria |= Q(orcid=self.orcid)
+        if self.researcherid:
+            criteria |= Q(researcherid=self.researcherid)
+        if criteria.children:
+            query = Author.objects.filter(**kwargs).filter(criteria).exclude(id=self.id)
+        else:
+            query = Author.objects.none()
         return query
 
 
