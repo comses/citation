@@ -74,7 +74,7 @@ def match_authors_with_emails_as_linear_assignment_problem(authors: List[models.
             local_part_email = email.split('@', 1)[0]
             costs[i, j] = -fuzz.WRatio(author.name, local_part_email)
     if not (costs < -50).any():
-        return authors
+        return emails
 
     author_inds, email_inds = linear_sum_assignment(costs)
     for author_ind in author_inds:
@@ -110,7 +110,8 @@ def combine_author_info(author_names, author_emails, author_orcids, author_resea
         authors.append(author)
 
     unassigned_emails = match_authors_with_emails_by_order(authors, author_emails)
-    unassigned_emails = match_authors_with_emails_as_linear_assignment_problem(authors, unassigned_emails)
+    if unassigned_emails:
+        unassigned_emails = match_authors_with_emails_as_linear_assignment_problem(authors, unassigned_emails)
     return authors, unassigned_emails
 
 
@@ -183,12 +184,15 @@ def augment_authors(audit_command, publication, detached_authors):
         augmented_authors = []
         unaugmented_authors = []
         for detached_author in detached_authors:
-            duplicate = detached_author.duplicates().first()
+            duplicate = detached_author.duplicates(publications__id=publication.id).first()
             if duplicate:
                 merger.augment_author(duplicate, detached_author, audit_command)
                 augmented_authors.append(duplicate)
             else:
-                unaugmented_authors.append((ref, detached_author))
+                unaugmented_authors.append(detached_author)
+        logger.debug('augmented %i of %i authors', len(augmented_authors), publication.creators.count())
+        if len(augmented_authors) == publication.creators.count():
+            create_authors(audit_command, publication, unaugmented_authors)
     else:
         # We can delete all creators for a secondary publication without checking that they are referenced by other
         # entities because secondary entries for authors do not enough information for merging to ever occur
@@ -371,7 +375,6 @@ def _regen_from_raw(raw: models.Raw, creator: User, publication: models.Publicat
     merger.augment_publication(publication, detached_publication, audit_command)
     logger.debug('augmenting container')
     merger.augment_container(publication.container, detached_container, audit_command)
-
     logger.debug('augmenting citations')
     augment_citations(audit_command, publication, entry, creator)
 
@@ -389,7 +392,7 @@ def regen_from_raws(publications: Sequence[models.Publication], creator: User):
         publication = publications[0]
     else:
         raise ValueError('Must have at least one publication to find raw values from')
-    raws = publication.raw.filter(key=models.Raw.BIBTEX_ENTRY)
+    raws = publication.raw.filter(key=models.Raw.BIBTEX_ENTRY).order_by('date_added')
     load_warnings = []
     for raw in raws:
         warnings = _regen_from_raw(raw, creator, publication, audit_command=audit_command)
