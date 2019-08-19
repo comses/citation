@@ -589,8 +589,27 @@ class PublicationMergeGroup:
         self._errors.publication_errors = ReferencedByMessage(problematic_references)
         return bool(self._errors.publication_errors)
 
-    def _move_citations(self):
-        pass
+    def move_citations(self, audit_command):
+        models.PublicationCitations.objects.filter(citation__in=self.others) \
+            .exclude(publication__in=models.PublicationCitations.objects
+                     .filter(citation=self.final).values_list('publication', flat=True)) \
+            .log_update(audit_command, citation_id=self.final.id)
+
+        if not self.final.citations.exists():
+            logger.debug('final has no citations... trying to find other publication with citations')
+            max_other_count = 0
+            max_other = None
+            for other in self.others:
+                count = other.citations.count()
+                if count > max_other_count:
+                    max_other = other
+                    max_other_count = count
+            if max_other:
+                logger.debug('other with citations found: %s', max_other)
+                models.PublicationCitations.objects.filter(publication=max_other) \
+                    .log_update(audit_command, publication_id=self.final.id)
+            else:
+                logger.debug('other with citation not found')
 
     def is_valid(self):
         if hasattr(self, '_is_valid'):
@@ -647,6 +666,7 @@ class PublicationMergeGroup:
         self.author_merge_group_set.merge(audit_command=audit_command, force=force)
         self.container_merge_group.merge(audit_command=audit_command, force=force)
         self.code_archive_url_merge_group_set.merge(audit_command=audit_command)
+        self.move_citations(audit_command)
 
         models.Raw.objects \
             .filter(publication__in=self.others) \
@@ -664,8 +684,6 @@ class PublicationMergeGroup:
         models.Publication.objects.filter(id__in=[other.id for other in self.others]) \
             .log_delete(audit_command)
         self.final.log_update(audit_command, **changes)
-
-        self._move_citations()
 
 
 MERGE_GROUPS = {
