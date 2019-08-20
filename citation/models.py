@@ -1,12 +1,11 @@
 import copy
 import logging
-import operator
 import re
 import uuid
 from collections import defaultdict
 from datetime import datetime, date
 from enum import Enum
-from typing import Dict, Optional, List, Sequence
+from typing import Dict, Optional, List
 from urllib3.util import parse_url
 
 import requests
@@ -960,7 +959,7 @@ class CodeArchiveUrlCategory(models.Model):
         return self.category == 'Archive'
 
     def __str__(self):
-        return f'category={self.category} subcategory={self.subcategory}'
+        return f'{self.category} ({self.subcategory})'
 
     def get_message(self):
         return self.__str__()
