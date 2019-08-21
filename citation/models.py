@@ -701,10 +701,13 @@ class PublicationQuerySet(models.QuerySet):
         # first retrieve number_of_authors who haven't already been contacted
         qs = self.reviewed(**kwargs).exclude(contact_email__exact='')
         if contact_email:
-            qs = qs.filter(contact_email=contact_email)
+            qs = qs.filter(contact_email__iexact=contact_email)
         else:
             eligible_authors = self.eligible_authors()[:number_of_authors]
-            qs = qs.filter(contact_email__in=[ea[0] for ea in eligible_authors])
+            eligible_authors_filter = Q()
+            for ea in eligible_authors:
+                eligible_authors_filter |= Q(contact_email__iexact=ea[0])
+            qs = qs.filter(eligible_authors_filter)
         if status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_AVAILABLE:
             qs = qs.with_code_availability_counts().filter(has_available_code=False)
         elif status == AuthorCorrespondenceLog.CODE_ARCHIVE_STATUS.NOT_IN_ARCHIVE:
@@ -774,6 +777,8 @@ class Publication(AbstractLogModel):
 
     # custom incoming tags set by zotero data entry to mark the code archive url, contact author's email, the ABM platform
     # used, research sponsors (funding agencies, etc.), documentation, and other research keyword tags
+    # FIXME: contact_author_name + contact_email should be folded into PublicationAuthors, see
+    # https://github.com/comses/citation/issues/32
     contact_author_name = models.CharField(max_length=255, blank=True)
     contact_email = models.EmailField(blank=True)
     platforms = models.ManyToManyField(Platform, blank=True, through='PublicationPlatforms',
