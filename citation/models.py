@@ -1319,6 +1319,7 @@ class PublicationAuthors(AbstractLogModel):
     publication = models.ForeignKey(Publication, related_name='publication_authors', on_delete=models.CASCADE)
     author = models.ForeignKey(Author, related_name='publication_authors', on_delete=models.CASCADE)
     role = models.CharField(choices=RoleChoices, max_length=64)
+    corresponding_author = models.BooleanField(default=False, help_text=_("True if this author can be contacted."))
 
     date_added = models.DateTimeField(auto_now_add=True)
     date_modified = models.DateTimeField(auto_now=True)
