@@ -2,8 +2,10 @@ import logging
 from datetime import datetime
 from json import dumps
 
-from django.contrib.auth.mixins import LoginRequiredMixin
+from .util import send_markdown_email
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from rest_framework import status, renderers, generics, views
@@ -14,8 +16,6 @@ from .serializers import (CatalogPagination, ModelDocumentationSerializer, NoteS
                           PublicationSerializer, PublicationListSerializer, AuthorCorrespondenceLogSerializer)
 
 logger = logging.getLogger(__name__)
-
-# Rest Framework Views
 
 
 class AuthorUpdateView(views.APIView):
@@ -43,7 +43,14 @@ class AuthorUpdateView(views.APIView):
                 'serializer': serializer,
                 'author_correspondence': acl
             })
-        serializer.save()
+        updated_acl = serializer.save()
+        send_markdown_email(
+            subject=f'[comses.net] model author feedback {updated_acl.code_archive_url}',
+            to=[settings.DEFAULT_FROM_EMAIL],
+            template_name='email/author-feedback.txt',
+            context=dict(publication=updated_acl.publication,
+                         author_correspondence_log=updated_acl),
+        )
         messages.success(request,
                          'Your submission has been received. Thank you for updating your publication metadata!')
         return redirect('/')
