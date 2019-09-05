@@ -1079,11 +1079,13 @@ class CodeArchiveUrl(AbstractLogModel):
     @property
     def code_archive_status(self):
         if self.status == CodeArchiveUrl.STATUS.available and self.category.trusted:
+            # only return ARCHIVED if available and repository is "trusted"
             return CodeArchiveStatus.ARCHIVED
-        elif self.status == CodeArchiveUrl.STATUS.restricted:
-            return CodeArchiveStatus.NOT_IN_ARCHIVE
-        else:
+        elif self.status == CodeArchiveUrl.STATUS.unavailable:
             return CodeArchiveStatus.NOT_AVAILABLE
+        else:
+            # remaining option is (1) restricted access or (2) available but not in a "trusted" repository
+            return CodeArchiveStatus.NOT_IN_ARCHIVE
 
     def check_status(self, patterns, fallback_category):
         url = self.url
