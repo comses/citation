@@ -423,7 +423,8 @@ class AuthorCorrespondenceLog(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     email_delivery_status = models.CharField(max_length=50, choices=DELIVERY_STATUS, default=DELIVERY_STATUS.not_sent)
     author_submitted_url = models.URLField(help_text=_('Code archive URL'), blank=True)
-    author_feedback = models.TextField(help_text=_("Correspondence / feedback / corrections to this metadata record"))
+    author_feedback = models.TextField(help_text=_("Correspondence / feedback / corrections to this metadata record"),
+                                       blank=True)
 
     objects = AuthorCorrespondenceLogQuerySet.as_manager()
 

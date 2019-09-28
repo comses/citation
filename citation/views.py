@@ -45,7 +45,7 @@ class AuthorUpdateView(views.APIView):
             })
         updated_acl = serializer.save()
         send_markdown_email(
-            subject=f'[comses.net] model author feedback {updated_acl.code_archive_url}',
+            subject=f'[comses.net] model author feedback {updated_acl.author_submitted_url}',
             to=[settings.DEFAULT_FROM_EMAIL],
             template_name='email/author-feedback.txt',
             context=dict(publication=updated_acl.publication,
