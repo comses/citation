@@ -269,7 +269,7 @@ def process(entry: Dict, creator: User, duplicate_pk=None):
     detached_authors, unassigned_emails = create_detached_authors(entry)
     detached_raw = create_detached_raw(entry)
 
-    duplicate_publications = detached_publication.duplicates()
+    duplicate_publications = detached_publication.duplicates(container=detached_container)
     publication_already_in_db = len(duplicate_publications) > 0
 
     audit_command = models.AuditCommand(creator=creator, action=models.AuditCommand.Action.MERGE)

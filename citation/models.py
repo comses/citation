@@ -829,15 +829,23 @@ class Publication(AbstractLogModel):
     objects = LogManager.from_queryset(LogQuerySet)()
     api = PublicationQuerySet.as_manager()
 
-    def duplicates(self, query=None, **kwargs):
+    def duplicates(self, query=None, container=None, **kwargs):
+        criteria = (Q(isi=self.isi) & Q(isi__isnull=False)) | \
+                   (Q(doi=self.doi) & Q(doi__isnull=False))
+        container = getattr(self, 'container', container)
+        if container is not None:
+            if container.id is not None:
+                criteria |= (Q(container_id=container.id) &
+                             Q(title__iexact=self.title) &
+                             ~Q(title=''))
+            elif container.issn:
+                criteria |= (Q(container__issn=container.issn) &
+                             Q(title__iexact=self.title) &
+                             ~Q(title=''))
+
         if query is None:
             query = Publication.objects \
-                .filter((Q(isi=self.isi) & Q(isi__isnull=False)) |
-                        (Q(doi=self.doi) & Q(doi__isnull=False)) |
-                        (Q(date_published_text__iexact=self.date_published_text) &
-                         ~Q(date_published_text='') &
-                         Q(title__iexact=self.title) &
-                         ~Q(title=''))) \
+                .filter(criteria) \
                 .exclude(id=self.id)
 
         return query.filter(**kwargs)
