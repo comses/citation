@@ -5,7 +5,7 @@ django-extensions==2.1.6
 django-model-utils==3.1.2
 djangorestframework==3.9.2
 fuzzywuzzy==0.17.0
-lxml==4.6.2
+lxml==4.6.5
 markdown==3.1
 pandas==0.24.2
 psycopg2-binary==2.8.5
