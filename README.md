@@ -1,5 +1,5 @@
 # citation
-[![Build Status](https://travis-ci.org/comses/citation.svg?branch=master)](https://travis-ci.org/comses/citation)
+[![Docker Build CI](https://github.com/comses/citation/actions/workflows/docker-build.yml/badge.svg)](https://github.com/comses/citation/actions/workflows/docker-build.yml)
 [![Coverage Status](https://coveralls.io/repos/github/comses/citation/badge.svg?branch=master)](https://coveralls.io/github/comses/citation?branch=master)
 
 
