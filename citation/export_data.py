@@ -217,7 +217,7 @@ def get_sponsors(publications):
 
 def _create_publication_dummies(publication_related_df: pd.DataFrame, related_df: pd.DataFrame, index_name):
     df = publication_related_df.set_index(index_name).join(related_df)
-    df = pd.get_dummies(df['name'], dtype=np.bool8).set_index(df['publication_id']).groupby(
+    df = pd.get_dummies(df['name'], dtype=bool).set_index(df['publication_id']).groupby(
         'publication_id').any().astype(np.uint8)
     return df
 

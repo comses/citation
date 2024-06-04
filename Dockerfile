@@ -1,4 +1,4 @@
-FROM comses/base
+FROM comses/base:jammy
 
 RUN apt-get update && apt-get install -qq -y libxml2-dev python3-dev python3-pip libxslt1-dev curl git wget \
     && echo "deb http://apt.postgresql.org/pub/repos/apt/ xenial-pgdg main" | tee /etc/apt/sources.list.d/postgresql.list \
