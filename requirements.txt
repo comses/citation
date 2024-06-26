@@ -3,7 +3,7 @@ bleach==3.3.0
 Django>=4.2.14
 django-extensions==2.1.6
 django-model-utils==3.1.2
-djangorestframework==3.11.2
+djangorestframework==3.15.2
 fuzzywuzzy==0.17.0
 lxml==4.9.1
 markdown==3.1
