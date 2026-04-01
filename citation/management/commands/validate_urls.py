@@ -7,7 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help = '''Method that check if the code archived urls are active and working or not '''
+    help = (
+        """Method that check if the code archived urls are active and working or not """
+    )
 
     def handle(self, *args, **options):
         verify_url_status()

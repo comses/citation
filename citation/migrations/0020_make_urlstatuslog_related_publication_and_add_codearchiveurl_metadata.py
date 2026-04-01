@@ -5,35 +5,62 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0019_separate_code_archive_urls_from_publications'),
+        ("citation", "0019_separate_code_archive_urls_from_publications"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='urlstatuslog',
-            name='type',
+            model_name="urlstatuslog",
+            name="type",
         ),
         migrations.AlterField(
-            model_name='codearchiveurl',
-            name='category',
-            field=models.CharField(choices=[('COMSES', 'CoMSES'), ('OPEN SOURCE', 'Open Source'), ('PLATFORM', 'Platform'), ('JOURNAL', 'Journal'), ('PERSONAL', 'Personal'), ('INVALID', 'Invalid'), ('OTHERS', 'Others'), ('', 'Empty')], default='', max_length=100),
+            model_name="codearchiveurl",
+            name="category",
+            field=models.CharField(
+                choices=[
+                    ("COMSES", "CoMSES"),
+                    ("OPEN SOURCE", "Open Source"),
+                    ("PLATFORM", "Platform"),
+                    ("JOURNAL", "Journal"),
+                    ("PERSONAL", "Personal"),
+                    ("INVALID", "Invalid"),
+                    ("OTHERS", "Others"),
+                    ("", "Empty"),
+                ],
+                default="",
+                max_length=100,
+            ),
         ),
         migrations.AlterField(
-            model_name='codearchiveurl',
-            name='publication',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='code_archive_urls', to='citation.Publication'),
+            model_name="codearchiveurl",
+            name="publication",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="code_archive_urls",
+                to="citation.Publication",
+            ),
         ),
         migrations.AlterField(
-            model_name='codearchiveurl',
-            name='status',
-            field=models.CharField(choices=[('available', 'Available'), ('restricted', 'Restricted'), ('unavailable', 'Unavailable')], max_length=100),
+            model_name="codearchiveurl",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("available", "Available"),
+                    ("restricted", "Restricted"),
+                    ("unavailable", "Unavailable"),
+                ],
+                max_length=100,
+            ),
         ),
         migrations.AlterField(
-            model_name='urlstatuslog',
-            name='publication',
-            field=models.ForeignKey(default=-1, on_delete=django.db.models.deletion.PROTECT, to='citation.Publication'),
+            model_name="urlstatuslog",
+            name="publication",
+            field=models.ForeignKey(
+                default=-1,
+                on_delete=django.db.models.deletion.PROTECT,
+                to="citation.Publication",
+            ),
             preserve_default=False,
         ),
     ]

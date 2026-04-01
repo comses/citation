@@ -5,20 +5,33 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0031_update_author_correspondence_help_text'),
+        ("citation", "0031_update_author_correspondence_help_text"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='authorcorrespondencelog',
-            name='status',
-            field=models.CharField(choices=[('NOT_AVAILABLE', 'Code not available'), ('NOT_IN_ARCHIVE', 'Code has an accessible URL but not in a trusted digital repository'), ('ARCHIVED', 'Code is archived in a trusted digital repository')], max_length=64),
+            model_name="authorcorrespondencelog",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("NOT_AVAILABLE", "Code not available"),
+                    (
+                        "NOT_IN_ARCHIVE",
+                        "Code has an accessible URL but not in a trusted digital repository",
+                    ),
+                    ("ARCHIVED", "Code is archived in a trusted digital repository"),
+                ],
+                max_length=64,
+            ),
         ),
         migrations.AlterField(
-            model_name='codearchiveurlpattern',
-            name='category',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='patterns', to='citation.CodeArchiveUrlCategory'),
+            model_name="codearchiveurlpattern",
+            name="category",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="patterns",
+                to="citation.CodeArchiveUrlCategory",
+            ),
         ),
     ]

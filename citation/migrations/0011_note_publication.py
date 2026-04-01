@@ -7,15 +7,19 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0010_make_external_ids_unique'),
+        ("citation", "0010_make_external_ids_unique"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='note',
-            name='publication',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='citation.Publication'),
+            model_name="note",
+            name="publication",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="citation.Publication",
+            ),
         ),
     ]

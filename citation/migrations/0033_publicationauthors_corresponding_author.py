@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0032_added_category_patterns_related_name'),
+        ("citation", "0032_added_category_patterns_related_name"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='publicationauthors',
-            name='corresponding_author',
-            field=models.BooleanField(default=False, help_text='True if this author can be contacted.'),
+            model_name="publicationauthors",
+            name="corresponding_author",
+            field=models.BooleanField(
+                default=False, help_text="True if this author can be contacted."
+            ),
         ),
     ]

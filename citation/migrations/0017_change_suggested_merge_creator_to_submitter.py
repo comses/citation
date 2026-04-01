@@ -5,15 +5,18 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0016_increase_url_status_log_max_url_length'),
+        ("citation", "0016_increase_url_status_log_max_url_length"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='suggestedmerge',
-            name='creator',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='suggested_merge_set', to='citation.Submitter'),
+            model_name="suggestedmerge",
+            name="creator",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="suggested_merge_set",
+                to="citation.Submitter",
+            ),
         ),
     ]

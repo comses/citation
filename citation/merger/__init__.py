@@ -10,7 +10,8 @@ from citation import models
 logger = logging.getLogger(__name__)
 
 
-class MergeError(ValueError): pass
+class MergeError(ValueError):
+    pass
 
 
 class AuthoritativeAuthorValidationMessage:
@@ -29,9 +30,11 @@ class AuthoritativeAuthorValidationMessage:
             {}
 
             All publications:
-            {}""")
-        return template.format(self._str_items(self.additional),
-                               self._str_items(self.all))
+            {}"""
+        )
+        return template.format(
+            self._str_items(self.additional), self._str_items(self.all)
+        )
 
 
 class AuthoritativeCodeArchiveUrlMergeGroupSet:
@@ -46,16 +49,20 @@ class AuthoritativeCodeArchiveUrlMergeGroupSet:
         self.others = others
 
     def merge(self, audit_command: models.AuditCommand):
-        urls = self.final.code_archive_urls.values_list('url', flat=True)
-        logger.debug('original urls %s', list(urls))
+        urls = self.final.code_archive_urls.values_list("url", flat=True)
+        logger.debug("original urls %s", list(urls))
 
         other_urls = models.CodeArchiveUrl.objects.filter(publication__in=self.others)
         urls_to_move = other_urls.exclude(url__in=urls)
-        logger.debug('moving urls %s', [cau.url for cau in urls_to_move])
-        urls_to_move.log_update(audit_command=audit_command, publication_id=self.final.id)
+        logger.debug("moving urls %s", [cau.url for cau in urls_to_move])
+        urls_to_move.log_update(
+            audit_command=audit_command, publication_id=self.final.id
+        )
 
         urls_to_discard = other_urls.filter(url__in=urls)
-        logger.debug('discarding_duplicate urls %s', [cau.url for cau in urls_to_discard])
+        logger.debug(
+            "discarding_duplicate urls %s", [cau.url for cau in urls_to_discard]
+        )
         urls_to_discard.log_delete(audit_command=audit_command)
 
 
@@ -82,11 +89,12 @@ class AuthoritativeAuthorMergeGroupSet:
 
     def __repr__(self):
         return "{}(final={}, others={})".format(
-            self.__class__.__name__, repr(self.final), repr(self.others))
+            self.__class__.__name__, repr(self.final), repr(self.others)
+        )
 
     @property
     def errors(self):
-        assert hasattr(self, '_is_valid')
+        assert hasattr(self, "_is_valid")
         assert not self._is_valid
         return self._errors
 
@@ -100,20 +108,24 @@ class AuthoritativeAuthorMergeGroupSet:
             for author in publication.creators.all():
                 author_publications = set(author.publications.all())
                 if not all_publications.issuperset(author_publications):
-                    outside_merge_group.update(author_publications.difference(all_publications))
+                    outside_merge_group.update(
+                        author_publications.difference(all_publications)
+                    )
 
-        self._errors = AuthoritativeAuthorValidationMessage(additional=outside_merge_group, all=all_publications)
+        self._errors = AuthoritativeAuthorValidationMessage(
+            additional=outside_merge_group, all=all_publications
+        )
 
     def is_valid(self):
         """Ensure that authors do not point to any publications outside of the merge group"""
-        if hasattr(self, '_is_valid'):
+        if hasattr(self, "_is_valid"):
             return self._is_valid
 
         self._is_valid = True
         return self._is_valid
 
     def merge(self, audit_command, force=False):
-        assert hasattr(self, '_is_valid')
+        assert hasattr(self, "_is_valid")
         if not force:
             assert self._is_valid
 
@@ -126,7 +138,9 @@ class AuthoritativeAuthorMergeGroupSet:
                     author.author_aliases.all().log_delete(audit_command=audit_command)
                     author.log_delete(audit_command=audit_command)
                 else:
-                    models.PublicationAuthors.objects.filter(author=author).log_delete(audit_command=audit_command)
+                    models.PublicationAuthors.objects.filter(author=author).log_delete(
+                        audit_command=audit_command
+                    )
 
 
 class AuthorMergeGroup:
@@ -139,7 +153,9 @@ class AuthorMergeGroup:
         return len(self.others) + 1
 
     def __repr__(self):
-        return "{}(final={}, others={})".format(self.__class__.__name__, repr(self.final), repr(self.others))
+        return "{}(final={}, others={})".format(
+            self.__class__.__name__, repr(self.final), repr(self.others)
+        )
 
     def __str__(self):
         pass
@@ -163,7 +179,9 @@ class AuthorMergeGroup:
             for publication in other.publications.all():
                 all_publications[publication].add(other)
                 if len(all_publications[publication]) > 1:
-                    invalidated_publications[publication] = all_publications[publication]
+                    invalidated_publications[publication] = all_publications[
+                        publication
+                    ]
 
         return invalidated_publications
 
@@ -175,13 +193,13 @@ class AuthorMergeGroup:
         1. An author set that is being merged into one author should have ensure that all author in the set of part of
           distinct publications
         """
-        if hasattr(self, '_is_valid'):
+        if hasattr(self, "_is_valid"):
             return self._is_valid
 
         self._errors = {}
         relationship_error = self.validate_publication_relationships()
         if relationship_error:
-            self._errors['relationship'] = relationship_error
+            self._errors["relationship"] = relationship_error
 
         self._is_valid = not bool(self._errors)
 
@@ -189,7 +207,7 @@ class AuthorMergeGroup:
 
     @property
     def errors(self):
-        assert hasattr(self, '_is_valid')
+        assert hasattr(self, "_is_valid")
         assert not self._is_valid
         return self._errors
 
@@ -197,37 +215,43 @@ class AuthorMergeGroup:
         """
         Merges a group of authors into a single author and many author aliases
         """
-        assert hasattr(self, '_is_valid')
+        assert hasattr(self, "_is_valid")
         if not force:
             assert self._is_valid
 
         for other in self.others:
-            if other.family_name != self.final.family_name or \
-                    other.given_name != self.final.given_name:
+            if (
+                other.family_name != self.final.family_name
+                or other.given_name != self.final.given_name
+            ):
                 models.AuthorAlias.objects.log_get_or_create(
                     audit_command=audit_command,
                     author_id=self.final.id,
                     given_name=other.given_name,
-                    family_name=other.family_name)
+                    family_name=other.family_name,
+                )
 
             author_aliases = other.author_aliases.all()
             for author_alias in author_aliases:
                 if not models.AuthorAlias.objects.filter(
-                        given_name=author_alias.given_name,
-                        family_name=author_alias.family_name,
-                        author=self.final).exists():
-                    author_alias.log_update(audit_command=audit_command, author_id=self.final.id)
+                    given_name=author_alias.given_name,
+                    family_name=author_alias.family_name,
+                    author=self.final,
+                ).exists():
+                    author_alias.log_update(
+                        audit_command=audit_command, author_id=self.final.id
+                    )
                 else:
                     author_alias.log_delete(audit_command=audit_command)
 
             changes = {}
-            for field in ['orcid', 'given_name', 'family_name']:
+            for field in ["orcid", "given_name", "family_name"]:
                 if not getattr(self.final, field):
                     changes[field] = getattr(other, field)
 
             models.RawAuthors.objects.filter(author=other).exclude(
-                raw__in=models.Raw.objects.filter(authors__in=[self.final])).log_update(
-                audit_command=audit_command, author_id=self.final.id)
+                raw__in=models.Raw.objects.filter(authors__in=[self.final])
+            ).log_update(audit_command=audit_command, author_id=self.final.id)
             other.log_delete(audit_command=audit_command)
             self.final.log_update(audit_command=audit_command, **changes)
 
@@ -239,7 +263,7 @@ class ContainerMergerValidationMessage:
 
     @staticmethod
     def _str_item(item):
-        return textwrap.indent(str(item), '\t')
+        return textwrap.indent(str(item), "\t")
 
     def __str__(self):
         issns = self._str_item(self.issns)
@@ -248,14 +272,15 @@ class ContainerMergerValidationMessage:
             """
             Multiple ISSNs in container merge: {}
 
-            {}""")
+            {}"""
+        )
         return template.format(issns, containers)
 
 
 class ContainerMergeGroup:
     def __init__(self, final: models.Container, others: Set[models.Container]):
-        logger.debug('merge group container: %s (%s)', final.name, final.issn)
-        logger.debug('merger group container: %s', [o.issn for o in others])
+        logger.debug("merge group container: %s (%s)", final.name, final.issn)
+        logger.debug("merger group container: %s", [o.issn for o in others])
         self.final = final
         others.discard(final)
         self.others = others
@@ -264,7 +289,9 @@ class ContainerMergeGroup:
         return len(self.others) + 1
 
     def __repr__(self):
-        return "{}(final={}, others={})".format(self.__class__.__name__, repr(self.final), repr(self.others))
+        return "{}(final={}, others={})".format(
+            self.__class__.__name__, repr(self.final), repr(self.others)
+        )
 
     @classmethod
     def from_list(cls, containers):
@@ -285,59 +312,75 @@ class ContainerMergeGroup:
         containers = self.others.copy()
         containers.add(self.final)
 
-        self._errors = ContainerMergerValidationMessage(containers=containers,
-                                                        issns=issns) if len(issns) > 1 else None
+        self._errors = (
+            ContainerMergerValidationMessage(containers=containers, issns=issns)
+            if len(issns) > 1
+            else None
+        )
         logger.warning(self._errors)
         self._is_valid = True
         return self._is_valid
 
     @property
     def errors(self):
-        assert hasattr(self, '_is_valid')
+        assert hasattr(self, "_is_valid")
         assert not self._is_valid
         return self._errors
 
     def merge(self, audit_command: models.AuditCommand, force=False):
-        assert hasattr(self, '_is_valid')
+        assert hasattr(self, "_is_valid")
         if not force:
             assert self._is_valid
 
         final_container = self.final
         other_containers = self.others
 
-        models.Publication.objects.filter(container__in=other_containers).log_update(audit_command=audit_command,
-                                                                                     container_id=final_container.id)
+        models.Publication.objects.filter(container__in=other_containers).log_update(
+            audit_command=audit_command, container_id=final_container.id
+        )
         for other_container in other_containers:
             if other_container.name != final_container.name:
                 models.ContainerAlias.objects.log_get_or_create(
                     audit_command=audit_command,
                     container_id=final_container.id,
-                    name=other_container.name)
+                    name=other_container.name,
+                )
 
             container_aliases = other_container.container_aliases.all()
             for container_alias in container_aliases:
                 if not models.ContainerAlias.objects.filter(
-                        container=final_container,
-                        name=container_alias.name).exists():
-                    container_alias.log_update(audit_command=audit_command, container_id=final_container.id)
+                    container=final_container, name=container_alias.name
+                ).exists():
+                    container_alias.log_update(
+                        audit_command=audit_command, container_id=final_container.id
+                    )
                 else:
                     container_alias.log_delete(audit_command=audit_command)
 
             changes = {}
-            for field in ['issn']:
+            for field in ["issn"]:
                 if not getattr(final_container, field):
                     changes[field] = getattr(other_container, field)
 
             models.Raw.objects.filter(container=other_container).exclude(
-                id__in=models.Raw.objects.filter(container=final_container)).log_update(
-                audit_command=audit_command, container_id=final_container.id)
+                id__in=models.Raw.objects.filter(container=final_container)
+            ).log_update(audit_command=audit_command, container_id=final_container.id)
             other_container.log_delete(audit_command=audit_command)
             final_container.log_update(audit_command=audit_command, **changes)
 
 
 class PublicationMergeValidationMessage:
-    def __init__(self, final, others, citation_errors, author_errors, container_errors,
-                 publication_errors, publication_author_errors, publication_container_errors):
+    def __init__(
+        self,
+        final,
+        others,
+        citation_errors,
+        author_errors,
+        container_errors,
+        publication_errors,
+        publication_author_errors,
+        publication_container_errors,
+    ):
         self.final = final
         self.others = others
         self.citation_errors = citation_errors
@@ -349,7 +392,7 @@ class PublicationMergeValidationMessage:
 
     @staticmethod
     def _str_item(item):
-        return textwrap.indent(str(item), '\t')
+        return textwrap.indent(str(item), "\t")
 
     def recompute(self):
         final = models.Publication.objects.get(id=self.final.id)
@@ -363,15 +406,25 @@ class PublicationMergeValidationMessage:
 
     @property
     def authors(self):
-        return models.Author.objects.filter(Q(publications__in=self.others) | Q(publications=self.final))
+        return models.Author.objects.filter(
+            Q(publications__in=self.others) | Q(publications=self.final)
+        )
 
     @property
     def containers(self):
-        return models.Container.objects.filter(Q(publications__in=self.others) | Q(publications=self.final))
+        return models.Container.objects.filter(
+            Q(publications__in=self.others) | Q(publications=self.final)
+        )
 
     def __bool__(self):
-        return bool(self.citation_errors) or bool(self.container_errors) or bool(self.publication_errors) or bool(
-            self.publication_container_errors) or bool(self.author_errors) or bool(self.publication_author_errors)
+        return (
+            bool(self.citation_errors)
+            or bool(self.container_errors)
+            or bool(self.publication_errors)
+            or bool(self.publication_container_errors)
+            or bool(self.author_errors)
+            or bool(self.publication_author_errors)
+        )
 
     def __str__(self):
         citation_errors = self._str_item(self.citation_errors)
@@ -401,7 +454,8 @@ class PublicationMergeValidationMessage:
 
                 Container Publication Errors
             {}
-            """)
+            """
+        )
 
         return template.format(
             str(self.publication_errors),
@@ -409,7 +463,8 @@ class PublicationMergeValidationMessage:
             author_errors,
             publication_author_errors,
             container_errors,
-            publication_container_errors)
+            publication_container_errors,
+        )
 
 
 class CitationCountMessage:
@@ -436,13 +491,18 @@ class CitationCountMessage:
 
     @staticmethod
     def _str_publications(publications):
-        return "\n".join("\t\t- {}".format(str(publication)) for publication in publications)
+        return "\n".join(
+            "\t\t- {}".format(str(publication)) for publication in publications
+        )
 
     def __str__(self):
         if self.__bool__():
-            return "\n".join("\tCitation Count {}:\n{}" \
-                             .format(citation_count, self._str_publications(publications))
-                             for citation_count, publications in self.citation_count_dict.items())
+            return "\n".join(
+                "\tCitation Count {}:\n{}".format(
+                    citation_count, self._str_publications(publications)
+                )
+                for citation_count, publications in self.citation_count_dict.items()
+            )
         else:
             return str(None)
 
@@ -473,25 +533,32 @@ class PublicationMergeGroup:
         self.final = final
         others.discard(final)
         self.others = others
-        self._errors = PublicationMergeValidationMessage(final=final,
-                                                         others=others,
-                                                         citation_errors=None,
-                                                         author_errors=None,
-                                                         container_errors=None,
-                                                         publication_errors=None,
-                                                         publication_author_errors=None,
-                                                         publication_container_errors=None)
+        self._errors = PublicationMergeValidationMessage(
+            final=final,
+            others=others,
+            citation_errors=None,
+            author_errors=None,
+            container_errors=None,
+            publication_errors=None,
+            publication_author_errors=None,
+            publication_container_errors=None,
+        )
 
         self.container_merge_group = self.create_container_merge_group()
         self.author_merge_group_set = self.create_authoritive_author_merge_group_set()
-        self.code_archive_url_merge_group_set = AuthoritativeCodeArchiveUrlMergeGroupSet(final=self.final,
-                                                                                         others=self.others)
+        self.code_archive_url_merge_group_set = (
+            AuthoritativeCodeArchiveUrlMergeGroupSet(
+                final=self.final, others=self.others
+            )
+        )
 
     def __len__(self):
         return len(self.others) + 1
 
     def __repr__(self):
-        return "{}(final={}, others={})".format(self.__class__.__name__, repr(self.final), repr(self.others))
+        return "{}(final={}, others={})".format(
+            self.__class__.__name__, repr(self.final), repr(self.others)
+        )
 
     def __str__(self):
         template = textwrap.dedent(
@@ -501,7 +568,8 @@ class PublicationMergeGroup:
 
             Other Publications:
             {}
-            """)
+            """
+        )
         other_strs = "\n".join(" - " + str(other) for other in self.others)
         return template.format(" - " + str(self.final), other_strs)
 
@@ -530,7 +598,9 @@ class PublicationMergeGroup:
         new_others.add(self.final)
         return PublicationMergeGroup(final=new_final, others=new_others)
 
-    def create_authoritive_author_merge_group_set(self) -> AuthoritativeAuthorMergeGroupSet:
+    def create_authoritive_author_merge_group_set(
+        self,
+    ) -> AuthoritativeAuthorMergeGroupSet:
         """Create Author merge groups ignoring non authoritative others"""
         return AuthoritativeAuthorMergeGroupSet(final=self.final, others=self.others)
 
@@ -546,12 +616,18 @@ class PublicationMergeGroup:
 
         return authors
 
-    def create_container_merge_group(self, final_container=None, other_containers=None) -> ContainerMergeGroup:
+    def create_container_merge_group(
+        self, final_container=None, other_containers=None
+    ) -> ContainerMergeGroup:
         if final_container is None and other_containers is None:
             final_container = self.final.container
             other_containers = set(other.container for other in self.others)
 
-        logger.debug('final issn: %s, other issns: %s', final_container.issn, [o.issn for o in other_containers])
+        logger.debug(
+            "final issn: %s, other issns: %s",
+            final_container.issn,
+            [o.issn for o in other_containers],
+        )
         return ContainerMergeGroup(final=final_container, others=other_containers)
 
     def all_containers(self):
@@ -567,11 +643,16 @@ class PublicationMergeGroup:
 
         valid = all_containers_in_merge_group == all_containers
         if not valid:
-            additional_containers = all_containers_in_merge_group.difference(all_containers)
-            missing_containers = all_containers.difference(all_containers_in_merge_group)
+            additional_containers = all_containers_in_merge_group.difference(
+                all_containers
+            )
+            missing_containers = all_containers.difference(
+                all_containers_in_merge_group
+            )
             self._errors.publication_container_errors = {
-                'additional': additional_containers,
-                'missing': missing_containers}
+                "additional": additional_containers,
+                "missing": missing_containers,
+            }
 
         return valid
 
@@ -585,18 +666,23 @@ class PublicationMergeGroup:
             for referenced_by in other.referenced_by.all():
                 referenced_publications[referenced_by] += 1
 
-        problematic_references = set(p for p, v in referenced_publications.items() if v > 1)
+        problematic_references = set(
+            p for p, v in referenced_publications.items() if v > 1
+        )
         self._errors.publication_errors = ReferencedByMessage(problematic_references)
         return bool(self._errors.publication_errors)
 
     def move_citations(self, audit_command):
-        models.PublicationCitations.objects.filter(citation__in=self.others) \
-            .exclude(publication__in=models.PublicationCitations.objects
-                     .filter(citation=self.final).values_list('publication', flat=True)) \
-            .log_update(audit_command, citation_id=self.final.id)
+        models.PublicationCitations.objects.filter(citation__in=self.others).exclude(
+            publication__in=models.PublicationCitations.objects.filter(
+                citation=self.final
+            ).values_list("publication", flat=True)
+        ).log_update(audit_command, citation_id=self.final.id)
 
         if not self.final.citations.exists():
-            logger.debug('final has no citations... trying to find other publication with citations')
+            logger.debug(
+                "final has no citations... trying to find other publication with citations"
+            )
             max_other_count = 0
             max_other = None
             for other in self.others:
@@ -605,19 +691,22 @@ class PublicationMergeGroup:
                     max_other = other
                     max_other_count = count
             if max_other:
-                logger.debug('other with citations found: %s', max_other)
-                models.PublicationCitations.objects.filter(publication=max_other) \
-                    .log_update(audit_command, publication_id=self.final.id)
+                logger.debug("other with citations found: %s", max_other)
+                models.PublicationCitations.objects.filter(
+                    publication=max_other
+                ).log_update(audit_command, publication_id=self.final.id)
             else:
-                logger.debug('other with citation not found')
+                logger.debug("other with citation not found")
 
     def is_valid(self):
-        if hasattr(self, '_is_valid'):
+        if hasattr(self, "_is_valid"):
             return self._is_valid
 
         valid = True
 
-        self._errors.citation_errors = CitationCountMessage.from_merge_group(final=self.final, others=self.others)
+        self._errors.citation_errors = CitationCountMessage.from_merge_group(
+            final=self.final, others=self.others
+        )
         self.is_valid_each_referenced_by_distinct()
 
         if not self.container_merge_group.is_valid():
@@ -635,21 +724,26 @@ class PublicationMergeGroup:
         return self._is_valid
 
     def _delete_deletable_citations(self, other: models.Publication, audit_command):
-        deletable_citations = other.citations.annotate(n_referenced_by=Count('referenced_by')) \
-            .filter(is_primary=False, n_referenced_by=1)
-        models.Raw.objects.filter(publication__in=deletable_citations).log_delete(audit_command=audit_command)
+        deletable_citations = other.citations.annotate(
+            n_referenced_by=Count("referenced_by")
+        ).filter(is_primary=False, n_referenced_by=1)
+        models.Raw.objects.filter(publication__in=deletable_citations).log_delete(
+            audit_command=audit_command
+        )
         deletable_citations.log_delete(audit_command=audit_command)
 
     @property
     def errors(self):
-        assert hasattr(self, '_is_valid'), 'Must call "is_valid()" method before finding errors'
-        assert not self._is_valid, 'PublicationMergeGroup is valid. Must be invalid to have errors'
+        assert hasattr(self, "_is_valid"), (
+            'Must call "is_valid()" method before finding errors'
+        )
+        assert not self._is_valid, (
+            "PublicationMergeGroup is valid. Must be invalid to have errors"
+        )
 
         return self._errors
 
-    def merge(self,
-              audit_command: models.AuditCommand,
-              force=False):
+    def merge(self, audit_command: models.AuditCommand, force=False):
         """
         Merge publications into one final publication
 
@@ -659,37 +753,42 @@ class PublicationMergeGroup:
         other publication
         """
 
-        assert hasattr(self, '_is_valid'), 'Must call "is_valid()" method before calling merge'
+        assert hasattr(self, "_is_valid"), (
+            'Must call "is_valid()" method before calling merge'
+        )
         if not force:
-            assert self._is_valid, 'PublicationMergeGroup is not valid. Must be valid to merge'
+            assert self._is_valid, (
+                "PublicationMergeGroup is not valid. Must be valid to merge"
+            )
 
         self.author_merge_group_set.merge(audit_command=audit_command, force=force)
         self.container_merge_group.merge(audit_command=audit_command, force=force)
         self.code_archive_url_merge_group_set.merge(audit_command=audit_command)
         self.move_citations(audit_command)
 
-        models.Raw.objects \
-            .filter(publication__in=self.others) \
-            .log_update(audit_command=audit_command, publication_id=self.final.id)
+        models.Raw.objects.filter(publication__in=self.others).log_update(
+            audit_command=audit_command, publication_id=self.final.id
+        )
 
         changes = {}
         for publication in self.others:
-            for field in ['date_published_text', 'title', 'doi', 'abstract', 'isi']:
+            for field in ["date_published_text", "title", "doi", "abstract", "isi"]:
                 if not getattr(self.final, field):
                     changes[field] = getattr(publication, field)
 
         for other in self.others:
             self._delete_deletable_citations(other, audit_command)
 
-        models.Publication.objects.filter(id__in=[other.id for other in self.others]) \
-            .log_delete(audit_command)
+        models.Publication.objects.filter(
+            id__in=[other.id for other in self.others]
+        ).log_delete(audit_command)
         self.final.log_update(audit_command, **changes)
 
 
 MERGE_GROUPS = {
     models.Publication: PublicationMergeGroup,
     models.Author: AuthorMergeGroup,
-    models.Container: ContainerMergeGroup
+    models.Container: ContainerMergeGroup,
 }
 
 
@@ -710,7 +809,7 @@ def augment_container(final_container, other_container, audit_command):
     """Augment final_container missing values with values from other container"""
     merge(final_container, other_container, audit_command)
     changes = {}
-    for field in ['issn', 'eissn', 'type', 'name']:
+    for field in ["issn", "eissn", "type", "name"]:
         if not getattr(final_container, field) and getattr(other_container, field):
             changes[field] = getattr(other_container, field)
     final_container.log_update(audit_command=audit_command, **changes)
@@ -719,11 +818,19 @@ def augment_container(final_container, other_container, audit_command):
 def augment_publication(final_publication, other_publication, audit_command):
     merge(final_publication, other_publication, audit_command)
     changes = {}
-    for field in ['title', 'abstract', 'date_published_text', 'doi', 'isi', 'volume', 'pages']:
+    for field in [
+        "title",
+        "abstract",
+        "date_published_text",
+        "doi",
+        "isi",
+        "volume",
+        "pages",
+    ]:
         if not getattr(final_publication, field) and getattr(other_publication, field):
             changes[field] = getattr(other_publication, field)
     if not final_publication.is_primary and other_publication.is_primary:
-        changes['is_primary'] = True
+        changes["is_primary"] = True
 
     final_publication.log_update(audit_command=audit_command, **changes)
 
@@ -731,7 +838,7 @@ def augment_publication(final_publication, other_publication, audit_command):
 def augment_author(final_author, other_author, audit_command):
     merge(final_author, other_author, audit_command)
     changes = {}
-    for field in ['given_name', 'family_name', 'orcid', 'researcherid', 'email']:
+    for field in ["given_name", "family_name", "orcid", "researcherid", "email"]:
         if not getattr(final_author, field) and getattr(other_author, field):
             changes[field] = getattr(other_author, field)
 

@@ -7,8 +7,13 @@ from .. import common
 from ... import models
 
 
-def process(publication: models.Publication, response_json: Dict, key: str, value: Dict,
-            audit_command: models.AuditCommand):
+def process(
+    publication: models.Publication,
+    response_json: Dict,
+    key: str,
+    value: Dict,
+    audit_command: models.AuditCommand,
+):
     raw = models.Raw(key=key, value=value)
     if response_json:
         item_json = common.get_message(response_json)
@@ -17,16 +22,22 @@ def process(publication: models.Publication, response_json: Dict, key: str, valu
             date_published_text=str(common.get_year(item_json)),
             doi=common.get_doi(item_json),
             is_primary=False,
-            added_by=audit_command.creator)
-        author_author_alias_pairs = common.make_author_author_alias_pairs(new_publication, item_json, create=False)
-        container_container_alias_pair = common.make_container_container_alias_pair(new_publication, item_json,
-                                                                                    create=False)
+            added_by=audit_command.creator,
+        )
+        author_author_alias_pairs = common.make_author_author_alias_pairs(
+            new_publication, item_json, create=False
+        )
+        container_container_alias_pair = common.make_container_container_alias_pair(
+            new_publication, item_json, create=False
+        )
 
-        detached_publication = common.DetachedPublication(publication=new_publication,
-                                                          author_author_alias_pairs=author_author_alias_pairs,
-                                                          container_container_alias_pair=container_container_alias_pair,
-                                                          raw=raw,
-                                                          audit_command=audit_command)
+        detached_publication = common.DetachedPublication(
+            publication=new_publication,
+            author_author_alias_pairs=author_author_alias_pairs,
+            container_container_alias_pair=container_container_alias_pair,
+            raw=raw,
+            audit_command=audit_command,
+        )
         detached_publication.attach_to(publication.id, None)
     return publication
 
@@ -56,8 +67,7 @@ def augment_publications(user: User, limit=None):
     Precondition: publications DOIs have been deduped
     """
 
-    sql = \
-        """
+    sql = """
         SELECT pubs.id, doi
         FROM citation_publication AS pubs
         WHERE doi <> '' AND (title = '' OR abstract = '' OR pubs.date_published_text = '')
@@ -70,9 +80,10 @@ def augment_publications(user: User, limit=None):
 
     publications = models.Publication.objects.raw(sql)
 
-    for (ind, publication) in enumerate(publications):
+    for ind, publication in enumerate(publications):
         audit_command = models.AuditCommand.objects.create(
-            creator=user, action="augment with crossref doi lookup")
+            creator=user, action="augment with crossref doi lookup"
+        )
         print("{} {}".format(ind, str(publication)))
         other_publication = update(publication, audit_command)
         if isinstance(other_publication, models.Publication):

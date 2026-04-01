@@ -7,41 +7,80 @@ import uuid
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('citation', '0026_replace_string_category_with_foreign_key'),
+        ("citation", "0026_replace_string_category_with_foreign_key"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='AuthorCorrespondenceLog',
+            name="AuthorCorrespondenceLog",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('date_created', models.DateTimeField(auto_now=True)),
-                ('date_responded', models.DateTimeField(null=True)),
-                ('status', models.CharField(choices=[('NOT_AVAILABLE', 'Code not available'), ('NOT_IN_ARCHIVE', 'Code has a currently active URL but not in a trusted digital repository'), ('ARCHIVED', 'Code available in archive')], max_length=64)),
-                ('content', models.TextField(blank=True)),
-                ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True)),
-                ('email_delivery_status', models.CharField(max_length=50)),
-                ('author_submitted_url', models.URLField(blank=True, help_text='Code archive URL')),
-                ('author_feedback', models.TextField(help_text='Correspondence / feedback for comses.net')),
-                ('curator', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("date_created", models.DateTimeField(auto_now=True)),
+                ("date_responded", models.DateTimeField(null=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("NOT_AVAILABLE", "Code not available"),
+                            (
+                                "NOT_IN_ARCHIVE",
+                                "Code has a currently active URL but not in a trusted digital repository",
+                            ),
+                            ("ARCHIVED", "Code available in archive"),
+                        ],
+                        max_length=64,
+                    ),
+                ),
+                ("content", models.TextField(blank=True)),
+                (
+                    "uuid",
+                    models.UUIDField(default=uuid.uuid4, editable=False, unique=True),
+                ),
+                ("email_delivery_status", models.CharField(max_length=50)),
+                (
+                    "author_submitted_url",
+                    models.URLField(blank=True, help_text="Code archive URL"),
+                ),
+                (
+                    "author_feedback",
+                    models.TextField(
+                        help_text="Correspondence / feedback for comses.net"
+                    ),
+                ),
+                (
+                    "curator",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
         migrations.RemoveField(
-            model_name='publication',
-            name='code_archive_url',
+            model_name="publication",
+            name="code_archive_url",
         ),
         migrations.DeleteModel(
-            name='AuthorCorrespondence',
+            name="AuthorCorrespondence",
         ),
         migrations.DeleteModel(
-            name='AuthorCorrespondenceTemplate',
+            name="AuthorCorrespondenceTemplate",
         ),
         migrations.AddField(
-            model_name='authorcorrespondencelog',
-            name='publication',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='citation.Publication'),
+            model_name="authorcorrespondencelog",
+            name="publication",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT, to="citation.Publication"
+            ),
         ),
     ]
