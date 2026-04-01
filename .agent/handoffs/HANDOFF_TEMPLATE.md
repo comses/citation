@@ -25,5 +25,5 @@
 ## Continue With (Container Commands)
 
 ```bash
-docker-compose run --rm test <command>
+docker compose run --rm test <command>
 ```

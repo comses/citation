@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 COMPOSE ?= docker compose
 
-.PHONY: build clean up test
+.PHONY: build clean lock up test
 
 build:
 	$(COMPOSE) build
@@ -12,6 +12,9 @@ up: build
 
 clean:
 	$(COMPOSE) down --volumes --remove-orphans
+
+lock:
+	$(COMPOSE) run --rm test uv lock
 
 test: build
 	$(COMPOSE) up -d db

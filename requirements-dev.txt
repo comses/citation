@@ -1,6 +1,0 @@
--r requirements.txt
-# dev requirements
-coveralls
-coverage
-ipython
-sphinx

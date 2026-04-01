@@ -32,7 +32,7 @@ Examples:
 ## Runtime and Dependency Notes
 
 - Runtime baseline: Python 3.12, Django 5.2 LTS, PostgreSQL 18.
-- Runtime dependency pinning is maintained in `requirements.txt` and `requirements-dev.txt`.
+- Runtime dependency declarations are maintained in `pyproject.toml`; generate and commit `uv.lock` for fully reproducible locked installs.
 - The container build is defined by `Dockerfile`; compose topology comes from `docker-compose.yml.template` and generated `docker-compose.yml`.
 - Compose readiness is expressed with a PostgreSQL healthcheck and `depends_on`, not ad hoc wait scripts.
 - CI/CD and local usage patterns are Docker-first.

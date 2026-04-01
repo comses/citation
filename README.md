@@ -10,6 +10,7 @@ Current local runtime baseline:
 - Django 5.2 LTS
 - PostgreSQL 18
 - Docker Compose managed services with DB healthchecks
+- Dependencies managed with `uv` via `pyproject.toml` (with optional `uv.lock` for fully locked installs)
 
 ## Documentation
 
@@ -34,6 +35,19 @@ docker compose run --rm test python -m django check
 docker compose run --rm test python -m django makemigrations --check --dry-run
 docker compose run --rm test ./run_tests.py
 ```
+
+## Dependency management (uv)
+
+The project uses `uv` with PEP 621 metadata in `pyproject.toml`.
+
+When dependencies change:
+
+```
+uv lock
+```
+
+Container builds install dependencies with `uv sync`.
+For reproducibility, generate and commit `uv.lock` via `make lock`.
 
 ## Create schema or data migrations
 
