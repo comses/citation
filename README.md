@@ -49,6 +49,24 @@ uv lock
 Container builds install dependencies with `uv sync`.
 For reproducibility, generate and commit `uv.lock` via `make lock`.
 
+## Publish to PyPI
+
+Use the Make target to build and publish from the `test` container:
+
+```
+PYPI_TOKEN=<pypi-token> make publish
+```
+
+Optional configuration:
+
+```
+PYPI_TOKEN=<pypi-token> PYPI_ORG=<organization> PYPI_REPOSITORY=<index> make publish
+```
+
+Defaults:
+- `PYPI_ORG=comses`
+- `PYPI_REPOSITORY=pypi`
+
 ## Create schema or data migrations
 
 ```
