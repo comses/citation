@@ -1,3 +1,26 @@
 .git
 *~
 citation.egg-info
+
+# Python caches and local envs
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Tool caches and reports
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local editor and agent artifacts
+.vscode/
+.idea/
+.agent/

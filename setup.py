@@ -40,7 +40,6 @@ setup(name='citation',
           'pandas'
       ],
       test_requires=[
-          'django-autofixture',
           'coverage',
           'python-coveralls',
       ],

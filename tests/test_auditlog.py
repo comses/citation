@@ -1,4 +1,3 @@
-from autofixture import AutoFixture
 from citation import models
 from django.contrib.auth.models import User
 from django.db.models import Max
@@ -17,7 +16,12 @@ class TestModelManagers(TestCase):
             creator=cls.user, action=models.AuditCommand.Action.MANUAL)
         cls.second_context = models.AuditCommand.objects.create(
             creator=cls.second_user, action=models.AuditCommand.Action.MANUAL)
-        cls.publication = AutoFixture(models.Publication, generate_fk=['container']).create(1)
+        cls.container = models.Container.objects.create(name='Test Container')
+        cls.publication = models.Publication.objects.create(
+            title='Test Publication',
+            added_by=cls.user,
+            container=cls.container,
+        )
 
     @staticmethod
     def to_dict(instance):

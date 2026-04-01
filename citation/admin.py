@@ -3,7 +3,7 @@ from django.contrib import admin
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.auth.models import User
 from django.db.models import OuterRef, Exists
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from .models import (Author, AuditCommand, CodeArchiveUrl, Container,
                      ModelDocumentation, Note,

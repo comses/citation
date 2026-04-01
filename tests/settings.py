@@ -28,7 +28,7 @@ def get_secret(setting, secrets=secrets):
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'ENGINE': 'django.db.backends.postgresql',
         'USER': get_secret('DB_USER'),
         'PASSWORD': get_secret('DB_PASSWORD'),
         'NAME': get_secret('DB_NAME'),

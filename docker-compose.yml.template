@@ -1,15 +1,21 @@
-version: '3'
 services:
   ${DB_CONTAINER_NAME}:
-    image: postgres:10
+    image: postgres:18
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
   test:
     build: ./
     image: comses/citation
-    links:
-      - ${DB_CONTAINER_NAME}
+    depends_on:
+      ${DB_CONTAINER_NAME}:
+        condition: service_healthy
     volumes:
       - .:/code

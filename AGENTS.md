@@ -6,17 +6,18 @@ All other assistant-specific instruction files must defer to this document.
 
 ## Command Execution Policy (Required)
 
-- Run all codebase commands inside the project container.
-- Preferred pattern: `docker-compose run --rm test <command>`.
+- Run all codebase commands inside the project container, either through the root `Makefile` or direct `docker compose` invocations.
+- Preferred operator flow for standard lifecycle commands: `make clean`, `make build`, `make up`, `make test`.
+- Preferred pattern for one-off commands: `docker compose run --rm test <command>`.
 - Do not run project Python tooling directly on the host machine.
 
 Bootstrap note:
 - If `docker-compose.yml` does not exist yet, run `./build.sh` once to generate config from templates.
 
 Examples:
-- Run tests: `docker-compose run --rm test ./run_tests.py`
-- Create migrations: `docker-compose run --rm test /code/make_migrations.py -n <migration_name>`
-- Django management command: `docker-compose run --rm test python -m django <args>`
+- Run tests: `make test` or `docker compose run --rm test ./run_tests.py`
+- Create migrations: `docker compose run --rm test /code/make_migrations.py -n <migration_name>`
+- Django management command: `docker compose run --rm test python -m django <args>`
 
 ## Compressed Project Understanding
 
@@ -30,8 +31,10 @@ Examples:
 
 ## Runtime and Dependency Notes
 
+- Runtime baseline: Python 3.12, Django 5.2 LTS, PostgreSQL 18.
 - Runtime dependency pinning is maintained in `requirements.txt` and `requirements-dev.txt`.
 - The container build is defined by `Dockerfile`; compose topology comes from `docker-compose.yml.template` and generated `docker-compose.yml`.
+- Compose readiness is expressed with a PostgreSQL healthcheck and `depends_on`, not ad hoc wait scripts.
 - CI/CD and local usage patterns are Docker-first.
 
 ## Working Conventions for Agents
@@ -40,6 +43,7 @@ Examples:
 - Preserve existing architecture and naming unless explicitly asked to refactor.
 - Prefer deterministic, reproducible command sequences executed in-container.
 - When handing off work, write concise status and next actions in `.agent/handoffs/`.
+- **Context window discipline**: when the conversation history is long enough that output quality is degrading (losing track of earlier decisions, repeating context already established, generating less precise code), stop, write a handoff document, and ask the operator to start a fresh context window. Do not attempt to push through a full task in an exhausted context.
 
 ## Agent Workspace Scaffolding
 

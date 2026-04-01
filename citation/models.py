@@ -13,7 +13,8 @@ from dateutil.parser import parser as datetime_parser, parse as datetime_parse
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.postgres.fields import JSONField, ArrayField
+from django.contrib.postgres.fields import ArrayField
+from django.db.models import JSONField
 from django.core.cache import cache
 from django.core.exceptions import FieldError
 from django.db import models, transaction
@@ -23,7 +24,7 @@ from django.db.models.functions import Cast
 from django.template.defaultfilters import slugify
 from django.template.loader import get_template
 from django.urls import reverse
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from model_utils import Choices
 
 from . import fields
