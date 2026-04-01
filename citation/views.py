@@ -12,16 +12,21 @@ from rest_framework import status, renderers, generics, views
 from rest_framework.response import Response
 
 from .models import Publication, ModelDocumentation, Note, AuthorCorrespondenceLog
-from .serializers import (CatalogPagination, ModelDocumentationSerializer, NoteSerializer,
-                          PublicationSerializer, PublicationListSerializer, AuthorCorrespondenceLogSerializer)
+from .serializers import (
+    CatalogPagination,
+    ModelDocumentationSerializer,
+    NoteSerializer,
+    PublicationSerializer,
+    PublicationListSerializer,
+    AuthorCorrespondenceLogSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class AuthorUpdateView(views.APIView):
-
     renderer_classes = (renderers.TemplateHTMLRenderer,)
-    template_name = 'publication/author-update.html'
+    template_name = "publication/author-update.html"
 
     def get_object(self, uuid):
         return get_object_or_404(AuthorCorrespondenceLog, uuid=uuid)
@@ -29,37 +34,36 @@ class AuthorUpdateView(views.APIView):
     def get(self, request, uuid):
         acl = self.get_object(uuid)
         serializer = AuthorCorrespondenceLogSerializer(instance=acl)
-        return Response({
-            'serializer': serializer,
-            'author_correspondence': acl
-        })
+        return Response({"serializer": serializer, "author_correspondence": acl})
 
     def post(self, request, uuid):
         acl = self.get_object(uuid)
         serializer = AuthorCorrespondenceLogSerializer(acl, data=request.data)
         if not serializer.is_valid():
             logger.debug("serializer failed validation: %s", serializer)
-            return Response({
-                'serializer': serializer,
-                'author_correspondence': acl
-            })
+            return Response({"serializer": serializer, "author_correspondence": acl})
         updated_acl = serializer.save()
         send_markdown_email(
-            subject=f'[comses.net] model author feedback {updated_acl.author_submitted_url}',
+            subject=f"[comses.net] model author feedback {updated_acl.author_submitted_url}",
             to=[settings.DEFAULT_FROM_EMAIL],
-            template_name='email/author-feedback.txt',
-            context=dict(publication=updated_acl.publication,
-                         author_correspondence_log=updated_acl),
+            template_name="email/author-feedback.txt",
+            context=dict(
+                publication=updated_acl.publication,
+                author_correspondence_log=updated_acl,
+            ),
         )
-        messages.success(request,
-                         'Your submission has been received. Thank you for updating your publication metadata!')
-        return redirect('/')
+        messages.success(
+            request,
+            "Your submission has been received. Thank you for updating your publication metadata!",
+        )
+        return redirect("/")
 
 
 class PublicationList(LoginRequiredMixin, generics.GenericAPIView):
     """
     List all publications, or create a new publication
     """
+
     renderer_classes = (renderers.TemplateHTMLRenderer, renderers.JSONRenderer)
     # FIXME: look into properly implementing pagination via django rest framework
     pagination_class = CatalogPagination
@@ -70,11 +74,13 @@ class PublicationList(LoginRequiredMixin, generics.GenericAPIView):
         result_page = paginator.paginate_queryset(publication_list, request)
         serializer = PublicationListSerializer(result_page, many=True)
         response = paginator.get_paginated_response(serializer.data)
-        return Response({'json': dumps(response)}, template_name="publication/list.html")
+        return Response(
+            {"json": dumps(response)}, template_name="publication/list.html"
+        )
 
     def post(self, request, format=None):
         # adding current user to added_by field
-        request.data.update({'added_by': request.user.id})
+        request.data.update({"added_by": request.user.id})
         # FIXME: hard coded PublicationSerializer should instead depend on incoming data
         serializer = PublicationSerializer(data=request.data)
         if serializer.is_valid():
@@ -87,6 +93,7 @@ class CuratorPublicationDetail(LoginRequiredMixin, generics.GenericAPIView):
     """
     Retrieve, update or delete a publication instance.
     """
+
     renderer_classes = (renderers.TemplateHTMLRenderer, renderers.JSONRenderer)
 
     def get_object(self, pk):
@@ -100,11 +107,22 @@ class CuratorPublicationDetail(LoginRequiredMixin, generics.GenericAPIView):
             return HttpResponseRedirect(obj_url)
 
         serializer = PublicationSerializer(publication)
-        model_documentation_serializer = ModelDocumentationSerializer(ModelDocumentation.objects.all(), many=True)
-        return Response({'json': dumps(serializer.data), 'pk': pk,
-                         'model_documentation_categories_json': dumps(ModelDocumentation.CATEGORIES),
-                         'model_documentation_list_json': dumps(model_documentation_serializer.data)},
-                        template_name='workflow/curator_publication_detail.html')
+        model_documentation_serializer = ModelDocumentationSerializer(
+            ModelDocumentation.objects.all(), many=True
+        )
+        return Response(
+            {
+                "json": dumps(serializer.data),
+                "pk": pk,
+                "model_documentation_categories_json": dumps(
+                    ModelDocumentation.CATEGORIES
+                ),
+                "model_documentation_list_json": dumps(
+                    model_documentation_serializer.data
+                ),
+            },
+            template_name="workflow/curator_publication_detail.html",
+        )
 
     def put(self, request, pk, slug=None):
         publication = self.get_object(pk)
@@ -127,6 +145,7 @@ class NoteDetail(LoginRequiredMixin, generics.GenericAPIView):
     """
     Retrieve, update or delete a note instance.
     """
+
     renderer_classes = (renderers.JSONRenderer,)
 
     def get_object(self, pk):
@@ -135,7 +154,7 @@ class NoteDetail(LoginRequiredMixin, generics.GenericAPIView):
     def get(self, request, pk, format=None):
         note = self.get_object(pk)
         serializer = NoteSerializer(note)
-        return Response({'json': dumps(serializer.data)})
+        return Response({"json": dumps(serializer.data)})
 
     def put(self, request, pk):
         note = self.get_object(pk)
@@ -159,13 +178,14 @@ class NoteList(LoginRequiredMixin, generics.GenericAPIView):
     """
     Get all the notes or create a note
     """
+
     renderer_classes = (renderers.JSONRenderer,)
     serializer_class = NoteSerializer
 
     def get(self, request, format=None):
         note = Note.objects.all()
         serializer = NoteSerializer(note, many=True)
-        return Response({'json': dumps(serializer.data)})
+        return Response({"json": dumps(serializer.data)})
 
     def post(self, request):
         # adding current user to added_by field

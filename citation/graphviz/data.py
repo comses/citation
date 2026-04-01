@@ -16,7 +16,7 @@ class NetworkData:
     filter_value = {}
 
     def __init__(self, nodes, links, filter_value):
-        self.graph = {'links': links, 'nodes': nodes}
+        self.graph = {"links": links, "nodes": nodes}
         self.filter_value = filter_value
 
 
@@ -34,10 +34,14 @@ def generate_link_candidates(filter_criteria):
     start_year = 1901
     end_year = 2100
 
-    if 'date_published__gte' in filter_criteria:
-        start_year = datetime.strptime(filter_criteria.pop('date_published__gte'), '%Y-%m-%dT%H:%M:%SZ').year
-    if 'date_published__lte' in filter_criteria:
-        end_year = datetime.strptime(filter_criteria.pop('date_published__lte'), '%Y-%m-%dT%H:%M:%SZ').year
+    if "date_published__gte" in filter_criteria:
+        start_year = datetime.strptime(
+            filter_criteria.pop("date_published__gte"), "%Y-%m-%dT%H:%M:%SZ"
+        ).year
+    if "date_published__lte" in filter_criteria:
+        end_year = datetime.strptime(
+            filter_criteria.pop("date_published__lte"), "%Y-%m-%dT%H:%M:%SZ"
+        ).year
 
     # fetching only filtered publication
     primary_publications = Publication.api.primary(**filter_criteria)
@@ -45,29 +49,33 @@ def generate_link_candidates(filter_criteria):
     primary_pk = []
     primary_pubs = []
     for pub in primary_publications:
-        if pub.year_published is not None and start_year <= pub.year_published <= end_year:
+        if (
+            pub.year_published is not None
+            and start_year <= pub.year_published <= end_year
+        ):
             primary_pk.append(pub.pk)
             primary_pubs.append(pub)
 
     # fetches links that satisfies the given filter
-    links_candidates = primary_publications.filter(pk__in=primary_pk, citations__in=primary_pubs).values_list('pk',
-                                                                                                              'citations')
+    links_candidates = primary_publications.filter(
+        pk__in=primary_pk, citations__in=primary_pubs
+    ).values_list("pk", "citations")
     return links_candidates
 
 
 def get_network_default_filter(group_by):
     if group_by == NetworkGroupByType.SPONSOR.value:
-        return Publication.api.get_top_records(attribute='sponsors__name')
+        return Publication.api.get_top_records(attribute="sponsors__name")
     else:
-        return Publication.api.get_top_records(attribute='tags__name')
+        return Publication.api.get_top_records(attribute="tags__name")
 
 
 def generate_network_graph(filter_criteria, group_by=NetworkGroupByType.TAGS.value):
-    if group_by + '__name__in' in filter_criteria:
-        filter_value = filter_criteria[group_by + '__name__in']
+    if group_by + "__name__in" in filter_criteria:
+        filter_value = filter_criteria[group_by + "__name__in"]
     else:
         filter_value = get_network_default_filter(group_by)
-        filter_criteria[group_by + '__name__in'] = filter_value
+        filter_criteria[group_by + "__name__in"] = filter_value
 
     # fetches links that satisfies the given filter
     links_candidates = generate_link_candidates(filter_criteria)
@@ -86,9 +94,13 @@ def generate_network_graph(filter_criteria, group_by=NetworkGroupByType.TAGS.val
 def get_links(links_candidates, nodes_index):
     links = []
     for source, target in links_candidates:
-        links.append({
-            "source": nodes_index.index(source), "target": nodes_index.index(target), "value": 1
-        })
+        links.append(
+            {
+                "source": nodes_index.index(source),
+                "target": nodes_index.index(target),
+                "value": 1,
+            }
+        )
     return links
 
 
@@ -99,10 +111,10 @@ def get_nodes(nodes_candidates, filter_value, group_by):
         publication = publications.get(pk=pub)
         group_values = []
         if group_by == NetworkGroupByType.SPONSOR.value:
-            for name in publication.sponsors.all().values_list('name', flat=True):
+            for name in publication.sponsors.all().values_list("name", flat=True):
                 group_values.append(name)
         else:
-            for name in publication.tags.all().values_list('name', flat=True):
+            for name in publication.tags.all().values_list("name", flat=True):
                 group_values.append(name)
 
         value = get_common_value(group_values, filter_value)
@@ -111,15 +123,25 @@ def get_nodes(nodes_candidates, filter_value, group_by):
         else:
             group = "Others"
 
-        nodes.append({
-            'name': pub,
-            'group': group,
-            'tags': ', '.join(['{0}'.format(s.name) for s in publication.tags.all()]),
-            'sponsors': ', '.join(['{0}'.format(s.name) for s in publication.sponsors.all()]),
-            'Authors': ', '.join(
-                ['{0}, {1}.'.format(c.family_name, c.given_name_initial) for c in publication.creators.all()]),
-            'title': publication.title
-        })
+        nodes.append(
+            {
+                "name": pub,
+                "group": group,
+                "tags": ", ".join(
+                    ["{0}".format(s.name) for s in publication.tags.all()]
+                ),
+                "sponsors": ", ".join(
+                    ["{0}".format(s.name) for s in publication.sponsors.all()]
+                ),
+                "Authors": ", ".join(
+                    [
+                        "{0}, {1}.".format(c.family_name, c.given_name_initial)
+                        for c in publication.creators.all()
+                    ]
+                ),
+                "title": publication.title,
+            }
+        )
     return nodes
 
 
@@ -159,13 +181,17 @@ def generate_aggregated_distribution_data(filter_criteria, classifier, name):
             present = availability[year] * 100 / count
             absent = non_availability[year] * 100 / count
             total = present + absent
-            distribution_data.append({
-                'relation': classifier, 'name': name, 'date': year,
-                'Code Available': availability[year],
-                'Code Not Available': non_availability[year],
-                'Code Available Per': present * 100 / total,
-                'Code Not Available Per': absent * 100 / total
-            })
+            distribution_data.append(
+                {
+                    "relation": classifier,
+                    "name": name,
+                    "date": year,
+                    "Code Available": availability[year],
+                    "Code Not Available": non_availability[year],
+                    "Code Available Per": present * 100 / total,
+                    "Code Not Available Per": absent * 100 / total,
+                }
+            )
 
         return distribution_data
 
@@ -173,14 +199,22 @@ def generate_aggregated_distribution_data(filter_criteria, classifier, name):
 def generate_aggregated_code_archived_platform_data(filter_criteria=None):
     if filter_criteria is None:
         filter_criteria = {}
-    url_logs = URLStatusLog.objects.all().values('publication').order_by('publication', '-last_modified'). \
-        annotate(last_modified=Max('last_modified')).values('publication', 'type').order_by('publication')
+    url_logs = (
+        URLStatusLog.objects.all()
+        .values("publication")
+        .order_by("publication", "-last_modified")
+        .annotate(last_modified=Max("last_modified"))
+        .values("publication", "type")
+        .order_by("publication")
+    )
 
     platform_dct = {}
 
     if url_logs:
         for platform_name in URLStatusLog.PLATFORM_TYPES:
-            platform_dct.update({platform_name[0]: url_logs.filter(type=platform_name[0]).count()})
+            platform_dct.update(
+                {platform_name[0]: url_logs.filter(type=platform_name[0]).count()}
+            )
         return platform_dct
     else:
         sqs = SearchQuerySet()

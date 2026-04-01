@@ -37,6 +37,34 @@ Examples:
 - Compose readiness is expressed with a PostgreSQL healthcheck and `depends_on`, not ad hoc wait scripts.
 - CI/CD and local usage patterns are Docker-first.
 
+## Error Handling and Exception Semantics (PEP 8+ Best Practices)
+
+### PublicationSerializer Exception Contract
+
+The serializers enforce a clear contract through exception types, following PEP 8 principles:
+
+**TypeError: Caller Errors (Invalid Parameters)**
+- Raised when `user` parameter is missing: `serializer.save()` requires `serializer.save(user=request.user)`
+- Raised when invalid `commit` kwarg passed: DRF pattern incompatible with this implementation
+- Semantics: Signals a misuse of the API by the caller, not a data validation failure
+
+**AssertionError: Internal Logic Contracts**
+- Raised when `.is_valid()` not called before `.save()`: Precondition violation
+- Raised when `.save()` called on serializer with validation errors: State contract violation
+- Raised when `create()` or `update()` returns `None`: Postcondition violation
+- Semantics: Indicates internal invariant violations that should never occur in correct code flow; suitable for catching programmer errors during development and testing
+
+**Rationale:**
+- Separates caller errors (TypeError) from internal logic failures (AssertionError)
+- Enables clear error recovery: callers can catch TypeError and provide guidance; AssertionError indicates code review needed
+- Survives Python -O optimization flags where assert statements are removed (we use explicit if/raise instead)
+
+### SuggestMergeSerializer Validation
+
+The `validate()` method uses `raise_exception=True` for nested serializer validation to ensure strict contract enforcement:
+- Nested validation failures (e.g., invalid author merge content) surface as DRF ValidationError at field level
+- Testing accounts for DRF's error structure: nested serializer errors appear as sibling field keys, not nested under 'new_content'
+
 ## Working Conventions for Agents
 
 - Keep edits minimal and scoped to the request.

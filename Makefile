@@ -4,7 +4,7 @@ COMPOSE ?= docker compose
 PYPI_ORG ?= comses
 PYPI_REPOSITORY ?= pypi
 
-.PHONY: build clean lock publish up test
+.PHONY: build clean format lock publish up test
 
 build:
 	$(COMPOSE) build
@@ -14,6 +14,9 @@ up: build
 
 clean:
 	$(COMPOSE) down --volumes --remove-orphans
+
+format: build
+	$(COMPOSE) run --rm test uv run ruff format .
 
 lock:
 	$(COMPOSE) run --rm test uv lock

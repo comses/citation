@@ -7,15 +7,14 @@ from django.db import models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0001_initial'),
+        ("citation", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='auditlog',
-            name='message',
-            field=models.CharField(blank=True, max_length=2000)
+            model_name="auditlog",
+            name="message",
+            field=models.CharField(blank=True, max_length=2000),
         )
     ]

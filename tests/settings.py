@@ -5,12 +5,12 @@ from django.core.exceptions import ImproperlyConfigured
 
 DEBUG = True
 
-ROOT_URLCONF = 'tests.urls'
+ROOT_URLCONF = "tests.urls"
 
 DIRNAME = os.path.dirname(os.path.dirname(__file__))
 BASE_DIR = DIRNAME
 
-DATA_DIR = 'data'
+DATA_DIR = "data"
 
 with open(os.path.join(BASE_DIR, "docker/config/django/config.ini")) as f:
     secrets = configparser.ConfigParser(allow_no_value=True)
@@ -20,118 +20,118 @@ with open(os.path.join(BASE_DIR, "docker/config/django/config.ini")) as f:
 # Adapted from Two Scoops of Django
 def get_secret(setting, secrets=secrets):
     try:
-        return secrets['DEFAULT'][setting]
+        return secrets["DEFAULT"][setting]
     except KeyError:
         error_msg = "Set the {0} config variable".format(setting)
         raise ImproperlyConfigured(error_msg)
 
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'USER': get_secret('DB_USER'),
-        'PASSWORD': get_secret('DB_PASSWORD'),
-        'NAME': get_secret('DB_NAME'),
-        'HOST': get_secret('DB_HOST'),
-        'PORT': get_secret('DB_PORT'),
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "USER": get_secret("DB_USER"),
+        "PASSWORD": get_secret("DB_PASSWORD"),
+        "NAME": get_secret("DB_NAME"),
+        "HOST": get_secret("DB_HOST"),
+        "PORT": get_secret("DB_PORT"),
     }
 }
 
 DJANGO_APPS = (
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
 )
 
 THIRD_PARTY_APPS = (
-    'rest_framework',
-    'django_extensions',
+    "rest_framework",
+    "django_extensions",
 )
 
-CITATION_APPS = ('citation',)
+CITATION_APPS = ("citation",)
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + CITATION_APPS
 
 # static files configuration, see https://docs.djangoproject.com/en/1.9/ref/settings/#static-files
 
-STATIC_URL = '/static/'
-STATIC_ROOT = '/catalog/static/'
-STATICFILES_DIRS = (os.path.join(BASE_DIR, 'catalog', 'static').replace('\\', '/'),)
+STATIC_URL = "/static/"
+STATIC_ROOT = "/catalog/static/"
+STATICFILES_DIRS = (os.path.join(BASE_DIR, "catalog", "static").replace("\\", "/"),)
 
 # Media file configuration (for user uploads etc) ####
 
 # Absolute path to the directory that holds media.
 # Example: "/home/media/media.lawrence.com/"
-MEDIA_ROOT = '/var/www/catalog/uploads'
+MEDIA_ROOT = "/var/www/catalog/uploads"
 
 # URL that handles the media served from MEDIA_ROOT. Make sure to use a
 # trailing slash if there is a path component (optional in other cases).
 # Examples: "http://media.lawrence.com", "http://example.com/media/"
-MEDIA_URL = 'https://catalog.comses.net/uploads/'
+MEDIA_URL = "https://catalog.comses.net/uploads/"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-                'django.template.context_processors.static',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "django.template.context_processors.static",
                 "django.template.context_processors.tz",
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'catalog.context_processors.debug',
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "catalog.context_processors.debug",
             ],
         },
     },
 ]
 
 MIDDLEWARE = (
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
 )
 
 # DJANGO REST Framework's Pagination settings
 REST_FRAMEWORK = {
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 15
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 15,
 }
 
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'root': {
-        'level': 'INFO',
-        'handlers': ['console'],
+    "version": 1,
+    "disable_existing_loggers": False,
+    "root": {
+        "level": "INFO",
+        "handlers": ["console"],
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'level': 'DEBUG',
-            'formatter': 'verbose',
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "level": "DEBUG",
+            "formatter": "verbose",
         }
     },
-    'formatters': {
-        'verbose': {
-            'format': '%(asctime)s %(levelname)-7s %(name)s:%(funcName)s:%(lineno)d %(message)s',
-            'datefmt': '%Y-%m-%d %H:%M:%S'
+    "formatters": {
+        "verbose": {
+            "format": "%(asctime)s %(levelname)-7s %(name)s:%(funcName)s:%(lineno)d %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
         },
     },
-    'loggers': {
-        'citation.merger': {
-            'level': 'DEBUG',
-            'handlers': ['console'],
-            'propagate': False,
+    "loggers": {
+        "citation.merger": {
+            "level": "DEBUG",
+            "handlers": ["console"],
+            "propagate": False,
         }
-    }
+    },
 }
 
-SECRET_KEY = get_secret('SECRET_KEY')
+SECRET_KEY = get_secret("SECRET_KEY")
 
-AUDIT_ACCOUNT_USERNAME = 'superuser'
+AUDIT_ACCOUNT_USERNAME = "superuser"

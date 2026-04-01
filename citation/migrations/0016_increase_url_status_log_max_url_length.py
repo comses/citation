@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0015_add_suggested_models'),
+        ("citation", "0015_add_suggested_models"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='urlstatuslog',
-            name='url',
+            model_name="urlstatuslog",
+            name="url",
             field=models.URLField(blank=True, max_length=2000),
         ),
     ]

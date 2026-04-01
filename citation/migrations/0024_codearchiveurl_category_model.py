@@ -5,15 +5,19 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0023_populate_code_archive_url_categories'),
+        ("citation", "0023_populate_code_archive_url_categories"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='codearchiveurl',
-            name='category_model',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.PROTECT, related_name='code_archive_urls', to='citation.CodeArchiveUrlCategory'),
+            model_name="codearchiveurl",
+            name="category_model",
+            field=models.ForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="code_archive_urls",
+                to="citation.CodeArchiveUrlCategory",
+            ),
         ),
     ]

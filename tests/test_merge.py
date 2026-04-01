@@ -4,7 +4,16 @@ from citation import models, merger
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from citation.models import SuggestedMerge, Container, Publication, Author, Platform, Sponsor, Raw, Tag
+from citation.models import (
+    SuggestedMerge,
+    Container,
+    Publication,
+    Author,
+    Platform,
+    Sponsor,
+    Raw,
+    Tag,
+)
 
 
 def sort_by_id(instance):
@@ -16,14 +25,18 @@ class MetadataObjectGraph:
     the object graph
     """
 
-    def __init__(self,
-                 user,
-                 containers, container_aliases,
-                 authors, author_aliases,
-                 publications,
-                 raws,
-                 publication_authors,
-                 publication_citations):
+    def __init__(
+        self,
+        user,
+        containers,
+        container_aliases,
+        authors,
+        author_aliases,
+        publications,
+        raws,
+        publication_authors,
+        publication_citations,
+    ):
 
         containers.sort(key=sort_by_id)
         container_aliases.sort(key=sort_by_id)
@@ -168,8 +181,12 @@ class MetadataObjectGraph:
         new_authors = self.copy_authors()
         new_author_aliases = self.copy_author_aliases(new_authors)
         new_publications = self.copy_publications(new_user, new_containers)
-        new_raws, new_raw_authors = self.copy_raws(new_publications, new_containers, new_authors)
-        new_publication_authors = self.copy_publication_authors(new_publications, new_authors)
+        new_raws, new_raw_authors = self.copy_raws(
+            new_publications, new_containers, new_authors
+        )
+        new_publication_authors = self.copy_publication_authors(
+            new_publications, new_authors
+        )
         new_publication_citations = self.copy_publication_citations(new_publications)
 
         return MetadataObjectGraph(
@@ -181,31 +198,44 @@ class MetadataObjectGraph:
             publications=new_publications,
             raws=new_raws,
             publication_authors=new_publication_authors,
-            publication_citations=new_publication_citations)
+            publication_citations=new_publication_citations,
+        )
 
 
 def create_publication(user=None):
     if not user:
-        user = User.objects.create_user(username='user', email='a@b.com', password='test')
-    container_jasss = models.Container.objects.create(type='journal', issn='')
-    container_alias_jasss = models.ContainerAlias.objects.create(name='jasss', container=container_jasss)
+        user = User.objects.create_user(
+            username="user", email="a@b.com", password="test"
+        )
+    container_jasss = models.Container.objects.create(type="journal", issn="")
+    container_alias_jasss = models.ContainerAlias.objects.create(
+        name="jasss", container=container_jasss
+    )
 
-    author_bob = models.Author.objects.create(type='INDIVIDUAL', orcid='', given_name='Bob',
-                                              family_name='Smith')
-    author_alias_bob = models.AuthorAlias.objects.create(author=author_bob, given_name='Robert',
-                                                         family_name='Smith')
+    author_bob = models.Author.objects.create(
+        type="INDIVIDUAL", orcid="", given_name="Bob", family_name="Smith"
+    )
+    author_alias_bob = models.AuthorAlias.objects.create(
+        author=author_bob, given_name="Robert", family_name="Smith"
+    )
     publication = models.Publication.objects.create(
-        title='''Agent-based modeling of hunting and subsistence agriculture on indigenous lands:
-        Understanding interactions between social and ecological systems''',
-        date_published_text='2014',
-        abstract='',
+        title="""Agent-based modeling of hunting and subsistence agriculture on indigenous lands:
+        Understanding interactions between social and ecological systems""",
+        date_published_text="2014",
+        abstract="",
         container=container_jasss,
-        added_by=user)
-    raw = models.Raw.objects.create(key=models.Raw.BIBTEX_ENTRY, value={},
-                                    container=container_jasss,
-                                    publication=publication)
+        added_by=user,
+    )
+    raw = models.Raw.objects.create(
+        key=models.Raw.BIBTEX_ENTRY,
+        value={},
+        container=container_jasss,
+        publication=publication,
+    )
 
-    publication_author = models.PublicationAuthors.objects.create(author=author_bob, publication=publication)
+    publication_author = models.PublicationAuthors.objects.create(
+        author=author_bob, publication=publication
+    )
     models.RawAuthors.objects.create(author=author_bob, raw=raw)
 
     return MetadataObjectGraph(
@@ -217,7 +247,8 @@ def create_publication(user=None):
         publications=[publication],
         raws=[raw],
         publication_authors=[publication_author],
-        publication_citations=[])
+        publication_citations=[],
+    )
 
 
 class Counter:
@@ -232,21 +263,27 @@ class Counter:
 
 class TestMergers(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='user', email='a@b.com', password='test')
+        self.user = User.objects.create_user(
+            username="user", email="a@b.com", password="test"
+        )
         self.audit_command = models.AuditCommand.objects.create(
-            creator=self.user,
-            action='merge')
+            creator=self.user, action="merge"
+        )
         self.object_graph = create_publication(self.user)
         self.object_graph_copy = copy.deepcopy(self.object_graph)
 
     def test_merge_group_set_protocol(self):
         """Users should be prevented from merging before determining that the merge is valid"""
-        merge_group_set = merger.PublicationMergeGroup.from_list(list(models.Publication.objects.all()))
+        merge_group_set = merger.PublicationMergeGroup.from_list(
+            list(models.Publication.objects.all())
+        )
         with self.assertRaises(AssertionError):
             merge_group_set.merge(self.audit_command)
 
     def test_container_merge(self):
-        merge_group = merger.ContainerMergeGroup.from_list(list(models.Container.objects.all()))
+        merge_group = merger.ContainerMergeGroup.from_list(
+            list(models.Container.objects.all())
+        )
         self.assertEqual(len(merge_group), 2)
 
         self.assertTrue(merge_group.is_valid())
@@ -256,7 +293,9 @@ class TestMergers(TestCase):
 
     def test_author_merge(self):
         """Identical authors should not create additional author aliases when merged"""
-        merge_group = merger.AuthorMergeGroup.from_list(list(models.Author.objects.all()))
+        merge_group = merger.AuthorMergeGroup.from_list(
+            list(models.Author.objects.all())
+        )
         self.assertEqual(len(merge_group), 2)
 
         self.assertTrue(merge_group.is_valid())
@@ -267,10 +306,12 @@ class TestMergers(TestCase):
 
     def test_author_merge_different_aliases(self):
         """Authors with identical names but different aliases should result in the aliases moving to the final author"""
-        merge_group = merger.AuthorMergeGroup.from_list(list(models.Author.objects.all()))
+        merge_group = merger.AuthorMergeGroup.from_list(
+            list(models.Author.objects.all())
+        )
         self.assertEqual(len(merge_group), 2)
         author_alias = self.object_graph_copy.author_aliases[0]
-        author_alias.given_name = 'Rob'
+        author_alias.given_name = "Rob"
         author_alias.save()
 
         self.assertTrue(merge_group.is_valid())
@@ -282,10 +323,12 @@ class TestMergers(TestCase):
     def test_author_merge_different_authors(self):
         """With different auth names in the same mergeset the secondary authors should be turned in author aliases"""
         author = self.object_graph_copy.authors[0]
-        author.given_name = 'Rob'
+        author.given_name = "Rob"
         author.save()
 
-        merge_group = merger.AuthorMergeGroup.from_list(list(models.Author.objects.all()))
+        merge_group = merger.AuthorMergeGroup.from_list(
+            list(models.Author.objects.all())
+        )
         self.assertEqual(len(merge_group), 2)
 
         self.assertTrue(merge_group.is_valid())
@@ -296,7 +339,9 @@ class TestMergers(TestCase):
 
     def test_publication_merge_same(self):
         """Identical publications should be merged successfully"""
-        merge_group = merger.PublicationMergeGroup.from_list(list(models.Publication.objects.all()))
+        merge_group = merger.PublicationMergeGroup.from_list(
+            list(models.Publication.objects.all())
+        )
         self.assertEqual(len(merge_group), 2)
 
         self.assertTrue(merge_group.is_valid())
@@ -313,12 +358,16 @@ class TestMergers(TestCase):
         author = self.object_graph.authors[0]
         models.PublicationAuthors.objects.create(publication=publication, author=author)
 
-        pmg = merger.PublicationMergeGroup(final=all_publications[0], others=set(all_publications[1:]))
+        pmg = merger.PublicationMergeGroup(
+            final=all_publications[0], others=set(all_publications[1:])
+        )
         self.assertTrue(pmg.is_valid())
 
     def test_authoritative_author_merge_no_outside_publications(self):
         """Authors not referencing publications outside their merge group should be ok"""
         all_publications = list(models.Publication.objects.all())
 
-        pmg = merger.PublicationMergeGroup(final=all_publications[0], others=set(all_publications[1:]))
+        pmg = merger.PublicationMergeGroup(
+            final=all_publications[0], others=set(all_publications[1:])
+        )
         self.assertTrue(pmg.is_valid())

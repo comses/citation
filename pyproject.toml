@@ -53,6 +53,7 @@ dev = [
   "coveralls",
   "coverage",
   "ipython",
+  "ruff",
   "sphinx",
 ]
 

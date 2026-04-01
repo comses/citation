@@ -5,36 +5,79 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0021_add_system_overridable_category_field'),
+        ("citation", "0021_add_system_overridable_category_field"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='CodeArchiveUrlCategory',
+            name="CodeArchiveUrlCategory",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('category', models.CharField(max_length=150)),
-                ('subcategory', models.CharField(max_length=150)),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("category", models.CharField(max_length=150)),
+                ("subcategory", models.CharField(max_length=150)),
             ],
         ),
         migrations.CreateModel(
-            name='CodeArchiveUrlPattern',
+            name="CodeArchiveUrlPattern",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('regex_host_matcher', models.CharField(max_length=800)),
-                ('regex_path_matcher', models.CharField(max_length=800)),
-                ('category', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='citation.CodeArchiveUrlCategory')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("regex_host_matcher", models.CharField(max_length=800)),
+                ("regex_path_matcher", models.CharField(max_length=800)),
+                (
+                    "category",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="citation.CodeArchiveUrlCategory",
+                    ),
+                ),
             ],
         ),
         migrations.AlterField(
-            model_name='codearchiveurl',
-            name='category',
-            field=models.CharField(choices=[('CoMSES', 'Archives / CoMSES'), ('Zenodo', 'Archives / Zenodo'), ('Dataverse', 'Archives / Dataverse'), ('Figshare', 'Archives / Figshare'), ('OSF', 'Archives / OSF'), ('GitHub', 'Repositories / GitHub'), ('SourceForge', 'Repositories / SourceForge'), ('BitBucket', 'Repositories / BitBucket'), ('GoogleCode', 'Repositories / GoogleCode'), ('Personal', 'Personal / DropBox'), ('ResearchGate', 'Personal / ResearchGate'), ('PersonalWebsite', 'Personal / PersonalWebsite'), ('Journal', 'Journal'), ('OrganizationWebsite', 'OrganizationWebsite'), ('Invalid', 'Invalid'), ('Unknown', 'Unknown'), ('', 'Empty')], default='', max_length=100),
+            model_name="codearchiveurl",
+            name="category",
+            field=models.CharField(
+                choices=[
+                    ("CoMSES", "Archives / CoMSES"),
+                    ("Zenodo", "Archives / Zenodo"),
+                    ("Dataverse", "Archives / Dataverse"),
+                    ("Figshare", "Archives / Figshare"),
+                    ("OSF", "Archives / OSF"),
+                    ("GitHub", "Repositories / GitHub"),
+                    ("SourceForge", "Repositories / SourceForge"),
+                    ("BitBucket", "Repositories / BitBucket"),
+                    ("GoogleCode", "Repositories / GoogleCode"),
+                    ("Personal", "Personal / DropBox"),
+                    ("ResearchGate", "Personal / ResearchGate"),
+                    ("PersonalWebsite", "Personal / PersonalWebsite"),
+                    ("Journal", "Journal"),
+                    ("OrganizationWebsite", "OrganizationWebsite"),
+                    ("Invalid", "Invalid"),
+                    ("Unknown", "Unknown"),
+                    ("", "Empty"),
+                ],
+                default="",
+                max_length=100,
+            ),
         ),
         migrations.AlterUniqueTogether(
-            name='codearchiveurlcategory',
-            unique_together={('category', 'subcategory')},
+            name="codearchiveurlcategory",
+            unique_together={("category", "subcategory")},
         ),
     ]

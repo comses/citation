@@ -32,11 +32,19 @@ class Match:
 
 
 def patterns_with_matchers(model):
-    qs = model.objects.exclude(regex_host_matcher='', regex_path_matcher='')
+    qs = model.objects.exclude(regex_host_matcher="", regex_path_matcher="")
     patterns = list(qs)
     for pattern in patterns:
-        pattern.host_matcher = re.compile(pattern.regex_host_matcher) if pattern.regex_host_matcher else Match.always()
-        pattern.path_matcher = re.compile(pattern.regex_path_matcher) if pattern.regex_path_matcher else Match.always()
+        pattern.host_matcher = (
+            re.compile(pattern.regex_host_matcher)
+            if pattern.regex_host_matcher
+            else Match.always()
+        )
+        pattern.path_matcher = (
+            re.compile(pattern.regex_path_matcher)
+            if pattern.regex_path_matcher
+            else Match.always()
+        )
     return patterns
 
 
@@ -50,49 +58,56 @@ def categorize_url(url, patterns, fallback_category):
         path_matcher = pattern.path_matcher
 
         if host_matcher.match(host) and path_matcher.match(path):
-            logger.info('Categorized url %s as %s', url, pattern.category)
+            logger.info("Categorized url %s as %s", url, pattern.category)
             return pattern.category
-    logger.info('Categorized url %s as %s', url, fallback_category)
+    logger.info("Categorized url %s as %s", url, fallback_category)
     return fallback_category
 
 
 def migrate_categories(apps, schema_editor):
-    CodeArchiveUrl = apps.get_model('citation', 'CodeArchiveUrl')
-    CodeArchiveUrlCategory = apps.get_model('citation', 'CodeArchiveUrlCategory')
-    CodeArchiveUrlPattern = apps.get_model('citation', 'CodeArchiveUrlPattern')
+    CodeArchiveUrl = apps.get_model("citation", "CodeArchiveUrl")
+    CodeArchiveUrlCategory = apps.get_model("citation", "CodeArchiveUrlCategory")
+    CodeArchiveUrlPattern = apps.get_model("citation", "CodeArchiveUrlPattern")
 
-    old_to_new_category = {'JOURNAL': CodeArchiveUrlCategory.objects.get(category='Journal'),
-                           'COMSES': CodeArchiveUrlCategory.objects.get(subcategory='CoMSES')}
+    old_to_new_category = {
+        "JOURNAL": CodeArchiveUrlCategory.objects.get(category="Journal"),
+        "COMSES": CodeArchiveUrlCategory.objects.get(subcategory="CoMSES"),
+    }
 
     patterns = patterns_with_matchers(CodeArchiveUrlPattern)
-    unknown = CodeArchiveUrlCategory.objects.get(category='Unknown')
+    unknown = CodeArchiveUrlCategory.objects.get(category="Unknown")
 
     code_archive_url_categories = CodeArchiveUrlCategory.objects.all()
     category_model_natural_key_to_pk = {}
     for category in code_archive_url_categories:
-        category_model_natural_key_to_pk[(category.category, category.subcategory)] = category.pk
+        category_model_natural_key_to_pk[(category.category, category.subcategory)] = (
+            category.pk
+        )
     pprint(category_model_natural_key_to_pk)
 
-    code_archive_urls = CodeArchiveUrl.objects.filter(category_model__isnull=True).exclude(category='')
+    code_archive_urls = CodeArchiveUrl.objects.filter(
+        category_model__isnull=True
+    ).exclude(category="")
     for code_archive_url in code_archive_urls:
         if code_archive_url.category in old_to_new_category:
             new_category = old_to_new_category[code_archive_url.category]
         else:
             new_category = categorize_url(code_archive_url.url, patterns, unknown)
 
-        logger.info('migrating category old: %s, new: %s,', code_archive_url.category,
-                    (new_category.category, new_category.subcategory))
+        logger.info(
+            "migrating category old: %s, new: %s,",
+            code_archive_url.category,
+            (new_category.category, new_category.subcategory),
+        )
         code_archive_url.system_overridable_category = False
         code_archive_url.category_model = new_category
         code_archive_url.save()
-    CodeArchiveUrl.objects.filter(category='').update(category_model=unknown)
+    CodeArchiveUrl.objects.filter(category="").update(category_model=unknown)
 
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('citation', '0024_codearchiveurl_category_model'),
+        ("citation", "0024_codearchiveurl_category_model"),
     ]
 
-    operations = [
-        migrations.RunPython(code=migrate_categories)
-    ]
+    operations = [migrations.RunPython(code=migrate_categories)]
