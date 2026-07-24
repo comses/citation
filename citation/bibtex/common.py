@@ -11,7 +11,8 @@ from . import entry as entry_api
 logger = logging.getLogger(__name__)
 
 
-class AlreadyExistsError(Exception): pass
+class AlreadyExistsError(Exception):
+    pass
 
 
 class PublicationLoadErrors:
@@ -26,10 +27,18 @@ class PublicationLoadErrors:
         return bool(self.unaugmented_authors) or bool(self.unassigned_emails)
 
     def __str__(self):
-        unaugmented_authors_str = textwrap.indent("\n".join(" - " + str(ua) for ua in self.unaugmented_authors) \
-                                                      if self.unaugmented_authors else "None", "\t")
-        unaugmented_emails_str = textwrap.indent("\n".join(" - " + str(uc) for uc in self.unassigned_emails)
-                                                 if self.unassigned_emails else "None", "\t")
+        unaugmented_authors_str = textwrap.indent(
+            "\n".join(" - " + str(ua) for ua in self.unaugmented_authors)
+            if self.unaugmented_authors
+            else "None",
+            "\t",
+        )
+        unaugmented_emails_str = textwrap.indent(
+            "\n".join(" - " + str(uc) for uc in self.unassigned_emails)
+            if self.unassigned_emails
+            else "None",
+            "\t",
+        )
         template = textwrap.dedent(
             """
             Publication Load Errors
@@ -46,20 +55,25 @@ class PublicationLoadErrors:
             Unassigned Emails:
             {}
 
-            """)
-        return template.format(self.title if self.title else "None", str(self.raw), str(self.audit_command),
-                               unaugmented_authors_str,
-                               unaugmented_emails_str)
+            """
+        )
+        return template.format(
+            self.title if self.title else "None",
+            str(self.raw),
+            str(self.audit_command),
+            unaugmented_authors_str,
+            unaugmented_emails_str,
+        )
 
 
 def strip_whitespace_and_braces_replace_middle_brackets(record):
-    whitespace = re.compile(r'^\s+|\s+$')
-    brackets = re.compile(r'^{+|}+$')
-    middle_brackets = re.compile(r'{\[}')
+    whitespace = re.compile(r"^\s+|\s+$")
+    brackets = re.compile(r"^{+|}+$")
+    middle_brackets = re.compile(r"{\[}")
     for k, v in record.items():
-        v = whitespace.sub('', v)
-        v = brackets.sub('', v)
-        v = middle_brackets.sub('[', v)
+        v = whitespace.sub("", v)
+        v = brackets.sub("", v)
+        v = middle_brackets.sub("[", v)
         record[k] = v
     return record
 
@@ -82,7 +96,9 @@ def process_entries(file_name, user):
             publication_load_error = entry_api.process(entry, user)
             if publication_load_error:
                 errors.append(publication_load_error)
-            logger.info("Processed {} Primary Publications: {}".format(ind, entry['title']))
+            logger.info(
+                "Processed {} Primary Publications: {}".format(ind, entry["title"])
+            )
     return errors
 
 
@@ -91,9 +107,8 @@ def display(publication, ind):
         begin = ""
     else:
         begin = "\t"
-    print("{}{} Date Added: {}; Title: {}; DOI: {}"
-          .format(begin,
-                  ind,
-                  publication.date_added,
-                  publication.title,
-                  publication.doi))
+    print(
+        "{}{} Date Added: {}; Title: {}; DOI: {}".format(
+            begin, ind, publication.date_added, publication.title, publication.doi
+        )
+    )

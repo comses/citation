@@ -1,7 +1,0 @@
--r requirements.txt
-# dev requirements
-django-autofixture
-coveralls
-coverage
-ipython
-sphinx

@@ -5,18 +5,20 @@ class RelationClassifier(Enum):
     """
     Helper class to store the global default name for the visualization Identifier
     """
-    JOURNAL = 'Journal'
-    SPONSOR = 'Sponsor'
-    PLATFORM = 'Platform'
-    AUTHOR = 'Author'
-    GENERAL = 'General'
-    MODELDOCUMENDTATION = 'Modeldoc'
+
+    JOURNAL = "Journal"
+    SPONSOR = "Sponsor"
+    PLATFORM = "Platform"
+    AUTHOR = "Author"
+    GENERAL = "General"
+    MODELDOCUMENDTATION = "Modeldoc"
 
 
 class CacheNames(Enum):
     """
-            Helper class to store name of the global defaults use as the key for caching values
+    Helper class to store name of the global defaults use as the key for caching values
     """
+
     # stores the contribution value for each publication -will need to add pub_id value to fetch for specific publication
     # for e.g cache.get(CacheNames.CONTRIBUTION_DATA.value+str(pub.id))
     CONTRIBUTION_DATA = "citation:contribution_data:pub_id-"
@@ -35,5 +37,5 @@ class CacheNames(Enum):
 
 
 class NetworkGroupByType(Enum):
-    TAGS = 'tags'
-    SPONSOR = 'sponsors'
+    TAGS = "tags"
+    SPONSOR = "sponsors"

@@ -4,25 +4,29 @@ from django.db import migrations
 
 
 def annex_code_archive_urls(apps, schema_editor):
-    Publication = apps.get_model('citation', 'Publication')
-    CodeArchiveURL = apps.get_model('citation', 'CodeArchiveURL')
+    Publication = apps.get_model("citation", "Publication")
+    CodeArchiveURL = apps.get_model("citation", "CodeArchiveURL")
 
     code_archive_urls = []
-    publications_with_urls = Publication.objects.exclude(code_archive_url='')
+    publications_with_urls = Publication.objects.exclude(code_archive_url="")
     for publication in publications_with_urls:
-        code_archive_url = CodeArchiveURL(publication=publication,
-                                          url=publication.code_archive_url,
-                                          status='unavailable',
-                                          creator=publication.added_by)
+        code_archive_url = CodeArchiveURL(
+            publication=publication,
+            url=publication.code_archive_url,
+            status="unavailable",
+            creator=publication.added_by,
+        )
         code_archive_urls.append(code_archive_url)
 
     CodeArchiveURL.objects.bulk_create(code_archive_urls)
 
 
 def combine_code_archive_urls(apps, schema_editor):
-    CodeArchiveURL = apps.get_model('citation', 'CodeArchiveURL')
+    CodeArchiveURL = apps.get_model("citation", "CodeArchiveURL")
 
-    code_archive_urls = CodeArchiveURL.objects.select_related('publication').order_by('id')
+    code_archive_urls = CodeArchiveURL.objects.select_related("publication").order_by(
+        "id"
+    )
     for code_archive_url in code_archive_urls:
         publication = code_archive_url.publication
         publication.code_archive_url = code_archive_url.url
@@ -30,11 +34,12 @@ def combine_code_archive_urls(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0018_codearchiveurl'),
+        ("citation", "0018_codearchiveurl"),
     ]
 
     operations = [
-        migrations.RunPython(code=annex_code_archive_urls, reverse_code=combine_code_archive_urls)
+        migrations.RunPython(
+            code=annex_code_archive_urls, reverse_code=combine_code_archive_urls
+        )
     ]

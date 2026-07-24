@@ -7,15 +7,21 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0011_note_publication'),
+        ("citation", "0011_note_publication"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='auditlog',
-            name='pub_id',
-            field=models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='auditlog', to='citation.Publication'),
+            model_name="auditlog",
+            name="pub_id",
+            field=models.ForeignKey(
+                blank=True,
+                db_constraint=False,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="auditlog",
+                to="citation.Publication",
+            ),
         ),
     ]

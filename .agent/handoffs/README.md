@@ -6,4 +6,4 @@ Each handoff should include:
 - current status
 - key decisions
 - pending tasks
-- exact in-container commands for continuation
+- exact `make ...` and/or `docker compose run --rm test ...` commands for continuation

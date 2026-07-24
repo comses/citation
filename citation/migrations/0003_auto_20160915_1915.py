@@ -8,74 +8,133 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0002_add_message_field_to_auditlog'),
+        ("citation", "0002_add_message_field_to_auditlog"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='auditcommand',
-            name='role',
+            model_name="auditcommand",
+            name="role",
         ),
         migrations.RemoveField(
-            model_name='publication',
-            name='date_published',
+            model_name="publication",
+            name="date_published",
         ),
         migrations.AddField(
-            model_name='publication',
-            name='flagged',
+            model_name="publication",
+            name="flagged",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='publication',
-            name='isi',
-            field=models.CharField(blank=True, default='', max_length=255),
+            model_name="publication",
+            name="isi",
+            field=models.CharField(blank=True, default="", max_length=255),
         ),
         migrations.AlterField(
-            model_name='auditcommand',
-            name='action',
-            field=models.CharField(choices=[('SPLIT', 'Split Record'), ('MERGE', 'Merge Records'), ('LOAD', 'Load from File'), ('MANUAL', 'User entered changes')], max_length=64),
+            model_name="auditcommand",
+            name="action",
+            field=models.CharField(
+                choices=[
+                    ("SPLIT", "Split Record"),
+                    ("MERGE", "Merge Records"),
+                    ("LOAD", "Load from File"),
+                    ("MANUAL", "User entered changes"),
+                ],
+                max_length=64,
+            ),
         ),
         migrations.AlterField(
-            model_name='auditcommand',
-            name='creator',
-            field=models.ForeignKey(default=1, help_text='The user who initiated this action, if any.', on_delete=django.db.models.deletion.CASCADE, related_name='citation_creator_set', to=settings.AUTH_USER_MODEL),
+            model_name="auditcommand",
+            name="creator",
+            field=models.ForeignKey(
+                default=1,
+                help_text="The user who initiated this action, if any.",
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="citation_creator_set",
+                to=settings.AUTH_USER_MODEL,
+            ),
             preserve_default=False,
         ),
         migrations.AlterField(
-            model_name='auditlog',
-            name='action',
-            field=models.CharField(choices=[('UPDATE', 'Update'), ('INSERT', 'Insert'), ('DELETE', 'Delete')], max_length=64),
+            model_name="auditlog",
+            name="action",
+            field=models.CharField(
+                choices=[
+                    ("UPDATE", "Update"),
+                    ("INSERT", "Insert"),
+                    ("DELETE", "Delete"),
+                ],
+                max_length=64,
+            ),
         ),
         migrations.AlterField(
-            model_name='author',
-            name='type',
-            field=models.TextField(choices=[('INDIVIDUAL', 'individual'), ('ORGANIZATION', 'organization')], max_length=64),
+            model_name="author",
+            name="type",
+            field=models.TextField(
+                choices=[
+                    ("INDIVIDUAL", "individual"),
+                    ("ORGANIZATION", "organization"),
+                ],
+                max_length=64,
+            ),
         ),
         migrations.AlterField(
-            model_name='invitationemailtemplate',
-            name='name',
+            model_name="invitationemailtemplate",
+            name="name",
             field=models.CharField(max_length=64),
         ),
         migrations.AlterField(
-            model_name='publication',
-            name='container',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='publications', to='citation.Container'),
+            model_name="publication",
+            name="container",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="publications",
+                to="citation.Container",
+            ),
         ),
         migrations.AlterField(
-            model_name='publication',
-            name='date_published_text',
+            model_name="publication",
+            name="date_published_text",
             field=models.CharField(blank=True, max_length=64),
         ),
         migrations.AlterField(
-            model_name='publication',
-            name='status',
-            field=models.CharField(choices=[('UNTAGGED', 'Not reviewed: Has not been reviewed by CoMSES'), ('NEEDS_AUTHOR_REVIEW', 'Needs author review: Reviewed by CoMSES, needs a durable model code URL from the author.'), ('AUTHOR_UPDATED', 'Updated by author: Awaiting CoMSES review'), ('INVALID', 'Not applicable: Publication does not refer to or depend on a specific computational model'), ('COMPLETE', 'Reviewed: Publication has a durable model code URL and has been reviewed and verified by CoMSES')], default='UNTAGGED', max_length=64),
+            model_name="publication",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("UNTAGGED", "Not reviewed: Has not been reviewed by CoMSES"),
+                    (
+                        "NEEDS_AUTHOR_REVIEW",
+                        "Needs author review: Reviewed by CoMSES, needs a durable model code URL from the author.",
+                    ),
+                    ("AUTHOR_UPDATED", "Updated by author: Awaiting CoMSES review"),
+                    (
+                        "INVALID",
+                        "Not applicable: Publication does not refer to or depend on a specific computational model",
+                    ),
+                    (
+                        "COMPLETE",
+                        "Reviewed: Publication has a durable model code URL and has been reviewed and verified by CoMSES",
+                    ),
+                ],
+                default="UNTAGGED",
+                max_length=64,
+            ),
         ),
         migrations.AlterField(
-            model_name='publicationauthors',
-            name='role',
-            field=models.CharField(choices=[('AUTHOR', 'author'), ('REVIEWED_AUTHOR', 'reviewed author'), ('CONTRIBUTOR', 'contributor'), ('EDITOR', 'editor'), ('TRANSLATOR', 'translator'), ('SERIES_EDITOR', 'series editor')], max_length=64),
+            model_name="publicationauthors",
+            name="role",
+            field=models.CharField(
+                choices=[
+                    ("AUTHOR", "author"),
+                    ("REVIEWED_AUTHOR", "reviewed author"),
+                    ("CONTRIBUTOR", "contributor"),
+                    ("EDITOR", "editor"),
+                    ("TRANSLATOR", "translator"),
+                    ("SERIES_EDITOR", "series editor"),
+                ],
+                max_length=64,
+            ),
         ),
     ]

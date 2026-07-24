@@ -9,35 +9,54 @@ from .. import common
 from ... import models
 
 
-def process_item(year_authors_result: Dict, response_item: Dict, raw: models.Raw,
-                 audit_command: models.AuditCommand) -> common.DetachedPublication:
+def process_item(
+    year_authors_result: Dict,
+    response_item: Dict,
+    raw: models.Raw,
+    audit_command: models.AuditCommand,
+) -> common.DetachedPublication:
     other_publication = models.Publication(
         year=common.get_year(response_item),
         title=common.get_title(response_item),
         doi=common.get_doi(response_item),
-        primary=False)
-    authors = common.make_author_author_alias_pairs(other_publication, response_item, create=False)
-    container = common.make_container_container_alias_pair(other_publication, response_item, create=False)
-    return common.DetachedPublication(publication=other_publication,
-                                      author_author_alias_pairs=authors,
-                                      container_container_alias_pair=container,
-                                      raw=raw,
-                                      audit_command=audit_command)
+        primary=False,
+    )
+    authors = common.make_author_author_alias_pairs(
+        other_publication, response_item, create=False
+    )
+    container = common.make_container_container_alias_pair(
+        other_publication, response_item, create=False
+    )
+    return common.DetachedPublication(
+        publication=other_publication,
+        author_author_alias_pairs=authors,
+        container_container_alias_pair=container,
+        raw=raw,
+        audit_command=audit_command,
+    )
 
 
-def process(year_authors_result: Dict, response: requests.Response, audit_command: models.AuditCommand) -> None:
+def process(
+    year_authors_result: Dict,
+    response: requests.Response,
+    audit_command: models.AuditCommand,
+) -> None:
     value = common.ResponseDictEncoder().encode(response)
-    raw = models.Raw(key=models.Raw.CROSSREF_SEARCH_SUCCESS,
-                     value=value,
-                     data_source=audit_command,
-                     publication_id=year_authors_result["id"])
+    raw = models.Raw(
+        key=models.Raw.CROSSREF_SEARCH_SUCCESS,
+        value=value,
+        data_source=audit_command,
+        publication_id=year_authors_result["id"],
+    )
 
     other_raw_publication = None
     if response.status_code == 200:
         response_json = response.json()
         response_items = response_json.get("message", {"items": []}).get("items", [])
-        detached_publications = [process_item(year_authors_result, response_item, raw, audit_command) for response_item
-                                 in response_items]
+        detached_publications = [
+            process_item(year_authors_result, response_item, raw, audit_command)
+            for response_item in response_items
+        ]
 
         matches = _match_publication(year_authors_result, detached_publications)
         if len(matches) == 1:
@@ -59,7 +78,9 @@ def update(year_authors_result: Dict, audit_command: models.AuditCommand):
     author_str = "; ".join(year_authors_result["author_names"])
     year = year_authors_result["date_published_text"]
     if year is not None and author_str:
-        response = requests.get("http://api.crossref.org/works?query={}, {}".format(author_str, year))
+        response = requests.get(
+            "http://api.crossref.org/works?query={}, {}".format(author_str, year)
+        )
         return process(year_authors_result, response, audit_command)
     else:
         print("Did not lookup")
@@ -68,8 +89,7 @@ def update(year_authors_result: Dict, audit_command: models.AuditCommand):
 def augment_publications(user: User, limit=None):
     """Add missing information with CrossRef year author search"""
 
-    sql = \
-        """
+    sql = """
         WITH publication_ids_with_only_bibtex_raw AS (
             SELECT pubs.id AS id
             FROM citation_publication AS pubs
@@ -111,12 +131,16 @@ def augment_publications(user: User, limit=None):
     # Return rows of  the form {"id": Int, "authors": Array[String]}
     year_author_results = [dict(zip(columns, row)) for row in cursor.fetchall()]
 
-    for (ind, year_author_result) in enumerate(year_author_results):
+    for ind, year_author_result in enumerate(year_author_results):
         audit_command = models.AuditCommand.objects.create(
-            creator=user, action="augment data crossref year author search")
+            creator=user, action="augment data crossref year author search"
+        )
         print("Entry")
-        print("\t{ind} Year: {year}, Title: {title}, DOI: {doi} ID: {publication_id}".format(ind=ind,
-                                                                                             **year_author_result))
+        print(
+            "\t{ind} Year: {year}, Title: {title}, DOI: {doi} ID: {publication_id}".format(
+                ind=ind, **year_author_result
+            )
+        )
         publication = update(year_author_result, audit_command)
         if publication:
             print(publication)
@@ -126,34 +150,52 @@ def _match_author_name(name: str, other_name: str):
     return name == other_name
 
 
-def _match_publication_title(publication, detached_publications: List[common.DetachedPublication],
-                             publication_matches: Set[int]) -> Set[int]:
+def _match_publication_title(
+    publication,
+    detached_publications: List[common.DetachedPublication],
+    publication_matches: Set[int],
+) -> Set[int]:
     if publication["title"]:
         # Determine if titles approximately match
-        publication_titles = [detached_publication.publication.title for detached_publication in detached_publications]
-        title_match_ratios = [fuzz.partial_ratio(publication["title"], publication_title)
-                              for publication_title in publication_titles]
+        publication_titles = [
+            detached_publication.publication.title
+            for detached_publication in detached_publications
+        ]
+        title_match_ratios = [
+            fuzz.partial_ratio(publication["title"], publication_title)
+            for publication_title in publication_titles
+        ]
         if 100 in title_match_ratios:
             return {title_match_ratios.index(100)}
         else:
-            titles_matches = set(i for (i, result) in enumerate(title_match_ratios) if result >= 90)
+            titles_matches = set(
+                i for (i, result) in enumerate(title_match_ratios) if result >= 90
+            )
             publication_matches.intersection_update(titles_matches)
             return publication_matches
     else:
         return publication_matches
 
 
-def _match_publication_year(publication, detached_publications: List[common.DetachedPublication],
-                            publication_matches: Set[int]) -> Set[int]:
+def _match_publication_year(
+    publication,
+    detached_publications: List[common.DetachedPublication],
+    publication_matches: Set[int],
+) -> Set[int]:
     if publication["date_published_text"] is not None:
         # Determine if years exactly match
-        years_matches = set(i for (i, detached_publication) in enumerate(detached_publications)
-                            if publication["year"] == detached_publication.publication_raw.year)
+        years_matches = set(
+            i
+            for (i, detached_publication) in enumerate(detached_publications)
+            if publication["year"] == detached_publication.publication_raw.year
+        )
         publication_matches.intersection_update(years_matches)
         return publication_matches
 
 
-def _match_publication_author(publication, detached_publication: common.DetachedPublication) -> bool:
+def _match_publication_author(
+    publication, detached_publication: common.DetachedPublication
+) -> bool:
     names = publication["names"]
     detached_raw_authors = detached_publication.authors_author_alias_pairs
     for name in names:
@@ -164,17 +206,31 @@ def _match_publication_author(publication, detached_publication: common.Detached
     return True
 
 
-def _match_publication_authors(publication, detached_publications: List[common.DetachedPublication],
-                               publication_matches: Set[int]) -> Set[int]:
-    author_matches = set(i for (i, other_publication) in enumerate(detached_publications)
-                         if _match_publication_author(publication, other_publication))
+def _match_publication_authors(
+    publication,
+    detached_publications: List[common.DetachedPublication],
+    publication_matches: Set[int],
+) -> Set[int]:
+    author_matches = set(
+        i
+        for (i, other_publication) in enumerate(detached_publications)
+        if _match_publication_author(publication, other_publication)
+    )
     publication_matches.intersection_update(author_matches)
     return publication_matches
 
 
-def _match_publication(year_authors_query, detached_publications: List[common.DetachedPublication]) -> Set[int]:
+def _match_publication(
+    year_authors_query, detached_publications: List[common.DetachedPublication]
+) -> Set[int]:
     publication_matches = set(range(len(detached_publications)))
-    _match_publication_year(year_authors_query, detached_publications, publication_matches)
-    _match_publication_title(year_authors_query, detached_publications, publication_matches)
-    _match_publication_authors(year_authors_query, detached_publications, publication_matches)
+    _match_publication_year(
+        year_authors_query, detached_publications, publication_matches
+    )
+    _match_publication_title(
+        year_authors_query, detached_publications, publication_matches
+    )
+    _match_publication_authors(
+        year_authors_query, detached_publications, publication_matches
+    )
     return publication_matches

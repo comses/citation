@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "citation"
+version = "0.0.1"
+description = "Citation management and deduplication for Django"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "GPL-3.0-only" }
+authors = [
+  { name = "CoMSES", email = "devs@comses.net" }
+]
+classifiers = [
+  "Environment :: Web Environment",
+  "Framework :: Django :: 5.2",
+  "Intended Audience :: Developers",
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "bibtexparser==1.4.4",
+  "bleach==3.3.0",
+  "Django==5.2.12",
+  "django-extensions==4.1",
+  "django-model-utils==5.0.0",
+  "djangorestframework==3.15.2",
+  "fuzzywuzzy==0.17.0",
+  "lxml==6.0.2",
+  "markdown==3.10.2",
+  "pandas==3.0.2",
+  "psycopg2-binary==2.9.11",
+  "pyparsing==3.3.2",
+  "python-Levenshtein==0.27.3",
+  "python-dateutil==2.9.0.post0",
+  "Pyzotero==1.11.0",
+  "requests==2.32.4",
+  "Unidecode==1.0.23",
+  "invoke",
+  "scipy==1.17.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/comses/citation"
+Documentation = "https://citation.readthedocs.io/en/latest/"
+
+[dependency-groups]
+dev = [
+  "coveralls",
+  "coverage",
+  "ipython",
+  "ruff",
+  "sphinx",
+]
+
+[tool.setuptools.packages.find]
+include = ["citation*"]

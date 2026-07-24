@@ -13,132 +13,143 @@ class TestPipeline(TestCase):
     @staticmethod
     def load_data():
         cmd = Command()
-        cmd.handle(filename="tests/data/all_problematic_entries.bib",
-                   username='foo')
+        cmd.handle(filename="tests/data/all_problematic_entries.bib", username="foo")
 
     @classmethod
     def setUpClass(cls):
         super(TestPipeline, cls).setUpClass()
-        User.objects.create(username='foo', email='a@b.com', password='test')
+        User.objects.create(username="foo", email="a@b.com", password="test")
         cls.load_data()
 
         cls.primary_publication = [
-            'Duplicate Citations One Publication',
-            'Towards realistic and effective Agent-based models of crowd dynamics',
-            'Sustainability in the Malaysian palm oil industry',
-            'An integrated framework of agent-based modelling and robust optimization for microgrid energy management'
+            "Duplicate Citations One Publication",
+            "Towards realistic and effective Agent-based models of crowd dynamics",
+            "Sustainability in the Malaysian palm oil industry",
+            "An integrated framework of agent-based modelling and robust optimization for microgrid energy management",
         ]
 
         cls.secondary_publication = [
-            '10.2105/ajph.2004.037705',
-            '10.1016/j.apenergy.2008.09.006',
-            '10.1016/j.enconman.2012.09.001',
-            '10.1016/j.cnsns.2009.10.005',
+            "10.2105/ajph.2004.037705",
+            "10.1016/j.apenergy.2008.09.006",
+            "10.1016/j.enconman.2012.09.001",
+            "10.1016/j.cnsns.2009.10.005",
         ]
 
         cls.duplicate_citation_one_publication_references = [
             {
-                'title': 'An integrated framework of agent-based modelling and robust optimization for microgrid energy management',
-                'doi': '10.1016/j.apenergy.2014.04.024'
+                "title": "An integrated framework of agent-based modelling and robust optimization for microgrid energy management",
+                "doi": "10.1016/j.apenergy.2014.04.024",
             },
-            {
-                'title': '',
-                'doi': '10.2105/ajph.2004.037705'
-            }
+            {"title": "", "doi": "10.2105/ajph.2004.037705"},
         ]
 
         # Note that there is only one citation here. The publication with DOI 10.1177/0011128785031001004 was not
         # included because the primary publication had already appeared once in the BibTeX file and the citation
         # counts did not match
-        cls.realistic_and_effective_abms_references = [
-            '10.2105/ajph.2004.037705'
-        ]
+        cls.realistic_and_effective_abms_references = ["10.2105/ajph.2004.037705"]
 
-        cls.microgrid_energy_management_references = {'10.1016/j.apenergy.2008.09.006',
-                                                      '10.1016/j.enconman.2012.09.001', '10.1016/j.cnsns.2009.10.005',
-                                                      '10.1016/j.jtbi.2014.08.016'}
+        cls.microgrid_energy_management_references = {
+            "10.1016/j.apenergy.2008.09.006",
+            "10.1016/j.enconman.2012.09.001",
+            "10.1016/j.cnsns.2009.10.005",
+            "10.1016/j.jtbi.2014.08.016",
+        }
 
         cls.not_a_publication = [
-            '10.1177/0011128785031001004',
+            "10.1177/0011128785031001004",
         ]
 
         cls.container_names = [
-            {'name': 'NEUROCOMPUTING', 'issn': '0925-2312'},
-            {'name': 'AM J PUBLIC HEALTH', 'issn': ''},
-            {'name': 'JOURNAL OF THEORETICAL BIOLOGY', 'issn': '0022-5193'},
-            {'name': 'APPL ENERG', 'issn': '0306-2619'},
-            {'issn': '', 'name': 'ENERG CONVERS MANAGE'},
-            {'issn': '', 'name': 'COMMUN NONLINEAR SCI'},
+            {"name": "NEUROCOMPUTING", "issn": "0925-2312"},
+            {"name": "AM J PUBLIC HEALTH", "issn": ""},
+            {"name": "JOURNAL OF THEORETICAL BIOLOGY", "issn": "0022-5193"},
+            {"name": "APPL ENERG", "issn": "0306-2619"},
+            {"issn": "", "name": "ENERG CONVERS MANAGE"},
+            {"issn": "", "name": "COMMUN NONLINEAR SCI"},
         ]
 
         cls.container_alias_names = [
-            'APPLIED ENERGY',
+            "APPLIED ENERGY",
         ]
 
-        cls.authors_with_ids_or_emails = [{'email': 'cgchoong@gmail.com',
-                                           'family_name': 'Choong',
-                                           'given_name': 'Chee Guan',
-                                           'orcid': None,
-                                           'researcherid': None},
-                                          {'email': 'elizaveta.kuznetsova@uvsq.fr',
-                                           'family_name': 'Kuznetsova',
-                                           'given_name': 'Elizaveta',
-                                           'orcid': None,
-                                           'researcherid': 'J-4492-2016'},
-                                          {'email': 'kerryl@unimelb.edu.au',
-                                           'family_name': 'Landman',
-                                           'given_name': 'Kerry A',
-                                           'orcid': None,
-                                           'researcherid': None},
-                                          {'email': 'yanfu.li@ecp.fr',
-                                           'family_name': 'Li',
-                                           'given_name': 'Yan-Fu',
-                                           'orcid': '0000-0001-5755-7115',
-                                           'researcherid': 'B-6610-2014'},
-                                          {'email': 'caruizm@est-econ.uc3m.es',
-                                           'family_name': 'Ruiz',
-                                           'given_name': 'Carlos',
-                                           'orcid': '0000-0003-1663-1061',
-                                           'researcherid': 'B-2183-2012'},
-                                          {'email': 'jarek@agh.edu.pl',
-                                           'family_name': 'Was',
-                                           'given_name': 'Jaroslaw',
-                                           'orcid': None,
-                                           'researcherid': 'B-5835-2012'},
-                                          {'email': 'enrico.zio@ecp.fr',
-                                           'family_name': 'Zio',
-                                           'given_name': 'Enrico',
-                                           'orcid': '0000-0002-7108-637X',
-                                           'researcherid': None}]
+        cls.authors_with_ids_or_emails = [
+            {
+                "email": "cgchoong@gmail.com",
+                "family_name": "Choong",
+                "given_name": "Chee Guan",
+                "orcid": None,
+                "researcherid": None,
+            },
+            {
+                "email": "elizaveta.kuznetsova@uvsq.fr",
+                "family_name": "Kuznetsova",
+                "given_name": "Elizaveta",
+                "orcid": None,
+                "researcherid": "J-4492-2016",
+            },
+            {
+                "email": "kerryl@unimelb.edu.au",
+                "family_name": "Landman",
+                "given_name": "Kerry A",
+                "orcid": None,
+                "researcherid": None,
+            },
+            {
+                "email": "yanfu.li@ecp.fr",
+                "family_name": "Li",
+                "given_name": "Yan-Fu",
+                "orcid": "0000-0001-5755-7115",
+                "researcherid": "B-6610-2014",
+            },
+            {
+                "email": "caruizm@est-econ.uc3m.es",
+                "family_name": "Ruiz",
+                "given_name": "Carlos",
+                "orcid": "0000-0003-1663-1061",
+                "researcherid": "B-2183-2012",
+            },
+            {
+                "email": "jarek@agh.edu.pl",
+                "family_name": "Was",
+                "given_name": "Jaroslaw",
+                "orcid": None,
+                "researcherid": "B-5835-2012",
+            },
+            {
+                "email": "enrico.zio@ecp.fr",
+                "family_name": "Zio",
+                "given_name": "Enrico",
+                "orcid": "0000-0002-7108-637X",
+                "researcherid": None,
+            },
+        ]
 
         cls.authors_duplicate_citation_one_publication = {
-            'Was',
+            "Was",
         }
 
         cls.authors_sustainability_in_the_malaysian_palm_oil_industry = {
-            'Choong',
-            'Mckay',
+            "Choong",
+            "Mckay",
         }
 
         cls.authors_of_realistic_and_effective_abms = {
-            'Cheeseman',
-            'Newgreen',
-            'Landman',
+            "Cheeseman",
+            "Newgreen",
+            "Landman",
         }
 
         cls.authors_of_microgrid_energy_management = {
-            'elizaveta.kuznetsova@uvsq.fr',
-            'yanfu.li@ecp.fr',
-            'caruizm@est-econ.uc3m.es',
-            'enrico.zio@ecp.fr',
+            "elizaveta.kuznetsova@uvsq.fr",
+            "yanfu.li@ecp.fr",
+            "caruizm@est-econ.uc3m.es",
+            "enrico.zio@ecp.fr",
         }
 
         # The current method of associating emails with authors zips authors and emails together if they are same
         # length and otherwise does not import emails. This means that some email addresses in the BibTeX do not make
         # it into the database
-        cls.missing_emails = [
-            'kerryl@unimelb.edu.au'
-        ]
+        cls.missing_emails = ["kerryl@unimelb.edu.au"]
 
     def test_bibtex_load(self):
         # The Primary publication "Duplicate Citations One Publication" should have only one secondary publication
@@ -166,66 +177,133 @@ class TestPipeline(TestCase):
         # The Primary Publication test ensures that the "An integrated framework of agent-based modelling and robust \
         # optimization for microgrid energy management" appears in the primary list even though the BibTeX loader first
         # encounters the reference to it
-        self.assertListEqual(list(p.title for p in models.Publication.objects.filter(is_primary=True)),
-                             self.primary_publication)
-        self.assertListEqual(list(p.doi for p in models.Publication.objects.filter(is_primary=False)),
-                             self.secondary_publication)
+        self.assertListEqual(
+            list(p.title for p in models.Publication.objects.filter(is_primary=True)),
+            self.primary_publication,
+        )
+        self.assertListEqual(
+            list(p.doi for p in models.Publication.objects.filter(is_primary=False)),
+            self.secondary_publication,
+        )
 
         # This ensures that duplicate secondary publications part of the same primary publication only get added once
         self.assertListEqual(
-            list(models.Publication.objects.filter(
-                referenced_by__in=models.Publication.objects.filter(
-                    title='Duplicate Citations One Publication')).values('doi', 'title')),
-            self.duplicate_citation_one_publication_references)
-        self.assertListEqual(list(p.doi for p in models.Publication.objects.filter(
-            referenced_by__in=models.Publication.objects.filter(
-                title='Towards realistic and effective Agent-based models of crowd dynamics'))),
-                             self.realistic_and_effective_abms_references)
+            list(
+                models.Publication.objects.filter(
+                    referenced_by__in=models.Publication.objects.filter(
+                        title="Duplicate Citations One Publication"
+                    )
+                ).values("doi", "title")
+            ),
+            self.duplicate_citation_one_publication_references,
+        )
+        self.assertListEqual(
+            list(
+                p.doi
+                for p in models.Publication.objects.filter(
+                    referenced_by__in=models.Publication.objects.filter(
+                        title="Towards realistic and effective Agent-based models of crowd dynamics"
+                    )
+                )
+            ),
+            self.realistic_and_effective_abms_references,
+        )
         self.assertSetEqual(
-            set(p.doi for p in models.Publication.objects.filter(referenced_by__in=models.Publication.objects.filter(
-                title='An integrated framework of agent-based modelling and robust optimization for microgrid energy management'))),
-            self.microgrid_energy_management_references)
+            set(
+                p.doi
+                for p in models.Publication.objects.filter(
+                    referenced_by__in=models.Publication.objects.filter(
+                        title="An integrated framework of agent-based modelling and robust optimization for microgrid energy management"
+                    )
+                )
+            ),
+            self.microgrid_energy_management_references,
+        )
 
-        self.assertFalse(models.Publication.objects.filter(doi=self.not_a_publication[0]).exists())
+        self.assertFalse(
+            models.Publication.objects.filter(doi=self.not_a_publication[0]).exists()
+        )
 
         for c in self.container_names:
-            cn = models.Container.objects.get(name=c.get('name'))
-            if cn.name in ('APPL ENERG', 'NEUROCOMPUTING', 'JOURNAL OF THEORETICAL BIOLOGY'):
+            cn = models.Container.objects.get(name=c.get("name"))
+            if cn.name in (
+                "APPL ENERG",
+                "NEUROCOMPUTING",
+                "JOURNAL OF THEORETICAL BIOLOGY",
+            ):
                 self.assertTrue(cn.issn)
-                self.assertEqual(cn.id, models.Container.objects.get(issn=c.get('issn')).id)
+                self.assertEqual(
+                    cn.id, models.Container.objects.get(issn=c.get("issn")).id
+                )
 
-        self.assertFalse(models.ContainerAlias.objects.filter(name='APPLIED ENERGY').exists())
+        self.assertFalse(
+            models.ContainerAlias.objects.filter(name="APPLIED ENERGY").exists()
+        )
 
         # All author entries from the primary publication "An integrated framework of agent-based modelling and robust
         # optimization for microgrid energy management" should be present even though we loaded the citation first
-        self.assertListEqual(list(
-            models.Author.objects
-                .exclude(email='')
-                .order_by('family_name')
-                .values('family_name', 'given_name', 'email', 'researcherid', 'orcid')),
-            self.authors_with_ids_or_emails)
+        self.assertListEqual(
+            list(
+                models.Author.objects.exclude(email="")
+                .order_by("family_name")
+                .values("family_name", "given_name", "email", "researcherid", "orcid")
+            ),
+            self.authors_with_ids_or_emails,
+        )
 
         self.assertSetEqual(
-            set(a.family_name for a in models.Author.objects.filter(
-                publications__in=models.Publication.objects.filter(doi='10.1016/j.neucom.2014.04.057'))),
-            self.authors_duplicate_citation_one_publication)
+            set(
+                a.family_name
+                for a in models.Author.objects.filter(
+                    publications__in=models.Publication.objects.filter(
+                        doi="10.1016/j.neucom.2014.04.057"
+                    )
+                )
+            ),
+            self.authors_duplicate_citation_one_publication,
+        )
 
         self.assertSetEqual(
-            set(a.family_name for a in models.Author.objects.filter(
-                publications__in=models.Publication.objects.filter(doi='10.1016/j.jclepro.2013.12.009'))),
-            self.authors_sustainability_in_the_malaysian_palm_oil_industry)
+            set(
+                a.family_name
+                for a in models.Author.objects.filter(
+                    publications__in=models.Publication.objects.filter(
+                        doi="10.1016/j.jclepro.2013.12.009"
+                    )
+                )
+            ),
+            self.authors_sustainability_in_the_malaysian_palm_oil_industry,
+        )
 
         self.assertSetEqual(
-            set(a.family_name for a in models.Author.objects.filter(
-                publications__in=models.Publication.objects.filter(doi='10.1016/j.jtbi.2014.08.016'))),
-            self.authors_of_realistic_and_effective_abms)
+            set(
+                a.family_name
+                for a in models.Author.objects.filter(
+                    publications__in=models.Publication.objects.filter(
+                        doi="10.1016/j.jtbi.2014.08.016"
+                    )
+                )
+            ),
+            self.authors_of_realistic_and_effective_abms,
+        )
 
         self.assertSetEqual(
-            set(a.email for a in models.Author.objects.filter(
-                publications__in=models.Publication.objects.filter(doi='10.1016/j.apenergy.2014.04.024'))),
-            self.authors_of_microgrid_energy_management)
+            set(
+                a.email
+                for a in models.Author.objects.filter(
+                    publications__in=models.Publication.objects.filter(
+                        doi="10.1016/j.apenergy.2014.04.024"
+                    )
+                )
+            ),
+            self.authors_of_microgrid_energy_management,
+        )
 
-        self.assertTrue(Author.objects.filter(family_name__iexact='mckay', given_name__iexact='alison').exists())
+        self.assertTrue(
+            Author.objects.filter(
+                family_name__iexact="mckay", given_name__iexact="alison"
+            ).exists()
+        )
 
     def test_bibtex_load_idempotent(self):
         """Loading the same dataset into the database twice should not result in any changes to the database"""

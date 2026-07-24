@@ -4,23 +4,26 @@ from __future__ import unicode_literals
 
 from django.db import migrations
 
+
 # Data Migration - Migrating payload data to newly created pub_id in Auditlog leaving payload data as its is
 def add_publication_id(apps, schema_editor):
-    AuditLog = apps.get_model('citation', 'AuditLog')
-    Publication = apps.get_model('citation', 'Publication')
-    for auditlog in AuditLog.objects.exclude(payload__data__publication_id__isnull=True):
-        try :
-            auditlog.pub_id = Publication.objects.get(pk=auditlog.payload['data']['publication_id'])
+    AuditLog = apps.get_model("citation", "AuditLog")
+    Publication = apps.get_model("citation", "Publication")
+    for auditlog in AuditLog.objects.exclude(
+        payload__data__publication_id__isnull=True
+    ):
+        try:
+            auditlog.pub_id = Publication.objects.get(
+                pk=auditlog.payload["data"]["publication_id"]
+            )
             auditlog.save()
         except Publication.DoesNotExist:
             None
 
 
-
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('citation', '0012_auditlog_pub_id'),
+        ("citation", "0012_auditlog_pub_id"),
     ]
 
     operations = [

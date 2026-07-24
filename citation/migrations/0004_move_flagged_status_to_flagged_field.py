@@ -6,22 +6,24 @@ from django.db import migrations, models
 
 
 def forwards_func(apps, schema_editor):
-    Publication = apps.get_model('citation', 'Publication')
+    Publication = apps.get_model("citation", "Publication")
     db_alias = schema_editor.connection.alias
-    Publication.objects.using(db_alias).filter(status='FLAGGED').update(status='UNTAGGED', flagged=True)
+    Publication.objects.using(db_alias).filter(status="FLAGGED").update(
+        status="UNTAGGED", flagged=True
+    )
 
 
 def reverse_func(apps, schema_editor):
-    Publication = apps.get_model('citation', 'Publication')
+    Publication = apps.get_model("citation", "Publication")
     db_alias = schema_editor.connection.alias
-    Publication.objects.using(db_alias).filter(flagged=True).update(status='FLAGGED', flagged=False)
+    Publication.objects.using(db_alias).filter(flagged=True).update(
+        status="FLAGGED", flagged=False
+    )
 
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('citation', '0003_auto_20160915_1915'),
+        ("citation", "0003_auto_20160915_1915"),
     ]
 
-    operations = [
-        migrations.RunPython(forwards_func, reverse_func)
-    ]
+    operations = [migrations.RunPython(forwards_func, reverse_func)]

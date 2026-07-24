@@ -6,24 +6,67 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('citation', '0017_change_suggested_merge_creator_to_submitter'),
+        ("citation", "0017_change_suggested_merge_creator_to_submitter"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='CodeArchiveUrl',
+            name="CodeArchiveUrl",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('date_created', models.DateTimeField(auto_now_add=True)),
-                ('last_modified', models.DateTimeField(auto_now=True)),
-                ('url', models.URLField(blank=True, max_length=2000)),
-                ('category', models.CharField(choices=[(('Archived', ('comses', 'CoMSES'), ('figshare', 'FigShare')), ('Not Assigned', ('', 'Empty')))], default='', max_length=100)),
-                ('status', models.CharField(choices=[(('available', 'Available'), ('unavailable', 'Unavailable'))], max_length=100)),
-                ('creator', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
-                ('publication', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='citation.Publication')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("date_created", models.DateTimeField(auto_now_add=True)),
+                ("last_modified", models.DateTimeField(auto_now=True)),
+                ("url", models.URLField(blank=True, max_length=2000)),
+                (
+                    "category",
+                    models.CharField(
+                        choices=[
+                            (
+                                (
+                                    "Archived",
+                                    ("comses", "CoMSES"),
+                                    ("figshare", "FigShare"),
+                                ),
+                                ("Not Assigned", ("", "Empty")),
+                            )
+                        ],
+                        default="",
+                        max_length=100,
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            (("available", "Available"), ("unavailable", "Unavailable"))
+                        ],
+                        max_length=100,
+                    ),
+                ),
+                (
+                    "creator",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "publication",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to="citation.Publication",
+                    ),
+                ),
             ],
         ),
     ]

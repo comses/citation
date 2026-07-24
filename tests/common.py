@@ -7,9 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 class BaseTest(TestCase):
-    default_username = 'testcase'
-    default_email = 'testcase@mailinator.com'
-    default_password = 'testing'
+    default_username = "testcase"
+    default_email = "testcase@mailinator.com"
+    default_password = "testing"
 
     def setUp(self):
         self.user = self.create_user()
@@ -21,7 +21,9 @@ class BaseTest(TestCase):
             email = self.default_email
         if password is None:
             password = self.default_password
-        return User.objects.create_user(username=username, email=email, password=password, **kwargs)
+        return User.objects.create_user(
+            username=username, email=email, password=password, **kwargs
+        )
 
     def login(self, username=None, password=None):
         if username is None:

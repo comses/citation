@@ -15,7 +15,7 @@ class ResponseDictEncoder:
             try:
                 content = o.json()
             except json.decoder.JSONDecodeError:
-                content = o.content.decode('utf-8')
+                content = o.content.decode("utf-8")
                 is_json = False
             return {
                 "url": o.url,
@@ -24,17 +24,19 @@ class ResponseDictEncoder:
                 "headers": dict(o.headers),
                 "encoding": o.encoding,
                 "is_json": is_json,
-                "content": content
+                "content": content,
             }
 
 
 class DetachedPublication:
-    def __init__(self,
-                 publication: models.Publication,
-                 author_author_alias_pairs: List[Tuple[models.Author, models.AuthorAlias]],
-                 container_container_alias_pair: Tuple[models.Container, models.ContainerAlias],
-                 raw: models.Raw,
-                 audit_command: models.AuditCommand):
+    def __init__(
+        self,
+        publication: models.Publication,
+        author_author_alias_pairs: List[Tuple[models.Author, models.AuthorAlias]],
+        container_container_alias_pair: Tuple[models.Container, models.ContainerAlias],
+        raw: models.Raw,
+        audit_command: models.AuditCommand,
+    ):
 
         # these must not be saved in the database
         self.publication = publication
@@ -56,7 +58,8 @@ class DetachedPublication:
                 audit_command=self.audit_command,
                 detached_container=self.container,
                 detached_container_alias=self.container_alias,
-                existing_container=publication.container)
+                existing_container=publication.container,
+            )
 
             publication.container = container
             update_publication(publication, self.publication, self.audit_command)
@@ -65,51 +68,63 @@ class DetachedPublication:
             self.raw.container = container
             self.raw.save()
 
-            for (author, author_alias) in self.authors_author_alias_pairs:
-                author_db = models.Author.objects.log_create(audit_command=self.audit_command,
-                                                             given_name=author.given_name,
-                                                             family_name=author.family_name,
-                                                             orcid=author.orcid,
-                                                             email=author.email)
-                author_alias_db = models.AuthorAlias.objects.log_create(audit_command=self.audit_command,
-                                                                        given_name=author_alias.given_name,
-                                                                        family_name=author_alias.family_name,
-                                                                        author_id=author_db.id)
+            for author, author_alias in self.authors_author_alias_pairs:
+                author_db = models.Author.objects.log_create(
+                    audit_command=self.audit_command,
+                    given_name=author.given_name,
+                    family_name=author.family_name,
+                    orcid=author.orcid,
+                    email=author.email,
+                )
+                author_alias_db = models.AuthorAlias.objects.log_create(
+                    audit_command=self.audit_command,
+                    given_name=author_alias.given_name,
+                    family_name=author_alias.family_name,
+                    author_id=author_db.id,
+                )
 
                 models.RawAuthors.objects.log_create(
-                    self.audit_command,
-                    author_id=author_db.id, raw_id=self.raw.id)
+                    self.audit_command, author_id=author_db.id, raw_id=self.raw.id
+                )
 
 
-def update_container(existing_container: Optional[models.Container],
-                     detached_container: models.Container,
-                     detached_container_alias: models.ContainerAlias,
-                     audit_command: models.AuditCommand):
+def update_container(
+    existing_container: Optional[models.Container],
+    detached_container: models.Container,
+    detached_container_alias: models.ContainerAlias,
+    audit_command: models.AuditCommand,
+):
     if existing_container:
-        if existing_container.issn == '' and detached_container.issn != '':
-            existing_container.log_update(audit_command=audit_command, issn=detached_container.issn)
+        if existing_container.issn == "" and detached_container.issn != "":
+            existing_container.log_update(
+                audit_command=audit_command, issn=detached_container.issn
+            )
         container = existing_container
     else:
-        container = models.Container.objects.log_create(audit_command=audit_command,
-                                                        name=detached_container.name,
-                                                        issn=detached_container.issn,
-                                                        type=detached_container.type)
+        container = models.Container.objects.log_create(
+            audit_command=audit_command,
+            name=detached_container.name,
+            issn=detached_container.issn,
+            type=detached_container.type,
+        )
 
     container_alias, created = models.ContainerAlias.objects.log_get_or_create(
-        audit_command,
-        name=detached_container_alias.name,
-        container_id=container.id)
+        audit_command, name=detached_container_alias.name, container_id=container.id
+    )
 
     return container, container_alias
 
 
 def update_publication(
-        existing_publication: models.Publication,
-        detached_publication: models.Publication,
-        audit_command: models.AuditCommand):
+    existing_publication: models.Publication,
+    detached_publication: models.Publication,
+    audit_command: models.AuditCommand,
+):
     changes = {}
     if existing_publication.date_published_text is None:
-        existing_publication.date_published_text = detached_publication.date_published_text
+        existing_publication.date_published_text = (
+            detached_publication.date_published_text
+        )
         changes["date_published_text"] = detached_publication.date_published_text
     if not existing_publication.title:
         existing_publication.title = detached_publication.title
@@ -128,19 +143,19 @@ def get_message(response_json):
     return response_json["message"]
 
 
-def make_author_author_alias_pair(publication: models.Publication, item_json: Dict,
-                                  create) -> models.Author:
+def make_author_author_alias_pair(
+    publication: models.Publication, item_json: Dict, create
+) -> models.Author:
     family = unidecode(item_json.get("family").upper())
     given = unidecode(item_json.get("given").upper())
     orcid = item_json.get("ORCID", "")
 
-    author = models.Author(type=models.Author.INDIVIDUAL,
-                           orcid=orcid,
-                           given_name=given,
-                           family_name=family)
-    author_alias = models.AuthorAlias(author=author,
-                                      given_name=given,
-                                      family_name=family)
+    author = models.Author(
+        type=models.Author.INDIVIDUAL, orcid=orcid, given_name=given, family_name=family
+    )
+    author_alias = models.AuthorAlias(
+        author=author, given_name=given, family_name=family
+    )
 
     if create:
         author.save()
@@ -149,19 +164,23 @@ def make_author_author_alias_pair(publication: models.Publication, item_json: Di
     return author, author_alias
 
 
-def make_author_author_alias_pairs(publication_raw, response_json: Dict, create) -> List[models.Author]:
+def make_author_author_alias_pairs(
+    publication_raw, response_json: Dict, create
+) -> List[models.Author]:
     authors_json = response_json.get("author", [])
     if not authors_json:
         authors_json = response_json.get("editor", [])
-    author_author_alias_pairs = [make_author_author_alias_pair(publication_raw, author_json, create) for author_json in
-                                 authors_json]
+    author_author_alias_pairs = [
+        make_author_author_alias_pair(publication_raw, author_json, create)
+        for author_json in authors_json
+    ]
     return author_author_alias_pairs
 
 
 def get_year(item_json):
-    return item_json \
-        .get("issued", {"date-parts": [[None]]}) \
-        .get("date-parts", [[None]])[0][0]
+    return item_json.get("issued", {"date-parts": [[None]]}).get(
+        "date-parts", [[None]]
+    )[0][0]
 
 
 def get_title(item_json):
@@ -188,7 +207,9 @@ def get_container_name(item_json):
     return container_title
 
 
-def make_container_container_alias_pair(publication_raw: models.Publication, item_json, create):
+def make_container_container_alias_pair(
+    publication_raw: models.Publication, item_json, create
+):
     container_name = get_container_name(item_json)
     container_type = get_container_type(item_json)
 

@@ -16,20 +16,40 @@ logger = logging.getLogger(__name__)
 
 
 ALLOWED_TAGS = bleach.ALLOWED_TAGS + [
-    'p', 'h1', 'h2', 'h3', 'h4', 'pre', 'br', 'hr', 'div', 'span', 'footer',
-    'img', 'table', 'thead', 'tbody', 'tfoot', 'col', 'colgroup', 'th', 'tr', 'td'
+    "p",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "pre",
+    "br",
+    "hr",
+    "div",
+    "span",
+    "footer",
+    "img",
+    "table",
+    "thead",
+    "tbody",
+    "tfoot",
+    "col",
+    "colgroup",
+    "th",
+    "tr",
+    "td",
 ]
 
-ALLOWED_ATTRIBUTES = dict(bleach.ALLOWED_ATTRIBUTES,
-                          **{'*': ['name', 'id', 'class'], 'img': ['alt', 'src']})
+ALLOWED_ATTRIBUTES = dict(
+    bleach.ALLOWED_ATTRIBUTES, **{"*": ["name", "id", "class"], "img": ["alt", "src"]}
+)
 
 DEFAULT_MARKDOWN_EXTENSIONS = [
-    'markdown.extensions.extra',
-    'markdown.extensions.codehilite',
-    'markdown.extensions.nl2br',
-    'markdown.extensions.sane_lists',
-    'markdown.extensions.smarty',
-    'markdown.extensions.toc',
+    "markdown.extensions.extra",
+    "markdown.extensions.codehilite",
+    "markdown.extensions.nl2br",
+    "markdown.extensions.sane_lists",
+    "markdown.extensions.smarty",
+    "markdown.extensions.toc",
     #    'markdown.extensions.wikilinks',
 ]
 
@@ -37,19 +57,25 @@ DEFAULT_MARKDOWN_EXTENSIONS = [
 def render_sanitized_markdown(md_text: str, extensions=None):
     if extensions is None:
         extensions = DEFAULT_MARKDOWN_EXTENSIONS
-    html = markdown.markdown(
-        md_text,
-        extensions=extensions
-    )
+    html = markdown.markdown(md_text, extensions=extensions)
     return sanitize_html(html)
 
 
 def sanitize_html(html: str):
-    return bleach.clean(bleach.linkify(html), tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
+    return bleach.clean(
+        bleach.linkify(html), tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES
+    )
 
 
-def create_markdown_email(subject: str=None, to=None, template_name: str=None, context: dict=None, body: str=None, from_email: str=settings.DEFAULT_FROM_EMAIL,
-                          **kwargs):
+def create_markdown_email(
+    subject: str = None,
+    to=None,
+    template_name: str = None,
+    context: dict = None,
+    body: str = None,
+    from_email: str = settings.DEFAULT_FROM_EMAIL,
+    **kwargs,
+):
     if all([template_name, context]):
         # override body if a template name and context were given to us
         try:
@@ -61,11 +87,17 @@ def create_markdown_email(subject: str=None, to=None, template_name: str=None, c
             logger.error("invalid template %s", template_name)
     required_fields = [subject, to, body, from_email]
     if all(required_fields):
-        email = EmailMultiAlternatives(subject=subject, body=body, to=to, from_email=from_email, **kwargs)
-        email.attach_alternative(render_sanitized_markdown(body), 'text/html')
+        email = EmailMultiAlternatives(
+            subject=subject, body=body, to=to, from_email=from_email, **kwargs
+        )
+        email.attach_alternative(render_sanitized_markdown(body), "text/html")
         return email
     else:
-        raise ValueError("Ignoring request to create a markdown email with missing required content {}".format(required_fields))
+        raise ValueError(
+            "Ignoring request to create a markdown email with missing required content {}".format(
+                required_fields
+            )
+        )
 
 
 def send_markdown_email(**kwargs):
@@ -83,7 +115,7 @@ def sanitize_doi(s):
 
 def sanitize_name(s):
     if s:
-        s = re.sub("\{''\}|``", "\"", s)
+        s = re.sub("\{''\}|``", '"', s)
         s = re.sub("\n", " ", s)
         s = re.sub("\\\\", "", s)
     return s
@@ -101,8 +133,10 @@ def normalize_name(name: str, strip_unicode=True) -> str:
 
 
 def all_initials(given_names):
-    return all(len(given_name) == 1 and given_name == given_name.upper()
-               for given_name in given_names)
+    return all(
+        len(given_name) == 1 and given_name == given_name.upper()
+        for given_name in given_names
+    )
 
 
 def last_name_and_initials(name: str) -> Tuple[str, str]:
@@ -112,7 +146,9 @@ def last_name_and_initials(name: str) -> Tuple[str, str]:
     given_names = name_split[1:] if len(name_split) > 1 else []
     if all_initials(given_names):
         given = "".join(given_names)
-    elif len(given_names) > 1 and any(len(given_name) > 1 for given_name in given_names):
+    elif len(given_names) > 1 and any(
+        len(given_name) > 1 for given_name in given_names
+    ):
         given = "".join(given_name[0] for given_name in given_names)
     else:
         given = " ".join(given_names)
@@ -120,7 +156,7 @@ def last_name_and_initials(name: str) -> Tuple[str, str]:
     if given is not None:
         return family, given
     else:
-        return normalized_name, ''
+        return normalized_name, ""
 
 
 def last_name_and_initial(normalized_name: str) -> str:
@@ -141,18 +177,20 @@ def last_name_and_initial(normalized_name: str) -> str:
 
 
 class ArrayAgg(Aggregate):
-    function = 'ARRAY_AGG'
-    name = 'ArrayAgg'
-    template = '%(function)s(%(distinct)s%(expressions)s)'
+    function = "ARRAY_AGG"
+    name = "ArrayAgg"
+    template = "%(function)s(%(distinct)s%(expressions)s)"
 
     def __init__(self, expression, distinct=False, **extra):
-        super(ArrayAgg, self).__init__(expression, distinct='DISTINCT ' if distinct else '', **extra)
+        super(ArrayAgg, self).__init__(
+            expression, distinct="DISTINCT " if distinct else "", **extra
+        )
 
     def __repr__(self):
-        '{}({}, distinct={})'.format(
+        "{}({}, distinct={})".format(
             self.__class__.__name__,
             self.arg_joiner.join(str(arg) for arg in self.source_expressions),
-            'False' if self.extra['distinct'] == '' else 'True',
+            "False" if self.extra["distinct"] == "" else "True",
         )
 
     def convert_value(self, value, expression, connection, context):

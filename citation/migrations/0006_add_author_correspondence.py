@@ -8,43 +8,70 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('citation', '0005_add_id_fields'),
+        ("citation", "0005_add_id_fields"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='AuthorCorrespondence',
+            name="AuthorCorrespondence",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('date_created', models.DateTimeField(auto_now=True)),
-                ('date_responded', models.DateTimeField(blank=True, null=True)),
-                ('hash', models.CharField(max_length=255)),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("date_created", models.DateTimeField(auto_now=True)),
+                ("date_responded", models.DateTimeField(blank=True, null=True)),
+                ("hash", models.CharField(max_length=255)),
             ],
         ),
         migrations.CreateModel(
-            name='AuthorCorrespondenceTemplate',
+            name="AuthorCorrespondenceTemplate",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('text', models.TextField(max_length=6000)),
-                ('label', models.TextField(max_length=50)),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("text", models.TextField(max_length=6000)),
+                ("label", models.TextField(max_length=50)),
             ],
         ),
         migrations.AddField(
-            model_name='author',
-            name='user',
-            field=models.OneToOneField(null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL),
+            model_name="author",
+            name="user",
+            field=models.OneToOneField(
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddField(
-            model_name='authorcorrespondence',
-            name='author',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='correspondences', to='citation.Author'),
+            model_name="authorcorrespondence",
+            name="author",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="correspondences",
+                to="citation.Author",
+            ),
         ),
         migrations.AddField(
-            model_name='authorcorrespondence',
-            name='template',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='correspondences', to='citation.AuthorCorrespondenceTemplate'),
+            model_name="authorcorrespondence",
+            name="template",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="correspondences",
+                to="citation.AuthorCorrespondenceTemplate",
+            ),
         ),
     ]

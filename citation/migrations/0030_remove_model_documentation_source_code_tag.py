@@ -6,11 +6,13 @@ from django.conf import settings
 
 
 def remove_model_documentation_source_code_tag(apps, schema_editor):
-    PublicationModelDocumentations = apps.get_model('citation', 'PublicationModelDocumentations')
-    ModelDocumentation = apps.get_model('citation', 'ModelDocumentation')
-    AuditCommand = apps.get_model('citation', 'AuditCommand')
-    AuditLog = apps.get_model('citation', 'AuditLog')
-    User = apps.get_model('auth', 'User')
+    PublicationModelDocumentations = apps.get_model(
+        "citation", "PublicationModelDocumentations"
+    )
+    ModelDocumentation = apps.get_model("citation", "ModelDocumentation")
+    AuditCommand = apps.get_model("citation", "AuditCommand")
+    AuditLog = apps.get_model("citation", "AuditLog")
+    User = apps.get_model("auth", "User")
 
     def datetime_json_serialize(datetime_obj):
         return str(datetime_obj)
@@ -21,9 +23,11 @@ def remove_model_documentation_source_code_tag(apps, schema_editor):
     def identity_json_serialize(obj):
         return obj
 
-    DISPATCH_JSON_SERIALIZE = defaultdict(lambda: identity_json_serialize,
-                                          DateTimeField=datetime_json_serialize,
-                                          DateField=date_json_serialize)
+    DISPATCH_JSON_SERIALIZE = defaultdict(
+        lambda: identity_json_serialize,
+        DateTimeField=datetime_json_serialize,
+        DateField=date_json_serialize,
+    )
 
     def json_serialize(field_type, obj):
         return DISPATCH_JSON_SERIALIZE[field_type](obj)
@@ -32,39 +36,51 @@ def remove_model_documentation_source_code_tag(apps, schema_editor):
         """Make an auditlog payload for an INSERT or DELETE statement"""
         data = {}
         labels = {}
-        labels['publication'] = '{} ({})'.format(instance.publication.title, instance.publication.id)
-        labels['model_documentation'] = '{} ({})'.format(instance.model_documentation.name, instance.model_documentation.id)
+        labels["publication"] = "{} ({})".format(
+            instance.publication.title, instance.publication.id
+        )
+        labels["model_documentation"] = "{} ({})".format(
+            instance.model_documentation.name, instance.model_documentation.id
+        )
 
         for field in instance._meta.concrete_fields:
-            data[field.attname] = json_serialize(field.get_internal_type(), getattr(instance, field.attname))
+            data[field.attname] = json_serialize(
+                field.get_internal_type(), getattr(instance, field.attname)
+            )
 
-        payload = {'data': data, 'labels': labels}
+        payload = {"data": data, "labels": labels}
         return payload
 
-    def log_delete(self, audit_command: 'AuditCommand'):
+    def log_delete(self, audit_command: "AuditCommand"):
         payload = make_payload(self)
         AuditLog.objects.create(
-            action='DELETE',
+            action="DELETE",
             row_id=self.id,
             table=self._meta.model_name,
             payload=payload,
-            audit_command=audit_command)
+            audit_command=audit_command,
+        )
         info = self.delete()
         return info
 
-    ac = AuditCommand(action='MANUAL', creator=User.objects.get_or_create(defaults={'is_active': False}, username=settings.AUDIT_ACCOUNT_USERNAME)[0])
+    ac = AuditCommand(
+        action="MANUAL",
+        creator=User.objects.get_or_create(
+            defaults={"is_active": False}, username=settings.AUDIT_ACCOUNT_USERNAME
+        )[0],
+    )
     ac.save()
     # Delete one at a time so we I don;t have to reindex solr
-    for pmd in PublicationModelDocumentations.objects.filter(model_documentation__name='Source code'):
+    for pmd in PublicationModelDocumentations.objects.filter(
+        model_documentation__name="Source code"
+    ):
         log_delete(pmd, ac)
-    ModelDocumentation.objects.filter(name='Source code').delete()
+    ModelDocumentation.objects.filter(name="Source code").delete()
 
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('citation', '0029_email_workflow'),
+        ("citation", "0029_email_workflow"),
     ]
 
-    operations = [
-        migrations.RunPython(code=remove_model_documentation_source_code_tag)
-    ]
+    operations = [migrations.RunPython(code=remove_model_documentation_source_code_tag)]

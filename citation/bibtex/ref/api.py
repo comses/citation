@@ -10,7 +10,8 @@ from ... import util
 logger = logging.getLogger(__name__)
 
 
-class NullError(Exception): pass
+class NullError(Exception):
+    pass
 
 
 def make_doi(ref: str) -> str:
@@ -31,7 +32,7 @@ def guess_elements(ref):
     ref = [s.strip() for s in ref.split(",", 3)]
     n = len(ref)
     year_ind = None
-    for (ind, el) in enumerate(ref):
+    for ind, el in enumerate(ref):
         if el.strip().isnumeric():
             year_ind = ind
 
@@ -44,9 +45,9 @@ def guess_elements(ref):
         author_str = ref[0] if 0 < n else None
         container_str = ref[1] if 1 < n else None
 
-    author_str = (author_str or "")
+    author_str = author_str or ""
     if len(author_str) > 200:
-        logger.warning('truncating author name: %s', author_str)
+        logger.warning("truncating author name: %s", author_str)
         author_str = author_str[:200]
     return author_str or "", year_str or "", container_str or ""
 
@@ -63,12 +64,13 @@ def create_detached_author(author_str):
 def create_detached_citation(ref: str, year_str: str, creator: User):
     doi = make_doi(ref)
     citation = models.Publication(
-        title='',
+        title="",
         date_published_text=year_str,
         doi=doi,
-        abstract='',
+        abstract="",
         is_primary=False,
-        added_by=creator)
+        added_by=creator,
+    )
     return citation
 
 
@@ -92,48 +94,78 @@ def create_detached_citation_and_related(publication, ref, creator):
     detached_citation = create_detached_citation(ref, year_str, creator)
     detached_container = create_detached_container(container_str)
     detached_raw = create_detached_raw(ref)
-    duplicate_citation = detached_citation.duplicates().order_by('date_added').first()
+    duplicate_citation = detached_citation.duplicates().order_by("date_added").first()
 
-    return detached_citation, detached_author, detached_container, detached_raw, duplicate_citation
+    return (
+        detached_citation,
+        detached_author,
+        detached_container,
+        detached_raw,
+        duplicate_citation,
+    )
 
 
-def create_citation(publication: models.Publication,
-                    ref: str,
-                    creator: User) -> models.Publication:
-    detached_citation, detached_author, detached_container, detached_raw, duplicate_citation = \
-        create_detached_citation_and_related(publication, ref, creator)
+def create_citation(
+    publication: models.Publication, ref: str, creator: User
+) -> models.Publication:
+    (
+        detached_citation,
+        detached_author,
+        detached_container,
+        detached_raw,
+        duplicate_citation,
+    ) = create_detached_citation_and_related(publication, ref, creator)
 
     logger.debug('processing citation for ref: "{}"'.format(ref))
     if duplicate_citation:
-        logger.debug('augmenting citation')
-        logger.debug('container: %s (%s)', detached_container.name, detached_citation.issn)
-        audit_command = models.AuditCommand(action=models.AuditCommand.Action.MERGE,
-                                            creator=creator)
+        logger.debug("augmenting citation")
+        logger.debug(
+            "container: %s (%s)", detached_container.name, detached_citation.issn
+        )
+        audit_command = models.AuditCommand(
+            action=models.AuditCommand.Action.MERGE, creator=creator
+        )
         duplicate_author = _augment_citation(
-            audit_command=audit_command, detached_citation=detached_citation,
-            detached_author=detached_author, detached_container=detached_container,
-            detached_raw=detached_raw, duplicate_citation=duplicate_citation)
+            audit_command=audit_command,
+            detached_citation=detached_citation,
+            detached_author=detached_author,
+            detached_container=detached_container,
+            detached_raw=detached_raw,
+            duplicate_citation=duplicate_citation,
+        )
 
-        models.PublicationCitations.objects.log_get_or_create(audit_command=audit_command,
-                                                              publication_id=publication.id,
-                                                              citation_id=duplicate_citation.id)
+        models.PublicationCitations.objects.log_get_or_create(
+            audit_command=audit_command,
+            publication_id=publication.id,
+            citation_id=duplicate_citation.id,
+        )
         if duplicate_author:
-            models.PublicationAuthors.objects.log_get_or_create(audit_command=audit_command,
-                                                                publication_id=publication.id,
-                                                                author_id=duplicate_author.id)
+            models.PublicationAuthors.objects.log_get_or_create(
+                audit_command=audit_command,
+                publication_id=publication.id,
+                author_id=duplicate_author.id,
+            )
         citation = duplicate_citation
         detached_raw.publication = citation
         detached_raw.container = citation.container
-        logger.debug('container: %s (%s)', detached_raw.container.name, detached_raw.container.issn)
+        logger.debug(
+            "container: %s (%s)",
+            detached_raw.container.name,
+            detached_raw.container.issn,
+        )
         if not audit_command.has_been_saved:
             # Save a raw value if the state has been updated
             detached_raw.save()
 
     else:
-        logger.debug('creating citation')
+        logger.debug("creating citation")
         # Don't want to link with nameless containers so create a new container instead
-        container = models.Container.objects.filter(name=detached_container.name).exclude(name='') \
-            .order_by('date_added', 'id').first()
+        container = (
+            models.Container.objects.filter(name=detached_container.name)
+            .exclude(name="")
+            .order_by("date_added", "id")
+            .first()
+        )
         if not container:
             container = models.Container.objects.create(name=detached_container.name)
         detached_citation.container = container
@@ -144,19 +176,29 @@ def create_citation(publication: models.Publication,
         citation = detached_citation
 
         models.PublicationAuthors.objects.create(publication=citation, author=author)
-        models.PublicationCitations.objects.create(publication=publication, citation=citation)
+        models.PublicationCitations.objects.create(
+            publication=publication, citation=citation
+        )
 
         detached_raw.publication = citation
         detached_raw.container = citation.container
         detached_raw.save()
 
 
-def _augment_citation(audit_command, detached_citation, detached_author, detached_container, detached_raw,
-                      duplicate_citation):
-    logger.debug('issn: %s', detached_container.issn)
+def _augment_citation(
+    audit_command,
+    detached_citation,
+    detached_author,
+    detached_container,
+    detached_raw,
+    duplicate_citation,
+):
+    logger.debug("issn: %s", detached_container.issn)
     merger.augment_publication(duplicate_citation, detached_citation, audit_command)
-    logger.debug('augmented citation issn: %s', detached_container.issn)
-    merger.augment_container(duplicate_citation.container, detached_container, audit_command)
+    logger.debug("augmented citation issn: %s", detached_container.issn)
+    merger.augment_container(
+        duplicate_citation.container, detached_container, audit_command
+    )
     duplicate_author = detached_author.duplicates().first()
     if duplicate_author:
         merger.augment_author(duplicate_author, detached_author, audit_command)
@@ -174,10 +216,12 @@ def augment_citation(audit_command, publication, ref, creator):
     pass
 
 
-def augment_many(audit_command: models.AuditCommand,
-                 publication: models.Publication,
-                 refs_str: Optional[str],
-                 creator: User):
+def augment_many(
+    audit_command: models.AuditCommand,
+    publication: models.Publication,
+    refs_str: Optional[str],
+    creator: User,
+):
     if refs_str:
         refs = refs_str.split("\n")
     else:
@@ -188,9 +232,9 @@ def augment_many(audit_command: models.AuditCommand,
             augment_citation(audit_command, publication, ref, creator)
 
 
-def create_many(publication: models.Publication,
-                refs_str: Optional[str],
-                creator: User) -> List[models.Publication]:
+def create_many(
+    publication: models.Publication, refs_str: Optional[str], creator: User
+) -> List[models.Publication]:
     if refs_str:
         refs = refs_str.split("\n")
     else:
