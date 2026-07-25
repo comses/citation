@@ -38,7 +38,7 @@ dependencies = [
   "python-Levenshtein~=0.27.3",
   "python-dateutil~=2.9.0.post0",
   "Pyzotero~=1.11.0",
-  "requests~=2.32.4",
+  "requests~=2.33.0",
   "Unidecode~=1.0.23",
   "invoke",
   "scipy~=1.18.0",
