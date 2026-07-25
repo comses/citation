@@ -24,7 +24,7 @@ classifiers = [
 ]
 dependencies = [
   "bibtexparser~=1.4.4",
-  "bleach~=3.3.0",
+  "bleach~=6.4.0",
   "Django~=5.2.16",
   "django-extensions~=4.1",
   "django-model-utils~=5.0.0",
