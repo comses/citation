@@ -4,7 +4,7 @@ COMPOSE ?= docker compose
 PYPI_ORG ?= comses
 PYPI_REPOSITORY ?= pypi
 
-.PHONY: build clean format lock publish up test
+.PHONY: build clean format lock publish up test check migrations-check
 
 build:
 	$(COMPOSE) build
@@ -29,3 +29,9 @@ publish: build
 test: build
 	$(COMPOSE) up -d db
 	$(COMPOSE) run --rm test ./run_tests.py
+
+check: build
+	$(COMPOSE) run --rm test python -m django check --settings=tests.settings
+
+migrations-check: build
+	$(COMPOSE) run --rm test python -m django makemigrations --check --dry-run --settings=tests.settings

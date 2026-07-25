@@ -2,7 +2,6 @@
 
 from django.db import migrations
 
-
 CATEGORIES = [
     ("Archive", "CoMSES", [(r"comses\.net|www\.comses\.net|www\.openabm\.org", "")]),
     ("Archive", "Dataverse", [(r"dataverse\.harvard\.edu", "")]),
@@ -25,7 +24,7 @@ CATEGORIES = [
         "NetLogo",
         [
             (r"modelingcommons\.org", ""),
-            ("ccl\.northwestern\.edu", "/netlogo/models/community/.*"),
+            (r"ccl\.northwestern\.edu", "/netlogo/models/community/.*"),
         ],
     ),
     ("Platform", "Cormas", [(r"cormas\.cirad\.fr", "")]),

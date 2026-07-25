@@ -115,9 +115,9 @@ def sanitize_doi(s):
 
 def sanitize_name(s):
     if s:
-        s = re.sub("\{''\}|``", '"', s)
-        s = re.sub("\n", " ", s)
-        s = re.sub("\\\\", "", s)
+        s = re.sub(r"\{''\}|``", '"', s)
+        s = re.sub(r"\n", " ", s)
+        s = re.sub(r"\\", "", s)
     return s
 
 

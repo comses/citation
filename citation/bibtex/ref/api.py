@@ -20,7 +20,7 @@ def make_doi(ref: str) -> str:
     except IndexError:
         return ""
 
-    match = re.search("^(?:.*DOI *)(10\..+)\.$", last)
+    match = re.search(r"^(?:.*DOI *)(10\..+)\.$", last)
     if match:
         return util.sanitize_doi(match.group(1))
     else:
