@@ -15,7 +15,7 @@ from unidecode import unidecode
 logger = logging.getLogger(__name__)
 
 
-ALLOWED_TAGS = bleach.ALLOWED_TAGS + [
+ALLOWED_TAGS = list(bleach.ALLOWED_TAGS) + [
     "p",
     "h1",
     "h2",
