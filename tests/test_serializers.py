@@ -234,6 +234,34 @@ class PublicationSerializerCodeArchiveTests(PublicationSerializerTest):
             ).exists()
         )
 
+    def test_save_code_archive_urls_reject_foreign_publication_url(self):
+        other_publication = Publication.objects.create(
+            title="Other publication", added_by=self.user, container=self.container
+        )
+        archive_url = CodeArchiveUrl.objects.create(
+            creator=self.user,
+            publication=other_publication,
+            category=self.category,
+            system_overridable_category=True,
+            url="https://example.com/other",
+            status=CodeArchiveUrl.STATUS.available,
+        )
+        data = self.publication_data()
+        data["code_archive_urls"] = [
+            {
+                **self.archive_url_data("https://example.com/changed"),
+                "id": archive_url.id,
+            }
+        ]
+        serializer = PublicationSerializer(self.publication, data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+        with self.assertRaises(CodeArchiveUrl.DoesNotExist):
+            serializer.save(user=self.user)
+
+        archive_url.refresh_from_db()
+        self.assertEqual(archive_url.url, "https://example.com/other")
+
 
 class ContactFormSerializerTestCase(BaseTest):
     def test_honey_pot(self):

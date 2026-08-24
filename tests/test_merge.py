@@ -2,7 +2,9 @@ import copy
 
 from citation import models, merger
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
+from django.utils import timezone
 
 from citation.models import (
     SuggestedMerge,
@@ -336,6 +338,23 @@ class TestMergers(TestCase):
         self.assertEqual(models.Author.objects.first().raw.count(), 2)
         self.assertEqual(models.Author.objects.count(), 1)
         self.assertEqual(models.AuthorAlias.objects.count(), 2)
+
+    def test_suggested_merge_sets_timezone_aware_date_applied(self):
+        first_platform = models.Platform.objects.create(name="First")
+        second_platform = models.Platform.objects.create(name="Second")
+        submitter = models.Submitter.objects.create(user=self.user)
+        suggested_merge = SuggestedMerge.objects.create(
+            duplicates=[first_platform.pk, second_platform.pk],
+            new_content={"name": "Merged"},
+            content_type=ContentType.objects.get_for_model(models.Platform),
+            creator=submitter,
+        )
+
+        suggested_merge.merge(self.user)
+
+        suggested_merge.refresh_from_db()
+        self.assertIsNotNone(suggested_merge.date_applied)
+        self.assertTrue(timezone.is_aware(suggested_merge.date_applied))
 
     def test_publication_merge_same(self):
         """Identical publications should be merged successfully"""
