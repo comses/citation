@@ -14,6 +14,8 @@ from citation.models import (
     Platform,
     Author,
     PublicationAuthors,
+    CodeArchiveUrl,
+    CodeArchiveUrlCategory,
 )
 from citation.serializers import (
     PublicationSerializer,
@@ -110,6 +112,127 @@ class PublicationSerializerTest(BaseTest):
         self.assertTrue(serializer.is_valid(), serializer.errors)
         with self.assertRaises(TypeError):
             serializer.save(user=self.user, commit=False)
+
+    def test_save_concrete_changes_no_op(self):
+        serializer = PublicationSerializer(self.publication)
+        serializer = PublicationSerializer(self.publication, data=serializer.data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        initial_auditlog_count = AuditLog.objects.count()
+
+        serializer.save(user=self.user)
+
+        self.assertEqual(AuditLog.objects.count(), initial_auditlog_count)
+
+    def test_save_concrete_changes_selective_field_update(self):
+        serializer = PublicationSerializer(self.publication)
+        data = serializer.data
+        data["title"] = "Updated title"
+        serializer = PublicationSerializer(self.publication, data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+        serializer.save(user=self.user)
+
+        self.publication.refresh_from_db()
+        self.assertEqual(self.publication.title, "Updated title")
+        auditlog = AuditLog.objects.filter(table="publication", action="UPDATE").get()
+        self.assertEqual(auditlog.payload["data"]["title"]["new"], "Updated title")
+
+
+class PublicationSerializerCodeArchiveTests(PublicationSerializerTest):
+    def setUp(self):
+        super().setUp()
+        self.category = CodeArchiveUrlCategory.objects.create(
+            category="Archive", subcategory="Repository"
+        )
+
+    def publication_data(self):
+        serializer = PublicationSerializer(self.publication)
+        return serializer.data
+
+    def archive_url_data(self, url, status=CodeArchiveUrl.STATUS.available):
+        return {
+            "id": None,
+            "category": self.category.id,
+            "system_overridable_category": True,
+            "url": url,
+            "status": status,
+            "creator": self.user.id,
+        }
+
+    def test_save_code_archive_urls_create(self):
+        data = self.publication_data()
+        data["code_archive_urls"] = [self.archive_url_data("https://example.com/code")]
+        serializer = PublicationSerializer(self.publication, data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+        serializer.save(user=self.user)
+
+        archive_url = CodeArchiveUrl.objects.get(publication=self.publication)
+        self.assertEqual(archive_url.creator, self.user)
+        self.assertEqual(archive_url.url, "https://example.com/code")
+        self.assertTrue(
+            AuditLog.objects.filter(
+                table="codearchiveurl", action="INSERT", row_id=archive_url.id
+            ).exists()
+        )
+
+    def test_save_code_archive_urls_update(self):
+        archive_url = CodeArchiveUrl.objects.create(
+            creator=self.user,
+            publication=self.publication,
+            category=self.category,
+            system_overridable_category=True,
+            url="https://example.com/old",
+            status=CodeArchiveUrl.STATUS.available,
+        )
+        data = self.publication_data()
+        data["code_archive_urls"] = [
+            {
+                **self.archive_url_data(
+                    "https://example.com/new", CodeArchiveUrl.STATUS.restricted
+                ),
+                "id": archive_url.id,
+            }
+        ]
+        serializer = PublicationSerializer(self.publication, data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+        serializer.save(user=self.user)
+
+        archive_url.refresh_from_db()
+        self.assertEqual(
+            CodeArchiveUrl.objects.filter(publication=self.publication).count(), 1
+        )
+        self.assertEqual(archive_url.url, "https://example.com/new")
+        self.assertEqual(archive_url.status, CodeArchiveUrl.STATUS.restricted)
+        self.assertTrue(
+            AuditLog.objects.filter(
+                table="codearchiveurl", action="UPDATE", row_id=archive_url.id
+            ).exists()
+        )
+
+    def test_save_code_archive_urls_delete(self):
+        archive_url = CodeArchiveUrl.objects.create(
+            creator=self.user,
+            publication=self.publication,
+            category=self.category,
+            system_overridable_category=True,
+            url="https://example.com/code",
+            status=CodeArchiveUrl.STATUS.available,
+        )
+        data = self.publication_data()
+        data["code_archive_urls"] = []
+        serializer = PublicationSerializer(self.publication, data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+        serializer.save(user=self.user)
+
+        self.assertFalse(CodeArchiveUrl.objects.filter(id=archive_url.id).exists())
+        self.assertTrue(
+            AuditLog.objects.filter(
+                table="codearchiveurl", action="DELETE", row_id=archive_url.id
+            ).exists()
+        )
 
 
 class ContactFormSerializerTestCase(BaseTest):
