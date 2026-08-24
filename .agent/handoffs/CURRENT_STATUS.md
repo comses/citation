@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-Completed infrastructure and serializer refactoring. All 9 serializer tests passing in container. User approved "proceed with the rest of the refactor and test coverage improvements." Ready to extend serializer tests and then move to view/endpoint tests.
+Completed infrastructure, serializer refactoring, serializer mutation coverage, endpoint validation, warning cleanup, and management-command coverage. The full Docker test suite passes with 60 tests. User approved continuing the refactor and test coverage improvements.
 
 ## Completed Work
 
@@ -45,8 +45,13 @@ Added 5 new contract tests:
 **Test Validation Status:**
 ```
 docker compose run --rm test env DJANGO_SETTINGS_MODULE=tests.settings python -m django test tests.test_serializers -v 2
-Result: 9 tests OK, ~1.1s runtime, all passing
+Result: 20 tests OK, ~2.6s runtime, all passing
 ```
+
+Added serializer mutation coverage:
+- `PublicationSerializerCodeArchiveTests` verifies code archive URL create, update-in-place, and delete-by-omission flows, including audit logs and creator/publication links.
+- `test_save_concrete_changes_no_op` verifies unchanged concrete fields do not create update audit logs.
+- `test_save_concrete_changes_selective_field_update` verifies only changed publication fields are logged and persisted.
 
 **Known Test Issue Fixed:**
 - DRF nested validation errors surface at field level ('family_name', 'orcid'), not at 'new_content' key
@@ -54,26 +59,10 @@ Result: 9 tests OK, ~1.1s runtime, all passing
 
 ## Pending Work (Priority Order)
 
-### Tier 1: Extend Serializer Tests (Unblocked)
-**File: [tests/test_serializers.py](tests/test_serializers.py)** — Add new test class `PublicationSerializerCodeArchiveTests`
+### Tier 1: Serializer Tests (✓ Completed)
+Code archive URL lifecycle and `Publication.update()` concrete-field branching are covered in [tests/test_serializers.py](tests/test_serializers.py). The focused serializer module passes all 20 tests.
 
-1. **test_save_code_archive_urls_create**
-   - Verify new CodeArchiveURL records created with correct audit logging
-   - Check creator and publication foreign keys properly linked
-   
-2. **test_save_code_archive_urls_delete**
-   - Verify CodeArchiveURL records removed when absent from payload
-   - Confirm DELETE audit logs generated
-   
-3. **test_save_code_archive_urls_update**
-   - Verify existing URLs update without creating duplicates
-   - Test category/platform field updates
-
-**Also add:** `test_save_concrete_changes_no_op` and `test_save_concrete_changes_selective_field_update` to test Publication.update() concrete_changes branching.
-
-**Expected outcome:** All tests should pass via `make test`
-
-### Tier 2: View/Endpoint Tests (Blocked until Tier 1 done)
+### Tier 2: View/Endpoint Tests (✓ Completed)
 **File: [tests/test_views_endpoints.py](tests/test_views_endpoints.py)** (new)
 
 Test PublicationList (GET/POST), CuratorPublicationDetail (PUT), NoteDetail (DELETE):
@@ -82,10 +71,17 @@ Test PublicationList (GET/POST), CuratorPublicationDetail (PUT), NoteDetail (DEL
 - Soft-delete behavior for notes
 - Validation error propagation to API response
 
-### Tier 3: Management Command Tests (Lower priority)
+Added 7 endpoint tests covering these contracts. Also fixed Django 5.2 middleware ordering in `tests/settings.py` and allowed DRF format-suffixed PUT requests by adding `format=None` to `CuratorPublicationDetail.put()`.
+
+### Tier 3: Management Command Tests (✓ Completed)
 **File: [tests/test_management_commands.py](tests/test_management_commands.py)** (new)
 
-Test load_bibtex, clean_data, remove_orphans via `call_command()`.
+Added focused coverage for `load_bibtex`, `clean_data`, and `remove_orphans` via command dispatch and database assertions.
+
+### Warning Cleanup (✓ Completed)
+- Note deletion now uses timezone-aware `timezone.now()`.
+- Publication pagination is ordered by primary key.
+- Test static-file configuration omits the nonexistent `catalog/static` directory.
 
 ## Build & Test Commands
 
@@ -153,9 +149,5 @@ make clean
 
 ## Next Immediate Action
 
-1. Open [tests/test_serializers.py](tests/test_serializers.py)
-2. Add CodeArchiveURL test class with 3 test methods (create, delete, update branches)
-3. Run `make test` to validate
-4. Report results and ask if user wants to proceed to view/endpoint tests or add more serializer coverage
-
-**Expected Outcome:** All tests pass, extending serializer coverage before moving to API endpoint validation.
+1. Keep the full-suite gate at `make test` (60 tests currently pass).
+2. Review remaining migration risks or expand command coverage to real `clean_data` merge/split/delete behavior if needed.
