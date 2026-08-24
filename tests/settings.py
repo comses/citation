@@ -59,7 +59,8 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + CITATION_APPS
 
 STATIC_URL = "/static/"
 STATIC_ROOT = "/catalog/static/"
-STATICFILES_DIRS = (os.path.join(BASE_DIR, "catalog", "static").replace("\\", "/"),)
+STATIC_DIR = os.path.join(BASE_DIR, "catalog", "static").replace("\\", "/")
+STATICFILES_DIRS = (STATIC_DIR,) if os.path.isdir(STATIC_DIR) else ()
 
 # Media file configuration (for user uploads etc) ####
 
@@ -92,9 +93,9 @@ TEMPLATES = [
 ]
 
 MIDDLEWARE = (
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
 )
 
 # DJANGO REST Framework's Pagination settings

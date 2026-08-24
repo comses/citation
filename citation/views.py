@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 from json import dumps
 
 from .util import send_markdown_email
@@ -8,6 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
+from django.utils import timezone
 from rest_framework import status, renderers, generics, views
 from rest_framework.response import Response
 
@@ -69,7 +69,7 @@ class PublicationList(LoginRequiredMixin, generics.GenericAPIView):
     pagination_class = CatalogPagination
 
     def get(self, request, format=None):
-        publication_list = Publication.objects.all()
+        publication_list = Publication.objects.order_by("pk")
         paginator = CatalogPagination()
         result_page = paginator.paginate_queryset(publication_list, request)
         serializer = PublicationListSerializer(result_page, many=True)
@@ -124,7 +124,7 @@ class CuratorPublicationDetail(LoginRequiredMixin, generics.GenericAPIView):
             template_name="workflow/curator_publication_detail.html",
         )
 
-    def put(self, request, pk, slug=None):
+    def put(self, request, pk, slug=None, format=None):
         publication = self.get_object(pk)
         # FIXME: need to revisit this if we ever have other Publication Types - Books or Book Chapters may also refer to
         # computational models.
@@ -169,7 +169,7 @@ class NoteDetail(LoginRequiredMixin, generics.GenericAPIView):
     def delete(self, request, pk, format=None):
         note = self.get_object(pk)
         note.deleted_by = request.user
-        note.deleted_on = datetime.today()
+        note.deleted_on = timezone.now()
         note.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
