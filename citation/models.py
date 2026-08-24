@@ -24,6 +24,7 @@ from django.db.models.functions import Cast
 from django.template.defaultfilters import slugify
 from django.template.loader import get_template
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from model_utils import Choices
 
@@ -2027,7 +2028,7 @@ class SuggestedMerge(AbstractLogModel):
         with transaction.atomic():
             audit_command = AuditCommand.init_merge(creator=creator)
             model_merger(pks=pks, content=content, audit_command=audit_command)
-            self.log_update(audit_command, date_applied=datetime.utcnow())
+            self.log_update(audit_command, date_applied=timezone.now())
         logger.info(
             "Merged %s with pks %s and changed content to %s",
             self.content_type,

@@ -7,6 +7,7 @@ from pprint import pformat
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers, pagination
@@ -378,9 +379,11 @@ class PublicationSerializer(serializers.ModelSerializer):
         return [
             {
                 "value": choice.id,
-                "label": f"{choice.category} / {choice.subcategory}"
-                if choice.subcategory
-                else choice.category,
+                "label": (
+                    f"{choice.category} / {choice.subcategory}"
+                    if choice.subcategory
+                    else choice.category
+                ),
             }
             for choice in CodeArchiveUrlCategory.objects.all()
         ]
@@ -453,7 +456,9 @@ class PublicationSerializer(serializers.ModelSerializer):
             logger.info(pformat(raw_code_archive_url))
             pk = raw_code_archive_url.get("id")
             if pk is not None:
-                code_archive_url = CodeArchiveUrl.objects.get(pk=pk)
+                code_archive_url = CodeArchiveUrl.objects.get(
+                    pk=pk, publication=publication
+                )
                 code_archive_url.log_update(
                     audit_command=audit_command,
                     system_overridable_category=raw_code_archive_url[
@@ -600,10 +605,6 @@ class PublicationSerializer(serializers.ModelSerializer):
                 "Use serializer.save(user=request.user)."
             )
 
-        audit_command = AuditCommand.objects.create(
-            creator=user, action=AuditCommand.Action.MANUAL
-        )
-
         if not hasattr(self, "_validated_data"):
             raise AssertionError(
                 "You must call `.is_valid()` before calling `.save()`."
@@ -627,14 +628,25 @@ class PublicationSerializer(serializers.ModelSerializer):
 
         validated_data = dict(list(self.validated_data.items()) + list(kwargs.items()))
 
-        if self.instance is not None:
-            self.instance = self.update(audit_command, self.instance, validated_data)
-            if self.instance is None:
-                raise AssertionError("`update()` did not return an object instance.")
-        else:
-            self.instance = self.create(audit_command, validated_data)
-            if self.instance is None:
-                raise AssertionError("`create()` did not return an object instance.")
+        with transaction.atomic():
+            audit_command = AuditCommand.objects.create(
+                creator=user, action=AuditCommand.Action.MANUAL
+            )
+
+            if self.instance is not None:
+                self.instance = self.update(
+                    audit_command, self.instance, validated_data
+                )
+                if self.instance is None:
+                    raise AssertionError(
+                        "`update()` did not return an object instance."
+                    )
+            else:
+                self.instance = self.create(audit_command, validated_data)
+                if self.instance is None:
+                    raise AssertionError(
+                        "`create()` did not return an object instance."
+                    )
 
         return self.instance
 
