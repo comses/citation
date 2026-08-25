@@ -21,11 +21,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     postgresql-client \
     curl \
     git \
+    make \
     wget
 
-COPY pyproject.toml /tmp/
+COPY pyproject.toml uv.lock /tmp/
 RUN --mount=type=cache,target=/root/.cache/uv \
-        cd /tmp && uv sync --no-install-project --group dev
+    cd /tmp && uv sync --locked --no-install-project --group dev
 
 WORKDIR /code
 COPY --link . /code

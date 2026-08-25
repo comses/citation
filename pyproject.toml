@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "citation"
-version = "0.0.1"
+version = "1.0.0"
 description = "Citation management and deduplication for Django"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -16,7 +16,7 @@ classifiers = [
   "Environment :: Web Environment",
   "Framework :: Django :: 5.2",
   "Intended Audience :: Developers",
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
@@ -55,6 +55,7 @@ dev = [
   "ipython",
   "ruff",
   "sphinx",
+  "myst-parser",
 ]
 
 [tool.setuptools.packages.find]
