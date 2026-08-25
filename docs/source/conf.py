@@ -24,9 +24,9 @@ copyright = "2018, Allen Lee,Calvin Pritchard,Dhruvil Patel"
 author = "Allen Lee,Calvin Pritchard,Dhruvil Patel"
 
 # The short X.Y version
-version = ""
+version = "1.0"
 # The full version, including alpha/beta/rc tags
-release = "0.1"
+release = "1.0.0"
 
 # -- General configuration ---------------------------------------------------
 
@@ -43,16 +43,15 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.githubpages",
+    "myst_parser",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-# source_suffix = ['.rst', '.md']
-source_suffix = ".rst"
+# Markdown (MyST) is the canonical source format.
+source_suffix = {".md": "markdown"}
 
 # The master toctree document.
 master_doc = "index"
@@ -62,7 +61,7 @@ master_doc = "index"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -88,7 +87,7 @@ html_theme = "alabaster"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_static_path = []
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -164,4 +163,4 @@ texinfo_documents = [
 # -- Options for intersphinx extension ---------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {"https://docs.python.org/": None}
+intersphinx_mapping = {"python": ("https://docs.python.org/", None)}
