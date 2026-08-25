@@ -14,10 +14,19 @@ Canonical instructions for agents in this repository. Assistant-specific files d
 ## Commands
 
 ```text
-make build       # build the test image
-make up          # start services
-make test        # build, start PostgreSQL, migrate, run tests
-make clean       # remove local Compose state
+make build            # build the test image
+make up               # start services
+make test             # build, start PostgreSQL, migrate, run tests
+make check            # Django system checks in the container
+make migrations-check # detect migration drift
+make lock             # regenerate uv.lock after dependency changes
+make clean            # remove local Compose state
+```
+
+Documentation sources are MyST Markdown in `docs/source/`. Verify doc changes with:
+
+```text
+docker compose run --rm test bash -lc 'cd /code/docs && make clean html'
 ```
 
 For one-off Django commands:

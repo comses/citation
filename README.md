@@ -1,6 +1,6 @@
 # citation
 [![Docker Build CI](https://github.com/comses/citation/actions/workflows/docker-build.yml/badge.svg)](https://github.com/comses/citation/actions/workflows/docker-build.yml)
-[![Coverage Status](https://coveralls.io/repos/github/comses/citation/badge.svg?branch=master)](https://coveralls.io/github/comses/citation?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/comses/citation/badge.svg?branch=main)](https://coveralls.io/github/comses/citation?branch=main)
 
 
 Django app to track bibliometric metadata for publications that reference computational models.
@@ -10,11 +10,31 @@ Current local runtime baseline:
 - Django 5.2 LTS
 - PostgreSQL 18
 - Docker Compose managed services with DB healthchecks
-- Dependencies managed with `uv` via `pyproject.toml` (with optional `uv.lock` for fully locked installs)
+- Dependencies managed with `uv` via `pyproject.toml` and `uv.lock`
 
 ## Documentation
 
 Documentation is available at [Read the Docs](https://citation.readthedocs.io/en/latest/)
+
+Documentation ownership:
+
+- `pyproject.toml` — package metadata and runtime dependencies (source of truth)
+- `README.md` — user setup and release workflow
+- `AGENTS.md` — canonical operational specification for agents
+- `CHANGELOG.md` — release history
+- `docs/source/` — browsable technical documentation (MyST Markdown)
+- `docs/source/adr/` — architecture decision records (rendered with the docs)
+- `.agent/` — transient local agent coordination state (untracked, not documentation)
+
+## Building documentation locally
+
+Documentation sources live in `docs/source/` as MyST Markdown. Build them inside the test container:
+
+```
+docker compose run --rm test bash -lc 'cd /code/docs && make clean html'
+```
+
+Generated HTML lands in `docs/build/html/`.
 
 ## Local development
 
@@ -46,8 +66,8 @@ When dependencies change:
 uv lock
 ```
 
-Container builds install dependencies with `uv sync`.
-For reproducibility, generate and commit `uv.lock` via `make lock`.
+Container builds install dependencies with the committed lockfile via `uv sync --locked`.
+When dependencies change, regenerate and commit `uv.lock` via `make lock`.
 
 ## Publish to PyPI
 
