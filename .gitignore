@@ -18,6 +18,9 @@ catalog.sql
 ### Docker
 docker-compose.yml
 
+### Transient agent state
+.agent/
+
 ### Django ###
 catalog/settings/local.py
 *.log
