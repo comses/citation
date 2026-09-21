@@ -1,28 +1,126 @@
 import csv
-import pathlib
+
+from citation.models import Publication, Platform, Sponsor
+
+
+# Streaming CSV taken from
+# https://docs.djangoproject.com/en/2.1/howto/outputting-csv/
+
+
+class Echo:
+    """An object that implements just the write method of the file-like
+    interface.
+    """
+
+    def write(self, value):
+        """Write the value by returning it, instead of storing in a buffer."""
+        return value
+
+
+class CategoricalVariable:
+    def __init__(self, levels):
+        self._levels = levels
+
+    def dense_encode(self, values):
+        return [(level in values) for level in self._levels]
+
+    def __iter__(self):
+        return iter(self._levels)
+
+
+class PublicationCSVExporter:
+    def __init__(self, attributes=None):
+        self.m2m_attributes = [fields.name for fields in Publication._meta.many_to_many]
+        self.platforms = CategoricalVariable(
+            Platform.objects.all().values_list("name", flat=True).order_by("name")
+        )
+        self.sponsors = CategoricalVariable(
+            Sponsor.objects.all().values_list("name", flat=True).order_by("name")
+        )
+        if attributes is None:
+            self.attributes = CSV_DEFAULT_HEADER
+        else:
+            self.attributes = attributes
+
+        self.verify_attributes()
+
+    def verify_attributes(self):
+        for name in self.attributes:
+            if not hasattr(Publication, name):
+                raise AttributeError(
+                    "Publication model doesn't have attribute :" + name
+                )
+
+    def get_header(self):
+        header = []
+
+        for name in self.attributes:
+            if name in self.m2m_attributes:
+                header.append(name)
+                header.extend(self.get_all_m2m_levels(name))
+            else:
+                header.append(name.strip().replace("_", " "))
+        return header
+
+    def get_all_m2m_levels(self, name):
+        if name in ["sponsors", "platforms"]:
+            return getattr(self, name)
+        else:
+            raise AttributeError("Forgot to declare " + name + " m2m attribute")
+
+    def get_row(self, pub):
+        row = []
+        for name in self.attributes:
+            if name in self.m2m_attributes:
+                source = getattr(pub, name)
+                pub_m2m_data_list = source.all().values_list("name", flat=True)
+                row.append(pub_m2m_data_list)
+                row.extend(
+                    self.get_all_m2m_levels(name).dense_encode(pub_m2m_data_list)
+                )
+            else:
+                row.append(getattr(pub, name))
+        return row
+
+    def write_all(self, file):
+        writer = csv.writer(file, delimiter=",")
+        writer.writerow(self.get_header())
+        publications = Publication.api.primary()
+        for pub in publications:
+            writer.writerow(self.get_row(pub))
+        return writer
+
+    def stream(self):
+        pseudo_buffer = Echo()
+        writer = csv.writer(pseudo_buffer, delimiter=",")
+        writer.writerow(self.get_header())
+        publications = Publication.api.primary()
+        for pub in publications:
+            yield writer.writerow(self.get_row(pub))
+
 
 import numpy as np
 import pandas as pd
-from django.contrib.postgres.aggregates import ArrayAgg, StringAgg
-from django.core.exceptions import FieldDoesNotExist
+import pathlib
+
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.db import models
-from django.db.models import Count, F, OuterRef, Q, Value
-from django.db.models.functions import Concat, Trim
+from django.db.models import F, Count, Q, Value, Sum, OuterRef
+from django.db.models.functions import Concat
 
 from citation.models import (
+    Publication,
+    Platform,
+    Sponsor,
+    PublicationCitations,
+    PublicationAuthors,
     Author,
     CodeArchiveUrl,
-    ModelDocumentation,
-    Platform,
-    Publication,
-    PublicationAuthors,
-    PublicationCitations,
-    PublicationModelDocumentations,
     PublicationPlatforms,
     PublicationSponsors,
-    Sponsor,
+    PublicationModelDocumentations,
+    ModelDocumentation,
 )
-
 
 CSV_DEFAULT_HEADER = [
     "id",
@@ -45,158 +143,6 @@ CSV_DEFAULT_HEADER = [
     "container__name",
     "year_published",
 ]
-
-
-# Streaming CSV follows Django's documented pseudo-buffer pattern:
-# https://docs.djangoproject.com/en/5.2/howto/outputting-csv/
-
-
-class Echo:
-    """An object that implements just the write method of the file-like
-    interface.
-    """
-
-    def write(self, value):
-        """Write the value by returning it, instead of storing in a buffer."""
-        return value
-
-
-class CategoricalVariable:
-    def __init__(self, levels):
-        self._levels = tuple(levels)
-
-    def dense_encode(self, values):
-        values = set(values)
-        return [level in values for level in self._levels]
-
-    def __iter__(self):
-        return iter(self._levels)
-
-
-class PublicationCSVExporter:
-    annotated_attributes = frozenset({"author_names"})
-    categorical_models = {"platforms": Platform, "sponsors": Sponsor}
-
-    def __init__(self, attributes=None):
-        self.attributes = list(CSV_DEFAULT_HEADER if attributes is None else attributes)
-        self.m2m_attributes = {field.name for field in Publication._meta.many_to_many}
-        self.categorical_variables = {}
-        self.verify_attributes()
-
-    @classmethod
-    def attribute_exists(cls, name):
-        if name in cls.annotated_attributes:
-            return True
-
-        model = Publication
-        attributes = name.split("__")
-        for position, attribute in enumerate(attributes):
-            if not hasattr(model, attribute):
-                return False
-            if position < len(attributes) - 1:
-                try:
-                    field = model._meta.get_field(attribute)
-                except FieldDoesNotExist:
-                    return False
-                if field.many_to_many or field.one_to_many:
-                    return False
-                model = field.related_model
-                if model is None:
-                    return False
-        return True
-
-    def verify_attributes(self):
-        for name in self.attributes:
-            if not self.attribute_exists(name):
-                raise AttributeError(
-                    f"Publication model doesn't have attribute: {name}"
-                )
-            if name in self.m2m_attributes and name not in self.categorical_models:
-                raise AttributeError(f"Unsupported many-to-many attribute: {name}")
-
-    def get_header(self):
-        header = []
-
-        for name in self.attributes:
-            if name in self.m2m_attributes:
-                header.append(name)
-                header.extend(self.get_all_m2m_levels(name))
-            else:
-                header.append(name)
-        return header
-
-    def get_all_m2m_levels(self, name):
-        try:
-            model = self.categorical_models[name]
-        except KeyError as error:
-            raise AttributeError(
-                f"Unsupported many-to-many attribute: {name}"
-            ) from error
-
-        if name not in self.categorical_variables:
-            levels = model.objects.values_list("name", flat=True).order_by("name")
-            self.categorical_variables[name] = CategoricalVariable(levels)
-        return self.categorical_variables[name]
-
-    @staticmethod
-    def get_attribute(pub, name):
-        value = pub
-        for attribute in name.split("__"):
-            if value is None:
-                return ""
-            value = getattr(value, attribute)
-        return value
-
-    def get_row(self, pub):
-        row = []
-        for name in self.attributes:
-            if name in self.m2m_attributes:
-                source = getattr(pub, name)
-                pub_m2m_data_list = sorted(item.name for item in source.all())
-                row.append("; ".join(pub_m2m_data_list))
-                row.extend(
-                    self.get_all_m2m_levels(name).dense_encode(pub_m2m_data_list)
-                )
-            else:
-                row.append(self.get_attribute(pub, name))
-        return row
-
-    def get_publications(self):
-        publications = Publication.api.primary()
-        if any(name.startswith("container__") for name in self.attributes):
-            publications = publications.select_related("container")
-        m2m_attributes = self.m2m_attributes.intersection(self.attributes)
-        if m2m_attributes:
-            publications = publications.prefetch_related(*m2m_attributes)
-        if "author_names" in self.attributes:
-            publications = publications.annotate(
-                author_names=StringAgg(
-                    Trim(
-                        Concat(
-                            F("creators__given_name"),
-                            Value(" "),
-                            F("creators__family_name"),
-                        )
-                    ),
-                    delimiter="; ",
-                    order_by=("creators__family_name", "creators__given_name"),
-                )
-            )
-        return publications
-
-    def rows(self):
-        yield self.get_header()
-        for publication in self.get_publications():
-            yield self.get_row(publication)
-
-    def write_all(self, file):
-        writer = csv.writer(file, delimiter=",")
-        writer.writerows(self.rows())
-        return writer
-
-    def stream(self):
-        writer = csv.writer(Echo(), delimiter=",")
-        return (writer.writerow(row) for row in self.rows())
 
 
 def get_queryset():
@@ -503,8 +449,7 @@ def get_publications(
 
 
 def export(path):
-    def remove_recoded(df):
-        return df[["raw_name"]].rename(columns={"raw_name": "name"})
+    remove_recoded = lambda df: df[["raw_name"]].rename(columns={"raw_name": "name"})
 
     path = pathlib.Path(path)
     publications = get_queryset()

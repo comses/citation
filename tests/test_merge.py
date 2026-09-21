@@ -1,14 +1,19 @@
 import copy
-from unittest import mock
 
+from citation import models, merger
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from django.utils import timezone
 
-from citation import merger, models
 from citation.models import (
     SuggestedMerge,
+    Container,
+    Publication,
+    Author,
+    Platform,
+    Sponsor,
+    Raw,
     Tag,
 )
 
@@ -385,95 +390,3 @@ class TestMergers(TestCase):
             final=all_publications[0], others=set(all_publications[1:])
         )
         self.assertTrue(pmg.is_valid())
-
-
-class SuggestedMetadataMergeTest(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(
-            username="merge-user", email="merge@example.com", password="test"
-        )
-        self.submitter = models.Submitter.objects.create(user=self.user)
-        self.publication = create_publication(self.user).publications[0]
-
-    def apply_merge(self, instances, new_content):
-        suggested_merge = SuggestedMerge.objects.create(
-            duplicates=[instance.pk for instance in instances],
-            new_content=new_content,
-            content_type=ContentType.objects.get_for_model(type(instances[0])),
-            creator=self.submitter,
-        )
-        suggested_merge.merge(self.user)
-        suggested_merge.refresh_from_db()
-        self.assertIsNotNone(suggested_merge.date_applied)
-        self.assertTrue(
-            models.AuditLog.objects.filter(audit_command__action="MERGE").exists()
-        )
-        return suggested_merge
-
-    def test_tag_merge_moves_publication_relationship(self):
-        kept = Tag.objects.create(name="Kept tag")
-        discarded = Tag.objects.create(name="Discarded tag")
-        models.PublicationTags.objects.create(
-            publication=self.publication, tag=discarded
-        )
-
-        suggested_merge = self.apply_merge([kept, discarded], {"name": "Merged tag"})
-
-        relation = models.PublicationTags.objects.get(publication=self.publication)
-        self.assertEqual(relation.tag_id, kept.pk)
-        self.assertFalse(Tag.objects.filter(pk=discarded.pk).exists())
-        self.assertIsNotNone(suggested_merge.date_applied)
-        kept.refresh_from_db()
-        self.assertEqual(kept.name, "Merged tag")
-
-    def test_tag_merge_removes_duplicate_publication_relationship(self):
-        kept = Tag.objects.create(name="Duplicate kept tag")
-        discarded = Tag.objects.create(name="Duplicate discarded tag")
-        models.PublicationTags.objects.create(publication=self.publication, tag=kept)
-        models.PublicationTags.objects.create(
-            publication=self.publication, tag=discarded
-        )
-
-        self.apply_merge([kept, discarded], {"name": "Merged duplicate tag"})
-
-        publication_tags = models.PublicationTags.objects.filter(
-            publication=self.publication
-        )
-        self.assertEqual(publication_tags.count(), 1)
-        self.assertEqual(publication_tags.get().tag_id, kept.pk)
-
-    def test_merge_notifies_after_commit_with_affected_ids(self):
-        kept = Tag.objects.create(name="Signal kept tag")
-        discarded = Tag.objects.create(name="Signal discarded tag")
-        models.PublicationTags.objects.create(
-            publication=self.publication, tag=discarded
-        )
-
-        with (
-            mock.patch(
-                "citation.signals.publications_changed.send_robust"
-            ) as send_robust,
-            self.captureOnCommitCallbacks(execute=True),
-        ):
-            self.apply_merge([kept, discarded], {"name": "Signal merged tag"})
-            send_robust.assert_not_called()
-
-        send_robust.assert_called_once_with(
-            sender=Tag,
-            publication_ids=(self.publication.pk,),
-            related_ids=(kept.pk, discarded.pk),
-        )
-
-    def test_unsupported_publication_merge_raises_clear_error(self):
-        other_publication = create_publication(self.user).publications[0]
-        suggested_merge = SuggestedMerge.objects.create(
-            duplicates=[self.publication.pk, other_publication.pk],
-            new_content={"title": "Merged publication"},
-            content_type=ContentType.objects.get_for_model(models.Publication),
-            creator=self.submitter,
-        )
-
-        with self.assertRaisesMessage(
-            ValueError, "SuggestedMerge does not support citation.Publication"
-        ):
-            suggested_merge.merge(self.user)

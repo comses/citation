@@ -2,8 +2,8 @@ import logging
 
 from citation.caching import (
     initialize_contributor_cache,
-    initialize_network_cache,
     initialize_publication_code_platform_cache,
+    initialize_network_cache,
 )
 from django.core.management.base import BaseCommand
 
@@ -42,4 +42,4 @@ class Command(BaseCommand):
         elif network:
             initialize_network_cache()
 
-        logger.debug("Cache completed successfully")
+    logger.debug("Cache Completed Successfully")

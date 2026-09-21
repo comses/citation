@@ -12,7 +12,7 @@ def verify_url_status():
     fallback_category = CodeArchiveUrlCategory.objects.get(category="Unknown")
     logger.info(
         "Verifying URL status for all CodeArchiveURLs with %s patterns and fallback category [%s]",
-        len(patterns),
+        patterns.count(),
         fallback_category,
     )
 

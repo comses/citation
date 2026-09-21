@@ -1,11 +1,8 @@
-from pathlib import Path
-
 from django.apps import AppConfig
 
 
 class CitationConfig(AppConfig):
     name = "citation"
-    path = str(Path(__file__).resolve().parent)
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self):

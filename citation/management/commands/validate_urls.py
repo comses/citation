@@ -13,4 +13,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         verify_url_status()
-        logger.debug("Validation completed")
+
+    logger.debug("Validation completed")

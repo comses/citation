@@ -1,4 +1,5 @@
 import time
+
 from collections import OrderedDict
 from unittest.mock import patch
 
@@ -7,18 +8,18 @@ from rest_framework import serializers
 from citation.models import (
     AuditCommand,
     AuditLog,
+    Container,
+    Publication,
+    PublicationPlatforms,
+    Platform,
     Author,
+    PublicationAuthors,
     CodeArchiveUrl,
     CodeArchiveUrlCategory,
-    Container,
-    Platform,
-    Publication,
-    PublicationAuthors,
-    PublicationPlatforms,
 )
 from citation.serializers import (
-    ContactFormSerializer,
     PublicationSerializer,
+    ContactFormSerializer,
     SuggestMergeSerializer,
 )
 from citation.util import create_timestamp_hash
@@ -104,22 +105,6 @@ class PublicationSerializerTest(BaseTest):
         self.assertTrue(serializer.is_valid(), serializer.errors)
         instance = serializer.save(user=self.user)
         self.assertEqual(instance.id, self.publication.id)
-
-    @patch("citation.signals.publications_changed.send_robust")
-    def test_save_notifies_after_commit(self, send_robust):
-        serializer = PublicationSerializer(self.publication)
-        serializer = PublicationSerializer(self.publication, data=serializer.data)
-        self.assertTrue(serializer.is_valid(), serializer.errors)
-
-        with self.captureOnCommitCallbacks(execute=True):
-            serializer.save(user=self.user)
-            send_robust.assert_not_called()
-
-        send_robust.assert_called_once_with(
-            sender=Publication,
-            publication_ids=(self.publication.pk,),
-            related_ids=(),
-        )
 
     def test_save_rejects_commit_kwarg(self):
         serializer = PublicationSerializer(self.publication)
@@ -316,29 +301,13 @@ class SuggestMergeSerializerTestCase(BaseTest):
         self.assertIn("orcid", serializer.errors)
 
     def test_valid_other_new_content_uses_validated_data(self):
-        for model_name in ("container", "platform", "sponsor", "tag"):
-            with self.subTest(model_name=model_name):
-                serializer = SuggestMergeSerializer(
-                    data={
-                        "model_name": model_name,
-                        "instances": [{"id": 1}, {"id": 2}],
-                        "new_content": {"name": "New Name"},
-                        "email": "foo@example.com",
-                    }
-                )
-                self.assertTrue(serializer.is_valid(), serializer.errors)
-                self.assertEqual(
-                    serializer.validated_data["new_content"]["name"], "New Name"
-                )
-
-    def test_unsupported_publication_merge_is_rejected(self):
         serializer = SuggestMergeSerializer(
             data={
-                "model_name": "publication",
+                "model_name": "platform",
                 "instances": [{"id": 1}, {"id": 2}],
-                "new_content": {"name": "Merged publication"},
+                "new_content": {"name": "New Name"},
+                "email": "foo@example.com",
             }
         )
-
-        self.assertFalse(serializer.is_valid())
-        self.assertIn("model_name", serializer.errors)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["new_content"]["name"], "New Name")

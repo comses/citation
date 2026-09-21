@@ -83,7 +83,8 @@ class TestModelManagers(TestCase):
         self.assertEqual(auditlog.payload["data"]["given_name"]["old"], "Bob")
 
     def test_author_log_delete(self):
-        models.Author.objects.create(**self.author_detached)
+        author = models.Author.objects.create(**self.author_detached)
+        author_contents = {"id": author.id, "orcid": author.orcid, "type": author.type}
         models.Author.objects.all().log_delete(audit_command=self.context)
         auditlog = models.AuditLog.objects.first()
         self.assertEqual(auditlog.table, "author")
@@ -94,21 +95,19 @@ class TestModelManagers(TestCase):
         )
 
     def test_audit_log_contribution(self):
-        publication_id = self.publication.pk
         models.AuditLog.objects.create(
-            row_id=publication_id, table="publication", audit_command=self.context
+            row_id="1", table="publication", audit_command=self.context
         )
         models.AuditLog.objects.create(
-            row_id=publication_id,
-            table="publication",
-            audit_command=self.second_context,
+            row_id="1", table="publication", audit_command=self.second_context
         )
 
-        cd = self.publication.contributor_data(latest=True)
+        p = models.Publication.objects.get(pk=1)
+        cd = p.contributor_data(latest=True)
 
         date_values = (
             models.AuditLog.objects.filter(
-                Q(row_id=publication_id) & Q(audit_command__action="MANUAL")
+                Q(row_id="1") & Q(audit_command__action="MANUAL")
             )
             .annotate(date_added=(Max("audit_command__date_added")))
             .values_list("date_added")
@@ -128,12 +127,11 @@ class TestModelManagers(TestCase):
         )
 
         models.AuditLog.objects.create(
-            row_id=publication_id,
-            table="publication",
-            audit_command=self.second_context,
+            row_id="1", table="publication", audit_command=self.second_context
         )
 
-        cd = self.publication.contributor_data(latest=True)
+        p = models.Publication.objects.get(pk=1)
+        cd = p.contributor_data(latest=True)
 
         # verify the last date_added record is at top
         date_value = date_values.filter(audit_command__creator__username="bar")

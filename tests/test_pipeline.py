@@ -177,19 +177,17 @@ class TestPipeline(TestCase):
         # The Primary Publication test ensures that the "An integrated framework of agent-based modelling and robust \
         # optimization for microgrid energy management" appears in the primary list even though the BibTeX loader first
         # encounters the reference to it
-        # Publication order here is incidental (depends on Postgres physical row placement
-        # after in-place updates), so compare membership rather than exact order
-        self.assertCountEqual(
+        self.assertListEqual(
             list(p.title for p in models.Publication.objects.filter(is_primary=True)),
             self.primary_publication,
         )
-        self.assertCountEqual(
+        self.assertListEqual(
             list(p.doi for p in models.Publication.objects.filter(is_primary=False)),
             self.secondary_publication,
         )
 
         # This ensures that duplicate secondary publications part of the same primary publication only get added once
-        self.assertCountEqual(
+        self.assertListEqual(
             list(
                 models.Publication.objects.filter(
                     referenced_by__in=models.Publication.objects.filter(

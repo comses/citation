@@ -155,7 +155,11 @@ class LogManager(models.Manager):
 
 class LogQuerySet(models.QuerySet):
     def log_delete(self, audit_command: "AuditCommand"):
-        """Batch delete and record one audit command."""
+        # TODO test synchronization with solr
+        """
+        batch delete
+        does not keep solr index in sync. must resync solr index after calling this method
+        """
         with transaction.atomic():
             instances = self.all()
             audit_command.save_once()
@@ -177,7 +181,9 @@ class LogQuerySet(models.QuerySet):
             instances.delete()
 
     def log_update(self, audit_command: "AuditCommand", **kwargs):
-        """Batch update and record one audit command."""
+        """batch update
+        does not keep solr index in sync. must resync solr index after calling this method
+        """
         auditlogs = []
         with transaction.atomic():
             instances = self.all()
@@ -910,10 +916,6 @@ class Publication(AbstractLogModel):
     zotero_key = models.CharField(max_length=64, null=True, unique=True, blank=True)
     url = models.URLField(blank=True)
     date_published_text = models.CharField(max_length=64, blank=True)
-    # derived from date_published_text on save, see _extract_year_published
-    year_published = models.PositiveSmallIntegerField(
-        null=True, blank=True, editable=False
-    )
     date_accessed = models.DateField(null=True, blank=True)
     # FIXME: remove unused Zotero metadata at some point since we are no longer importing from Zotero
     archive = models.CharField(max_length=255, blank=True)
@@ -1127,13 +1129,10 @@ class Publication(AbstractLogModel):
 
     YEAR_PUBLISHED_REGEX = re.compile(r"(?<!\d)\d{4}(?!\d)")
 
-    def _extract_year_published(self):
+    @property
+    def year_published(self):
         r = self.YEAR_PUBLISHED_REGEX.search(self.date_published_text)
-        return int(r.group(0)) if r else None
-
-    def save(self, *args, **kwargs):
-        self.year_published = self._extract_year_published()
-        super().save(*args, **kwargs)
+        return r.group(0) if r else None
 
     @property
     def container_title(self):
@@ -1340,27 +1339,18 @@ class CodeArchiveUrl(AbstractLogModel):
             response.raise_for_status()
             self.add_url_status_log(category, response)
         except requests.exceptions.RequestException as err:
-            self.add_url_status_log(category, err.response, error=err)
+            self.add_url_status_log(category, err.response)
 
-    def add_url_status_log(self, category, response, error=None):
+    def add_url_status_log(self, category, response):
         response_status = CodeArchiveUrl.get_status_choice(
             response
         )  # corresponds to the status Choices
 
-        if response is None:
-            status_code = 0
-            status_reason = str(error) if error else ""
-            headers = {}
-        else:
-            status_code = response.status_code
-            status_reason = response.reason or ""
-            headers = response.headers
-
         URLStatusLog.objects.create(
-            status_code=status_code,
+            status_code=response.status_code,
             publication=self.publication,
-            status_reason=status_reason,
-            headers=headers,
+            status_reason=response.reason,
+            headers=response.headers,
             url=self.url,
         )
         changes = {}
@@ -1375,19 +1365,11 @@ class CodeArchiveUrl(AbstractLogModel):
                 "URL status (%s): %s %s", self.publication.title[:25], self.url, changes
             )
             self.save()
-            from citation.signals import notify_publications_changed
-
-            notify_publications_changed(
-                sender=CodeArchiveUrl,
-                publication_ids=(self.publication_id,),
-            )
 
     @classmethod
     def get_status_choice(cls, response):
         # FIXME: consider doing more fine-grained checking on the response
-        if response is None:
-            return CodeArchiveUrl.STATUS.unavailable
-        elif response:
+        if response:
             return CodeArchiveUrl.STATUS.available
         elif response.status_code == 403:
             return CodeArchiveUrl.STATUS.restricted
@@ -1799,19 +1781,18 @@ class SuggestedPublication(models.Model):
         return " ".join(name)
 
 
-SUGGESTED_MERGE_MODELS = (Author, Container, Platform, Sponsor, Tag)
-SUGGESTED_MERGE_MODEL_NAMES = tuple(
-    model._meta.model_name for model in SUGGESTED_MERGE_MODELS
-)
-
-
 class SuggestedMerge(AbstractLogModel):
     content_type = models.ForeignKey(
         ContentType,
         related_name="suggested_merge_set",
         on_delete=models.PROTECT,
         limit_choices_to=models.Q(app_label="citation")
-        & models.Q(model__in=list(SUGGESTED_MERGE_MODEL_NAMES)),
+        & models.Q(
+            model__in=[
+                m._meta.model_name
+                for m in (Author, Container, Platform, Publication, Sponsor)
+            ]
+        ),
     )
     duplicates = ArrayField(models.IntegerField())
     new_content = JSONField()
@@ -2021,7 +2002,7 @@ class SuggestedMerge(AbstractLogModel):
             if publication_tag.publication_id in kept_publication_pks:
                 publication_tag.log_delete(audit_command)
             else:
-                publication_tag.log_update(audit_command, tag_id=kept_pk)
+                publication_tag.log_update(audit_command, sponsor_id=kept_pk)
 
     @classmethod
     def merge_tags(cls, pks, content, audit_command):
@@ -2043,45 +2024,17 @@ class SuggestedMerge(AbstractLogModel):
         model = self.content_type.model_class()
         pks = self.duplicates
         content = self.new_content
-        try:
-            model_merger = _MERGE_LOOKUP[model]
-        except KeyError as error:
-            model_label = model._meta.label if model is not None else self.content_type
-            raise ValueError(
-                f"SuggestedMerge does not support {model_label}"
-            ) from error
-        publication_ids = self._publication_ids_for_merge(model, pks)
+        model_merger = _MERGE_LOOKUP[model]
         with transaction.atomic():
             audit_command = AuditCommand.init_merge(creator=creator)
             model_merger(pks=pks, content=content, audit_command=audit_command)
             self.log_update(audit_command, date_applied=timezone.now())
-            from citation.signals import notify_publications_changed
-
-            notify_publications_changed(
-                sender=model,
-                publication_ids=publication_ids,
-                related_ids=pks,
-            )
         logger.info(
             "Merged %s with pks %s and changed content to %s",
             self.content_type,
             self.duplicates,
             self.new_content,
         )
-
-    @staticmethod
-    def _publication_ids_for_merge(model, pks):
-        lookups = {
-            Author: PublicationAuthors.objects.filter(author_id__in=pks),
-            Container: Publication.objects.filter(container_id__in=pks),
-            Platform: PublicationPlatforms.objects.filter(platform_id__in=pks),
-            Sponsor: PublicationSponsors.objects.filter(sponsor_id__in=pks),
-            Tag: PublicationTags.objects.filter(tag_id__in=pks),
-        }
-        queryset = lookups[model]
-        if model is Container:
-            return list(queryset.values_list("pk", flat=True).distinct())
-        return list(queryset.values_list("publication_id", flat=True).distinct())
 
     def __str__(self):
         return f"content_type={self.content_type} duplicates={self.duplicates} new_content={self.new_content} creator={self.creator}"
