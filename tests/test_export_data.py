@@ -1,16 +1,24 @@
 import csv
 from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
+import pandas as pd
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from citation.export_data import PublicationCSVExporter
+from citation.export_data import PublicationCSVExporter, export
 from citation.models import (
     Author,
+    CodeArchiveUrl,
+    CodeArchiveUrlCategory,
     Container,
+    ModelDocumentation,
     Platform,
     Publication,
     PublicationAuthors,
+    PublicationCitations,
+    PublicationModelDocumentations,
     PublicationPlatforms,
     PublicationSponsors,
     Sponsor,
@@ -229,3 +237,92 @@ class PublicationCSVExporterTests(TestCase):
         )
 
         self.assertEqual(rows[1], [self.PUBLICATION_TITLE, abstract])
+
+
+class ResearchExportTests(TestCase):
+    # more than 50 platforms and sponsors exercise the "Other" bucket
+    CATEGORY_COUNT = 51
+
+    def setUp(self):
+        user = User.objects.create_user(username="research-export-user")
+        container = Container.objects.create(name="Research Journal")
+        self.publication = Publication.objects.create(
+            title="Exported publication",
+            date_published_text="2019",
+            status=Publication.Status.REVIEWED,
+            container=container,
+            added_by=user,
+        )
+        cited = Publication.objects.create(
+            title="Cited publication",
+            date_published_text="2018",
+            status=Publication.Status.REVIEWED,
+            container=container,
+            added_by=user,
+        )
+        PublicationCitations.objects.create(
+            publication=self.publication, citation=cited
+        )
+        PublicationAuthors.objects.create(
+            publication=self.publication,
+            author=Author.objects.create(
+                given_name="Ada", family_name="Lovelace", type=Author.INDIVIDUAL
+            ),
+            role=PublicationAuthors.RoleChoices.AUTHOR,
+        )
+        CodeArchiveUrl.objects.create(
+            publication=self.publication,
+            category=CodeArchiveUrlCategory.objects.create(
+                category="Archive", subcategory="Research export test"
+            ),
+            status=CodeArchiveUrl.STATUS.available,
+            creator=user,
+            url="https://example.com/model",
+        )
+        PublicationModelDocumentations.objects.create(
+            publication=self.publication,
+            model_documentation=ModelDocumentation.objects.create(name="ODD"),
+        )
+        for index in range(self.CATEGORY_COUNT):
+            PublicationPlatforms.objects.create(
+                publication=self.publication,
+                platform=Platform.objects.create(name=f"Platform {index:02d}"),
+            )
+            PublicationSponsors.objects.create(
+                publication=self.publication,
+                sponsor=Sponsor.objects.create(name=f"Sponsor {index:02d}"),
+            )
+
+    def test_export_writes_every_table(self):
+        with TemporaryDirectory() as directory:
+            export(directory)
+
+            self.assertEqual(
+                sorted(path.name for path in Path(directory).iterdir()),
+                [
+                    "author.csv",
+                    "codearchiveurl.csv",
+                    "modeldocumentation.csv",
+                    "platform.csv",
+                    "publication.csv",
+                    "publication_author.csv",
+                    "publication_modeldocumentation.csv",
+                    "publication_network.csv",
+                    "publication_platform.csv",
+                    "publication_sponsor.csv",
+                    "sponsor.csv",
+                ],
+            )
+            publications = pd.read_csv(
+                Path(directory, "publication.csv"), index_col="id"
+            )
+
+        exported = publications.loc[self.publication.pk]
+        self.assertEqual(exported["code_archival_status"], "ARCHIVED")
+        self.assertEqual(exported["year_published"], 2019)
+        self.assertEqual(exported["Documentation (ODD)"], 1)
+        self.assertEqual(exported["Platform Other"], 1)
+        self.assertEqual(exported["Sponsor Other"], 1)
+        self.assertEqual(
+            sum(column.startswith("Platform (") for column in publications.columns), 50
+        )

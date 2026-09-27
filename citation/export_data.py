@@ -348,7 +348,7 @@ def get_platforms(publications):
         .rename(columns={"name": "raw_name"})
     )
     platform_df["name"] = "Platform (" + platform_df["raw_name"].map(str) + ")"
-    platform_df["name"][50:] = "Platform Other"
+    platform_df.loc[platform_df.index[50:], "name"] = "Platform Other"
 
     return publication_platform_df, platform_df
 
@@ -376,7 +376,7 @@ def get_sponsors(publications):
     )
     sponsor_df["name"] = sponsor_df["raw_name"]
     sponsor_df["name"] = "Sponsor (" + sponsor_df["name"].map(str) + ")"
-    sponsor_df["name"][50:] = "Sponsor Other"
+    sponsor_df.loc[sponsor_df.index[50:], "name"] = "Sponsor Other"
 
     return publication_sponsor_df, sponsor_df
 
@@ -478,7 +478,7 @@ def get_publications(
                         Value(" "),
                         F("creators__family_name"),
                     ),
-                    ordering=("creators__family_name", "creators__given_name"),
+                    order_by=("creators__family_name", "creators__given_name"),
                 )
             )
         ),
@@ -505,7 +505,7 @@ def get_publications(
         .join(platform_dummies)
         .join(sponsor_dummies)
     )
-    criteria = (df.dtypes == np.float) & pd.Series(
+    criteria = (df.dtypes == np.float64) & pd.Series(
         df.columns != "year_published", df.columns
     )
     df.loc[:, criteria] = df.loc[:, criteria].fillna(0.0)
