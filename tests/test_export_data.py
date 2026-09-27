@@ -5,7 +5,16 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 
 from citation.export_data import PublicationCSVExporter
-from citation.models import Author, Container, Publication, PublicationAuthors
+from citation.models import (
+    Author,
+    Container,
+    Platform,
+    Publication,
+    PublicationAuthors,
+    PublicationPlatforms,
+    PublicationSponsors,
+    Sponsor,
+)
 
 
 class PublicationCSVExporterTests(TestCase):
@@ -17,17 +26,12 @@ class PublicationCSVExporterTests(TestCase):
     EXPECTED_AUTHOR_NAMES = "Grace Alpha; Ada Zephyr"
 
     def setUp(self):
-        user = User.objects.create_user(username="csv-export-user")
-        container = Container.objects.create(
+        self.user = User.objects.create_user(username="csv-export-user")
+        self.container = Container.objects.create(
             name=self.CONTAINER_NAME,
             issn=self.CONTAINER_ISSN,
         )
-        publication = Publication.objects.create(
-            title=self.PUBLICATION_TITLE,
-            date_published_text="2019",
-            container=container,
-            added_by=user,
-        )
+        self.publication = self.create_publication(self.PUBLICATION_TITLE)
         for given_name, family_name in self.AUTHORS:
             author = Author.objects.create(
                 given_name=given_name,
@@ -35,10 +39,29 @@ class PublicationCSVExporterTests(TestCase):
                 type=Author.INDIVIDUAL,
             )
             PublicationAuthors.objects.create(
-                publication=publication,
+                publication=self.publication,
                 author=author,
                 role=PublicationAuthors.RoleChoices.AUTHOR,
             )
+
+    def create_publication(self, title, **kwargs):
+        return Publication.objects.create(
+            title=title,
+            date_published_text="2019",
+            container=self.container,
+            added_by=self.user,
+            **kwargs,
+        )
+
+    def export_rows(self, exporter):
+        output = StringIO()
+        exporter.write_all(output)
+
+        written = list(csv.reader(StringIO(output.getvalue())))
+        streamed = list(csv.reader(StringIO("".join(exporter.stream()))))
+
+        self.assertEqual(written, streamed)
+        return written
 
     def test_rejects_nested_many_to_many_attribute_paths(self):
         self.assertTrue(PublicationCSVExporter.attribute_exists("platforms"))
@@ -46,6 +69,16 @@ class PublicationCSVExporterTests(TestCase):
 
         with self.assertRaisesRegex(AttributeError, "platforms__name"):
             PublicationCSVExporter(attributes=["platforms__name"])
+
+    def test_rejects_unsupported_many_to_many_attributes(self):
+        for name in ("creators", "tags"):
+            with (
+                self.subTest(name=name),
+                self.assertRaisesRegex(
+                    AttributeError, f"Unsupported many-to-many attribute: {name}"
+                ),
+            ):
+                PublicationCSVExporter(attributes=[name])
 
     def test_write_and_stream_keep_each_publication_in_one_csv_row(self):
         attributes = [
@@ -55,18 +88,78 @@ class PublicationCSVExporterTests(TestCase):
             "container__issn",
             "container__name",
         ]
-        exporter = PublicationCSVExporter(attributes=attributes)
-        output = StringIO()
 
-        exporter.write_all(output)
-        written_rows = list(csv.reader(StringIO(output.getvalue())))
-        streamed_rows = list(csv.reader(StringIO("".join(exporter.stream()))))
+        rows = self.export_rows(PublicationCSVExporter(attributes=attributes))
 
-        self.assertEqual(written_rows, streamed_rows)
-        self.assertEqual(written_rows[0], attributes)
-        self.assertEqual(len(written_rows), 2)
-        self.assertTrue(all(len(row) == len(attributes) for row in written_rows))
-        self.assertEqual(written_rows[1][1], self.PUBLICATION_TITLE)
-        self.assertEqual(written_rows[1][2], self.EXPECTED_AUTHOR_NAMES)
-        self.assertEqual(written_rows[1][3], self.CONTAINER_ISSN)
-        self.assertEqual(written_rows[1][4], self.CONTAINER_NAME)
+        self.assertEqual(rows[0], attributes)
+        self.assertEqual(len(rows), 2)
+        self.assertTrue(all(len(row) == len(attributes) for row in rows))
+        self.assertEqual(
+            rows[1][1:],
+            [
+                self.PUBLICATION_TITLE,
+                self.EXPECTED_AUTHOR_NAMES,
+                self.CONTAINER_ISSN,
+                self.CONTAINER_NAME,
+            ],
+        )
+
+    def test_excludes_non_primary_publications(self):
+        self.create_publication("Secondary citation", is_primary=False)
+
+        rows = self.export_rows(PublicationCSVExporter(attributes=["title"]))
+
+        self.assertEqual(rows[1:], [[self.PUBLICATION_TITLE]])
+
+    def test_encodes_categorical_many_to_many_levels_as_columns(self):
+        netlogo = Platform.objects.create(name="NetLogo")
+        repast = Platform.objects.create(name="Repast")
+        Platform.objects.create(name="MASON")
+        for platform in (repast, netlogo):
+            PublicationPlatforms.objects.create(
+                publication=self.publication, platform=platform
+            )
+        PublicationSponsors.objects.create(
+            publication=self.publication, sponsor=Sponsor.objects.create(name="NSF")
+        )
+
+        rows = self.export_rows(
+            PublicationCSVExporter(attributes=["title", "platforms", "sponsors"])
+        )
+
+        self.assertEqual(
+            rows[0],
+            ["title", "platforms", "MASON", "NetLogo", "Repast", "sponsors", "NSF"],
+        )
+        self.assertEqual(
+            rows[1],
+            [
+                self.PUBLICATION_TITLE,
+                "NetLogo; Repast",
+                "False",
+                "True",
+                "True",
+                "NSF",
+                "True",
+            ],
+        )
+
+    def test_publication_without_authors_exports_an_empty_cell(self):
+        PublicationAuthors.objects.filter(publication=self.publication).delete()
+
+        rows = self.export_rows(
+            PublicationCSVExporter(attributes=["title", "author_names"])
+        )
+
+        self.assertEqual(rows[1], [self.PUBLICATION_TITLE, ""])
+
+    def test_quotes_embedded_newlines_and_quotes(self):
+        abstract = 'First line\nSecond "quoted" line,\r\nthird line'
+        self.publication.abstract = abstract
+        self.publication.save()
+
+        rows = self.export_rows(
+            PublicationCSVExporter(attributes=["title", "abstract"])
+        )
+
+        self.assertEqual(rows[1], [self.PUBLICATION_TITLE, abstract])
