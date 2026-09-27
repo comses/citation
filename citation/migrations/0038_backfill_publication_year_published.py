@@ -2,19 +2,28 @@ import re
 
 from django.db import migrations
 
+BATCH_SIZE = 1000
 YEAR_PUBLISHED_REGEX = re.compile(r"(?<!\d)\d{4}(?!\d)")
 
 
 def backfill_year_published(apps, schema_editor):
     Publication = apps.get_model("citation", "Publication")
-    updates = []
-    for pub in Publication.objects.exclude(date_published_text="").iterator():
+    publications = (
+        Publication.objects.exclude(date_published_text="")
+        .only("pk", "date_published_text")
+        .iterator(chunk_size=BATCH_SIZE)
+    )
+    batch = []
+    for pub in publications:
         match = YEAR_PUBLISHED_REGEX.search(pub.date_published_text)
-        year = int(match.group(0)) if match else None
-        if year is not None:
-            pub.year_published = year
-            updates.append(pub)
-    Publication.objects.bulk_update(updates, ["year_published"], batch_size=1000)
+        if match is None:
+            continue
+        pub.year_published = int(match.group(0))
+        batch.append(pub)
+        if len(batch) >= BATCH_SIZE:
+            Publication.objects.bulk_update(batch, ["year_published"])
+            batch = []
+    Publication.objects.bulk_update(batch, ["year_published"])
 
 
 def noop(apps, schema_editor):

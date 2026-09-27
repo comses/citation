@@ -46,6 +46,33 @@ CSV_DEFAULT_HEADER = [
     "year_published",
 ]
 
+# Spreadsheet applications evaluate cells starting with these characters as formulas,
+# including full-width variants in some locales:
+# https://owasp.org/www-community/attacks/CSV_Injection
+FORMULA_PREFIXES = (
+    "=",
+    "+",
+    "-",
+    "@",
+    "\t",
+    "\r",
+    "\n",
+    "＝",
+    "＋",
+    "－",
+    "＠",
+)
+
+
+def neutralize_formula(value):
+    if isinstance(value, str) and value.startswith(FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
+
+def write_csv(df, path):
+    df.map(neutralize_formula).to_csv(path)
+
 
 # Streaming CSV follows Django's documented pseudo-buffer pattern:
 # https://docs.djangoproject.com/en/5.2/howto/outputting-csv/
@@ -182,12 +209,12 @@ class PublicationCSVExporter:
                     order_by=("creators__family_name", "creators__given_name"),
                 )
             )
-        return publications
+        return publications.order_by("pk")
 
     def rows(self):
-        yield self.get_header()
+        yield [neutralize_formula(cell) for cell in self.get_header()]
         for publication in self.get_publications():
-            yield self.get_row(publication)
+            yield [neutralize_formula(cell) for cell in self.get_row(publication)]
 
     def write_all(self, file):
         writer = csv.writer(file, delimiter=",")
@@ -338,7 +365,7 @@ def get_platforms(publications):
         .rename(columns={"name": "raw_name"})
     )
     platform_df["name"] = "Platform (" + platform_df["raw_name"].map(str) + ")"
-    platform_df["name"][50:] = "Platform Other"
+    platform_df.loc[platform_df.index[50:], "name"] = "Platform Other"
 
     return publication_platform_df, platform_df
 
@@ -366,7 +393,7 @@ def get_sponsors(publications):
     )
     sponsor_df["name"] = sponsor_df["raw_name"]
     sponsor_df["name"] = "Sponsor (" + sponsor_df["name"].map(str) + ")"
-    sponsor_df["name"][50:] = "Sponsor Other"
+    sponsor_df.loc[sponsor_df.index[50:], "name"] = "Sponsor Other"
 
     return publication_sponsor_df, sponsor_df
 
@@ -468,7 +495,7 @@ def get_publications(
                         Value(" "),
                         F("creators__family_name"),
                     ),
-                    ordering=("creators__family_name", "creators__given_name"),
+                    order_by=("creators__family_name", "creators__given_name"),
                 )
             )
         ),
@@ -495,7 +522,7 @@ def get_publications(
         .join(platform_dummies)
         .join(sponsor_dummies)
     )
-    criteria = (df.dtypes == np.float) & pd.Series(
+    criteria = (df.dtypes == np.float64) & pd.Series(
         df.columns != "year_published", df.columns
     )
     df.loc[:, criteria] = df.loc[:, criteria].fillna(0.0)
@@ -510,35 +537,36 @@ def export(path):
     publications = get_queryset()
 
     publication_author_df, author_df = get_authors(publications)
-    publication_author_df.to_csv(path.joinpath("publication_author.csv"))
-    author_df.to_csv(path.joinpath("author.csv"))
+    write_csv(publication_author_df, path.joinpath("publication_author.csv"))
+    write_csv(author_df, path.joinpath("author.csv"))
 
     codearchiveurl_df = get_code_archive_urls(publications)
-    codearchiveurl_df.to_csv(path.joinpath("codearchiveurl.csv"))
+    write_csv(codearchiveurl_df, path.joinpath("codearchiveurl.csv"))
 
     publication_modeldocumentation_df, modeldocumentation_df = get_model_documentation(
         publications
     )
-    publication_modeldocumentation_df.to_csv(
-        path.joinpath("publication_modeldocumentation.csv")
+    write_csv(
+        publication_modeldocumentation_df,
+        path.joinpath("publication_modeldocumentation.csv"),
     )
-    remove_recoded(modeldocumentation_df).to_csv(
-        path.joinpath("modeldocumentation.csv")
+    write_csv(
+        remove_recoded(modeldocumentation_df), path.joinpath("modeldocumentation.csv")
     )
     modeldocumentation_dummies_df = create_publication_modeldocumentation_dummies(
         publication_modeldocumentation_df, modeldocumentation_df
     )
 
     publication_platform_df, platform_df = get_platforms(publications)
-    publication_platform_df.to_csv(path.joinpath("publication_platform.csv"))
-    remove_recoded(platform_df).to_csv(path.joinpath("platform.csv"))
+    write_csv(publication_platform_df, path.joinpath("publication_platform.csv"))
+    write_csv(remove_recoded(platform_df), path.joinpath("platform.csv"))
     platform_dummies_df = create_publication_platform_dummies(
         publication_platform_df, platform_df
     )
 
     publication_sponsor_df, sponsor_df = get_sponsors(publications)
-    publication_sponsor_df.to_csv(path.joinpath("publication_sponsor.csv"))
-    remove_recoded(sponsor_df).to_csv(path.joinpath("sponsor.csv"))
+    write_csv(publication_sponsor_df, path.joinpath("publication_sponsor.csv"))
+    write_csv(remove_recoded(sponsor_df), path.joinpath("sponsor.csv"))
     sponsor_dummies_df = create_publication_sponsor_dummies(
         publication_sponsor_df, sponsor_df
     )
@@ -550,8 +578,8 @@ def export(path):
         sponsor_dummies=sponsor_dummies_df,
         codearchiveurls=codearchiveurl_df,
     )
-    publication_df.to_csv(path.joinpath("publication.csv"))
+    write_csv(publication_df, path.joinpath("publication.csv"))
 
-    get_publication_network(publications).to_csv(
-        path.joinpath("publication_network.csv")
+    write_csv(
+        get_publication_network(publications), path.joinpath("publication_network.csv")
     )
