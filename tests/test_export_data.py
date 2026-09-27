@@ -144,6 +144,40 @@ class PublicationCSVExporterTests(TestCase):
             ],
         )
 
+    def test_exports_every_primary_publication_in_id_order(self):
+        second = self.create_publication("Second")
+        third = self.create_publication("Third")
+        PublicationPlatforms.objects.create(
+            publication=second, platform=Platform.objects.create(name="NetLogo")
+        )
+        # the update moves the first row to the end of the table's physical order
+        self.publication.abstract = "Updated abstract"
+        self.publication.save()
+
+        rows = self.export_rows(
+            PublicationCSVExporter(
+                attributes=["id", "title", "author_names", "platforms"]
+            )
+        )
+
+        self.assertEqual(
+            rows[0], ["id", "title", "author_names", "platforms", "NetLogo"]
+        )
+        self.assertEqual(
+            rows[1:],
+            [
+                [
+                    str(self.publication.pk),
+                    self.PUBLICATION_TITLE,
+                    self.EXPECTED_AUTHOR_NAMES,
+                    "",
+                    "False",
+                ],
+                [str(second.pk), "Second", "", "NetLogo", "True"],
+                [str(third.pk), "Third", "", "", "False"],
+            ],
+        )
+
     def test_publication_without_authors_exports_an_empty_cell(self):
         PublicationAuthors.objects.filter(publication=self.publication).delete()
 

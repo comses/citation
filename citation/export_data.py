@@ -182,7 +182,7 @@ class PublicationCSVExporter:
                     order_by=("creators__family_name", "creators__given_name"),
                 )
             )
-        return publications
+        return publications.order_by("pk")
 
     def rows(self):
         yield self.get_header()
