@@ -194,6 +194,8 @@ class PublicationCSVExporterTests(TestCase):
             "@SUM(A1:A2)",
             "\tTab",
             "\rCR",
+            "\n=cmd|' /C calc'!A1",
+            "＝SUM(A1:A2)",
         ):
             with self.subTest(payload=payload):
                 self.publication.title = payload

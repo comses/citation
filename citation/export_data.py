@@ -46,9 +46,22 @@ CSV_DEFAULT_HEADER = [
     "year_published",
 ]
 
-# Spreadsheet applications evaluate cells starting with these characters as formulas:
+# Spreadsheet applications evaluate cells starting with these characters as formulas,
+# including full-width variants in some locales:
 # https://owasp.org/www-community/attacks/CSV_Injection
-FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+FORMULA_PREFIXES = (
+    "=",
+    "+",
+    "-",
+    "@",
+    "\t",
+    "\r",
+    "\n",
+    "＝",
+    "＋",
+    "－",
+    "＠",
+)
 
 
 def neutralize_formula(value):
