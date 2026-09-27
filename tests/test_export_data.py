@@ -178,6 +178,38 @@ class PublicationCSVExporterTests(TestCase):
             ],
         )
 
+    def test_neutralizes_spreadsheet_formulas(self):
+        for payload in (
+            "=cmd|' /C calc'!A1",
+            "+1+1",
+            "-2+3",
+            "@SUM(A1:A2)",
+            "\tTab",
+            "\rCR",
+        ):
+            with self.subTest(payload=payload):
+                self.publication.title = payload
+                self.publication.save()
+
+                rows = self.export_rows(PublicationCSVExporter(attributes=["title"]))
+
+                self.assertEqual(rows[1], ["'" + payload])
+
+    def test_neutralizes_formulas_only_at_the_start_of_a_cell(self):
+        formula = '=HYPERLINK("https://example.com")'
+        PublicationPlatforms.objects.create(
+            publication=self.publication, platform=Platform.objects.create(name=formula)
+        )
+        self.publication.title = "Model = 1 - 2"
+        self.publication.save()
+
+        rows = self.export_rows(
+            PublicationCSVExporter(attributes=["title", "platforms"])
+        )
+
+        self.assertEqual(rows[0], ["title", "platforms", "'" + formula])
+        self.assertEqual(rows[1], ["Model = 1 - 2", "'" + formula, "True"])
+
     def test_publication_without_authors_exports_an_empty_cell(self):
         PublicationAuthors.objects.filter(publication=self.publication).delete()
 

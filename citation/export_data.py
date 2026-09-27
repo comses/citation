@@ -46,6 +46,16 @@ CSV_DEFAULT_HEADER = [
     "year_published",
 ]
 
+# Spreadsheet applications evaluate cells starting with these characters as formulas:
+# https://owasp.org/www-community/attacks/CSV_Injection
+FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def neutralize_formula(value):
+    if isinstance(value, str) and value.startswith(FORMULA_PREFIXES):
+        return "'" + value
+    return value
+
 
 # Streaming CSV follows Django's documented pseudo-buffer pattern:
 # https://docs.djangoproject.com/en/5.2/howto/outputting-csv/
@@ -185,9 +195,9 @@ class PublicationCSVExporter:
         return publications.order_by("pk")
 
     def rows(self):
-        yield self.get_header()
+        yield [neutralize_formula(cell) for cell in self.get_header()]
         for publication in self.get_publications():
-            yield self.get_row(publication)
+            yield [neutralize_formula(cell) for cell in self.get_row(publication)]
 
     def write_all(self, file):
         writer = csv.writer(file, delimiter=",")
