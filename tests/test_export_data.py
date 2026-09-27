@@ -328,3 +328,19 @@ class ResearchExportTests(TestCase):
         self.assertEqual(
             sum(column.startswith("Platform (") for column in publications.columns), 50
         )
+
+    def test_export_neutralizes_spreadsheet_formulas(self):
+        formula = '=HYPERLINK("https://example.com")'
+        self.publication.title = formula
+        self.publication.save()
+        Platform.objects.filter(name="Platform 00").update(name=formula)
+
+        with TemporaryDirectory() as directory:
+            export(directory)
+            publications = pd.read_csv(
+                Path(directory, "publication.csv"), index_col="id"
+            )
+            platforms = pd.read_csv(Path(directory, "platform.csv"))
+
+        self.assertEqual(publications.loc[self.publication.pk, "title"], "'" + formula)
+        self.assertIn("'" + formula, platforms["name"].to_list())
